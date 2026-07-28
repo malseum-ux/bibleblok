@@ -125,7 +125,7 @@ export default function App() {
         flexShrink: 0,
       }}>
         <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
-          서먼블록
+          SermonBlok
         </span>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <div style={{ display: 'flex', gap: 2 }}>

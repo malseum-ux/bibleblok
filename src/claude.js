@@ -68,6 +68,40 @@ A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세�
 - 심리학적 관점 (인물의 내면, 동기)
 - 철학적 관점 (세계관, 윤리)
 `,
+  illustration: (passage, lang, bible) => `
+당신은 설교 전문가입니다. 다음 본문의 메시지를 효과적으로 전달할 수 있는 예화를 제시해 주세요.
+A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+다음을 포함하세요:
+- 본문의 핵심 메시지를 잘 담은 역사적/문화적 예화 1-2개
+- 현대 생활에서 공감할 수 있는 예화 1-2개
+- 각 예화가 본문과 어떻게 연결되는지 설명
+- 설교에서 예화를 사용하는 위치와 방법 제안
+`,
+  hymns: (passage, lang, bible) => `
+당신은 교회 음악 전문가입니다. 다음 설교 본문의 메시지에 어울리는 찬송과 CCM을 선별해 주세요.
+A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+다음을 포함하세요:
+
+[설교 전]
+- 한국 찬송가 1곡 (번호, 제목, 선택 이유)
+- CCM 1곡 (제목, 아티스트, 선택 이유)
+
+[설교 후]
+- 한국 찬송가 1곡 (번호, 제목, 선택 이유)
+- CCM 1곡 (제목, 아티스트, 선택 이유)
+
+각 곡이 본문 메시지와 어떻게 연결되는지, 예배 흐름에서 어떤 역할을 하는지 설명해 주세요.
+`,
   application: (passage, lang, bible) => `
 지금까지의 해설을 종합하여 오늘날 삶에 적용하는 내용을 작성해 주세요.
 A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
@@ -98,6 +132,12 @@ const SERMON_STEP_PROMPTS_WITH_EMPHASIS = {
     (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
   research: (passage, emphasis, lang, bible) =>
     SERMON_STEP_PROMPTS.research(passage, lang, bible) +
+    (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
+  illustration: (passage, emphasis, lang, bible) =>
+    SERMON_STEP_PROMPTS.illustration(passage, lang, bible) +
+    (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
+  hymns: (passage, emphasis, lang, bible) =>
+    SERMON_STEP_PROMPTS.hymns(passage, lang, bible) +
     (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
   application: (passage, emphasis, lang, bible) =>
     SERMON_STEP_PROMPTS.application(passage, lang, bible) +

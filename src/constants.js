@@ -4,7 +4,9 @@ export const SERMON_STEPS = [
   { index: 2, key: 'message', label: { ko: '본문 메시지', en: 'Message' } },
   { index: 3, key: 'lesson', label: { ko: '교훈', en: 'Lessons' } },
   { index: 4, key: 'research', label: { ko: '확장 연구', en: 'Extended Research' } },
-  { index: 5, key: 'application', label: { ko: '적용', en: 'Application' } },
+  { index: 5, key: 'illustration', label: { ko: '예화', en: 'Illustrations' } },
+  { index: 6, key: 'application', label: { ko: '적용', en: 'Application' } },
+  { index: 7, key: 'hymns', label: { ko: '찬송 선별', en: 'Hymns & CCM' } },
 ]
 
 export const WORSHIP_STEPS = [
