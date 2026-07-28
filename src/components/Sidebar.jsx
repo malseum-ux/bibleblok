@@ -25,7 +25,7 @@ export default function Sidebar({ tab, items, selectedId, onSelect, onCreate, on
         justifyContent: 'space-between',
       }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {tab === 'sermon' ? '설교 목록' : '예배 목록'}
+          {tab === 'sermon' ? '설교 목록' : tab === 'worship' ? '예배 목록' : '새벽 목록'}
         </span>
         <button
           onClick={onCreate}
@@ -49,7 +49,7 @@ export default function Sidebar({ tab, items, selectedId, onSelect, onCreate, on
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
         {items.length === 0 && (
           <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>
-            {tab === 'sermon' ? '+ 버튼으로 설교를 추가하세요' : '+ 버튼으로 예배를 추가하세요'}
+            {tab === 'sermon' ? '+ 버튼으로 설교를 추가하세요' : tab === 'worship' ? '+ 버튼으로 예배를 추가하세요' : '+ 버튼으로 새벽 기도를 추가하세요'}
           </div>
         )}
         {items.map(item => {

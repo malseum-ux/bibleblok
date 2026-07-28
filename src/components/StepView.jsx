@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { SERMON_STEPS, WORSHIP_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipStep } from '../claude'
-import { saveSermonStep, saveWorshipStep, updateSermon } from '../db'
+import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
+import { generateSermonStep, generateWorshipStep, generateDawnStep } from '../claude'
+import { saveSermonStep, saveWorshipStep, saveDawnStep, updateSermon, updateDawn, getSeriesContext } from '../db'
 
 export default function StepView({ tab, item, stepIndex, savedContent, lang, bible, onSaved }) {
   const [content, setContent] = useState(savedContent || '')
@@ -19,7 +19,7 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
     setDraft(item?.draft || '')
   }, [item?.id])
 
-  const steps = tab === 'sermon' ? SERMON_STEPS : WORSHIP_STEPS
+  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
   const step = steps.find(s => s.index === stepIndex)
 
   async function generate() {
@@ -28,18 +28,20 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
     setContent('')
     try {
       if (tab === 'sermon') {
+        const seriesCtx = await getSeriesContext('sermon', item.seriesName, item.id)
         await generateSermonStep(
           step.key,
           item.passage,
           item.emphasis,
           lang,
           bible,
+          seriesCtx,
           (text) => setContent(text)
         ).then(async (full) => {
           await saveSermonStep(item.id, stepIndex, full)
           onSaved?.()
         })
-      } else {
+      } else if (tab === 'worship') {
         await generateWorshipStep(
           step.key,
           item.date,
@@ -50,6 +52,20 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
           (text) => setContent(text)
         ).then(async (full) => {
           await saveWorshipStep(item.id, stepIndex, full)
+          onSaved?.()
+        })
+      } else {
+        const seriesCtx = await getSeriesContext('dawn', item.seriesName, item.id)
+        await generateDawnStep(
+          step.key,
+          item.passage,
+          item.emphasis,
+          lang,
+          bible,
+          seriesCtx,
+          (text) => setContent(text)
+        ).then(async (full) => {
+          await saveDawnStep(item.id, stepIndex, full)
           onSaved?.()
         })
       }
@@ -70,7 +86,11 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
     setDraft(text)
     clearTimeout(draftTimer.current)
     draftTimer.current = setTimeout(() => {
-      updateSermon(item.id, { draft: text })
+      if (tab === 'dawn') {
+        updateDawn(item.id, { draft: text })
+      } else {
+        updateSermon(item.id, { draft: text })
+      }
     }, 500)
   }
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { SERMON_STEPS, WORSHIP_STEPS } from './constants'
+import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon, getSermonSteps,
   createWorship, getWorships, updateWorship, deleteWorship, getWorshipSteps,
+  createDawn, getDawns, updateDawn, deleteDawn, getDawnSteps,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
 import Sidebar from './components/Sidebar'
@@ -16,6 +17,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sermons, setSermons] = useState([])
   const [worships, setWorships] = useState([])
+  const [dawns, setDawns] = useState([])
   const [selected, setSelected] = useState(null)
   const [stepContents, setStepContents] = useState({})
 
@@ -28,6 +30,7 @@ export default function App() {
   useEffect(() => {
     loadSermons()
     loadWorships()
+    loadDawns()
   }, [])
 
   useEffect(() => {
@@ -42,18 +45,24 @@ export default function App() {
     setWorships(await getWorships())
   }
 
+  async function loadDawns() {
+    setDawns(await getDawns())
+  }
+
   async function loadStepContents() {
     if (!selected?.id) return
     const steps = tab === 'sermon'
       ? await getSermonSteps(selected.id)
-      : await getWorshipSteps(selected.id)
+      : tab === 'worship'
+      ? await getWorshipSteps(selected.id)
+      : await getDawnSteps(selected.id)
     const map = {}
     steps.forEach(s => { map[s.stepIndex] = s.content })
     setStepContents(map)
   }
 
-  const items = tab === 'sermon' ? sermons : worships
-  const steps = tab === 'sermon' ? SERMON_STEPS : WORSHIP_STEPS
+  const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
+  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
   const selectedItem = items.find(i => i.id === selected?.id)
 
   async function handleCreate() {
@@ -61,19 +70,29 @@ export default function App() {
       const id = await createSermon({
         date: new Date().toISOString().slice(0, 10),
         category: '',
+        seriesName: '',
         title: '',
         passage: '',
         emphasis: '',
       })
       await loadSermons()
       setSelected({ id, step: null })
-    } else {
+    } else if (tab === 'worship') {
       const id = await createWorship({
         date: new Date().toISOString().slice(0, 10),
         season: '',
         lectionary: '',
       })
       await loadWorships()
+      setSelected({ id, step: null })
+    } else {
+      const id = await createDawn({
+        date: new Date().toISOString().slice(0, 10),
+        seriesName: '',
+        passage: '',
+        emphasis: '',
+      })
+      await loadDawns()
       setSelected({ id, step: null })
     }
   }
@@ -83,9 +102,12 @@ export default function App() {
     if (tab === 'sermon') {
       await deleteSermon(id)
       await loadSermons()
-    } else {
+    } else if (tab === 'worship') {
       await deleteWorship(id)
       await loadWorships()
+    } else {
+      await deleteDawn(id)
+      await loadDawns()
     }
     if (selected?.id === id) setSelected(null)
   }
@@ -95,9 +117,12 @@ export default function App() {
     if (tab === 'sermon') {
       await updateSermon(selected.id, form)
       await loadSermons()
-    } else {
+    } else if (tab === 'worship') {
       await updateWorship(selected.id, form)
       await loadWorships()
+    } else {
+      await updateDawn(selected.id, form)
+      await loadDawns()
     }
   }
 
@@ -129,7 +154,7 @@ export default function App() {
         </span>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <div style={{ display: 'flex', gap: 2 }}>
-          {[['sermon', '설교'], ['worship', '예배']].map(([t, label]) => (
+          {[['sermon', '설교'], ['worship', '예배'], ['dawn', '새벽']].map(([t, label]) => (
             <button
               key={t}
               onClick={() => switchTab(t)}
@@ -191,19 +216,19 @@ export default function App() {
           steps={steps}
         />
 
-        <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg)' }}>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
           {!selected && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '100%',
+              flex: 1,
               color: 'var(--text-muted)',
               gap: 8,
             }}>
               <div style={{ fontSize: 40, opacity: 0.15, fontWeight: 700 }}>
-                {tab === 'sermon' ? '설교' : '예배'}
+                {tab === 'sermon' ? '설교' : tab === 'worship' ? '예배' : '새벽'}
               </div>
               <div style={{ fontSize: 14 }}>
                 {lang === 'ko'
@@ -214,16 +239,18 @@ export default function App() {
           )}
 
           {selected && selected.step == null && selectedItem && (
-            <ItemDetail
-              tab={tab}
-              item={selectedItem}
-              onSave={handleSave}
-              lang={lang}
-            />
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <ItemDetail
+                tab={tab}
+                item={selectedItem}
+                onSave={handleSave}
+                lang={lang}
+              />
+            </div>
           )}
 
           {selected && selected.step != null && selectedItem && (
-            <div style={{ height: '100%', overflow: 'hidden' }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <StepView
                 key={`${selected.id}-${selected.step}`}
                 tab={tab}

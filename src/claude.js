@@ -229,6 +229,21 @@ A4 용지 2~3매 분량(약 1,500~2,500자)으로 작성해 주세요.
 - 해당 절기의 정신을 반영
 - 봉헌 신학과 성경적 근거 설명 포함
 `,
+  responsive_reading: (date, season, lectionary, lang, bible) => `
+당신은 예배 인도 전문 목회자입니다. 오늘 예배에 적합한 교독문을 작성하거나 선정해 주세요.
+A4 용지 2~3매 분량(약 1,500~2,500자)으로 작성해 주세요.
+
+날짜: ${date}
+교회력 절기: ${season || '일반 주일'}
+성서정과 본문: ${lectionary || '미지정'}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+- 해당 절기와 성서정과에 어울리는 교독문 전문 (인도자/회중 구분 명시)
+- 교독문 선택 또는 작성의 신학적 근거
+- 예배 흐름에서의 역할과 위치 설명
+- 대한예수교장로회 예배모범의 교독문 번호가 있다면 함께 제시
+`,
   hymns: (date, season, lectionary, lang, bible) => `
 오늘 예배에 적합한 찬송을 추천하고 상세히 설명해 주세요.
 A4 용지 2~3매 분량(약 1,500~2,500자)으로 작성해 주세요.
@@ -273,12 +288,93 @@ A4 용지 2~3매 분량(약 1,500~2,500자)으로 작성해 주세요.
 `,
 }
 
-export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, onChunk) {
+const DAWN_STEP_PROMPTS = {
+  exposition: (passage, lang, bible, seriesCtx) => `
+당신은 새벽 기도회를 섬기는 목회자입니다. 다음 본문으로 새벽 말씀을 준비해 주세요.
+5~10분 분량(약 700~1,000자)으로 간결하게 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+${seriesCtx ? `\n${seriesCtx}\n이 시리즈의 흐름을 이어가도록 해설을 작성해 주세요.` : ''}
+
+- 본문의 배경과 문맥 (간략히)
+- 본문의 핵심 내용 설명
+- 오늘 하루를 시작하는 성도들에게 맞는 따뜻하고 힘 있는 해설
+`,
+  core_message: (passage, lang, bible, seriesCtx) => `
+당신은 새벽 기도회를 섬기는 목회자입니다. 이 본문의 핵심 메시지를 정리해 주세요.
+약 500~700자로 간결하게 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+${seriesCtx ? `\n${seriesCtx}\n시리즈 전체 흐름을 고려한 핵심 메시지를 제시해 주세요.` : ''}
+
+- 한 문장 핵심 메시지 (설교 제목으로 사용 가능한 형태)
+- 핵심 포인트 3가지 (간결하게)
+- 이 본문이 오늘 새벽 기도에 주는 의미
+`,
+  meditation: (passage, lang, bible, seriesCtx) => `
+당신은 새벽 기도회를 섬기는 목회자입니다. 성도들이 하루 중 되새길 묵상을 안내해 주세요.
+약 600~800자로 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+- 묵상 질문 2~3개 (마음에 깊이 새길 수 있는 질문)
+- 각 질문에 대한 짧은 묵상 안내
+- 하루 동안 기억할 핵심 구절 1개
+`,
+  application: (passage, lang, bible, seriesCtx) => `
+당신은 새벽 기도회를 섬기는 목회자입니다. 오늘 하루 성도들이 실천할 수 있는 적용을 제시해 주세요.
+약 500~700자로 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+- 오늘 하루 실천할 한 가지 (구체적이고 현실적으로)
+- 삶의 각 영역별 적용 (가정/직장/교회/이웃)
+- 결단의 기도 한 줄
+`,
+  prayer_topics: (passage, lang, bible, seriesCtx) => `
+당신은 새벽 기도회를 섬기는 목회자입니다. 오늘 본문을 중심으로 기도 제목을 제시해 주세요.
+약 500~700자로 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+- 개인을 위한 기도 제목 2개
+- 교회 공동체를 위한 기도 제목 1개
+- 나라와 세상을 위한 기도 제목 1개
+- 각 기도 제목에 대한 간략한 안내
+`,
+  hymn: (passage, lang, bible, seriesCtx) => `
+당신은 교회 음악 전문가입니다. 오늘 새벽 기도회 본문에 어울리는 찬송을 선별해 주세요.
+약 400~600자로 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+- 새벽 찬송으로 적합한 한국 찬송가 1곡 (번호, 제목, 선택 이유)
+- CCM 1곡 (제목, 아티스트, 선택 이유)
+- 각 곡이 오늘 본문 메시지와 어떻게 연결되는지 설명
+`,
+}
+
+export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk) {
   if (!API_KEY) {
     throw new Error('API_KEY_MISSING')
   }
   const prompt = SERMON_STEP_PROMPTS_WITH_EMPHASIS[stepKey]?.(passage, emphasis, lang, bible)
-  return streamCompletion(prompt, onChunk)
+  const fullPrompt = seriesCtx
+    ? prompt + `\n\n${seriesCtx}\n이 시리즈의 흐름을 이어가도록 작성해 주세요.`
+    : prompt
+  return streamCompletion(fullPrompt, onChunk)
 }
 
 export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk) {
@@ -286,6 +382,19 @@ export async function generateWorshipStep(stepKey, date, season, lectionary, lan
     throw new Error('API_KEY_MISSING')
   }
   const prompt = WORSHIP_STEP_PROMPTS[stepKey]?.(date, season, lectionary, lang, bible)
+  return streamCompletion(prompt, onChunk)
+}
+
+export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk) {
+  if (!API_KEY) {
+    throw new Error('API_KEY_MISSING')
+  }
+  const promptFn = DAWN_STEP_PROMPTS[stepKey]
+  if (!promptFn) throw new Error('Unknown step key: ' + stepKey)
+  const base = promptFn(passage, lang, bible, seriesCtx)
+  const prompt = emphasis
+    ? base + `\n\n강조하고 싶은 주제: ${emphasis}`
+    : base
   return streamCompletion(prompt, onChunk)
 }
 

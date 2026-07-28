@@ -1,20 +1,27 @@
-import { SERMON_STEPS, WORSHIP_STEPS } from '../constants'
+import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
+import DawnForm from './DawnForm'
 
 export default function ItemDetail({ tab, item, onSave, lang }) {
-  const steps = tab === 'sermon' ? SERMON_STEPS : WORSHIP_STEPS
+  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
+
+  const title = tab === 'sermon'
+    ? (lang === 'ko' ? '설교 정보' : 'Sermon Info')
+    : tab === 'worship'
+    ? (lang === 'ko' ? '예배 정보' : 'Worship Info')
+    : (lang === 'ko' ? '새벽 기도 정보' : 'Dawn Prayer Info')
 
   return (
     <div style={{ padding: '24px' }}>
       <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 600, color: 'var(--text-heading)' }}>
-        {tab === 'sermon'
-          ? (lang === 'ko' ? '설교 정보' : 'Sermon Info')
-          : (lang === 'ko' ? '예배 정보' : 'Worship Info')}
+        {title}
       </h2>
       {tab === 'sermon'
         ? <SermonForm sermon={item} onSave={onSave} lang={lang} />
-        : <WorshipForm worship={item} onSave={onSave} lang={lang} />}
+        : tab === 'worship'
+        ? <WorshipForm worship={item} onSave={onSave} lang={lang} />
+        : <DawnForm dawn={item} onSave={onSave} lang={lang} />}
 
       <div style={{ marginTop: 32 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
