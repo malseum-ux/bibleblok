@@ -167,7 +167,7 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          borderRight: '1px solid var(--border)',
+          borderRight: tab === 'sermon' ? '1px solid var(--border)' : 'none',
         }}>
           <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
             {error && (
@@ -204,8 +204,8 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
             )}
           </div>
 
-          {/* 설교문에 반영 버튼 */}
-          {content && !loading && (
+          {/* 설교문에 반영 버튼 (설교 탭만) */}
+          {tab === 'sermon' && content && !loading && (
             <div style={{
               padding: '12px 24px',
               borderTop: '1px solid var(--border)',
@@ -231,45 +231,47 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
           )}
         </div>
 
-        {/* 오른쪽: 설교문 초안 */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}>
+        {/* 오른쪽: 설교문 초안 (설교 탭만) */}
+        {tab === 'sermon' && (
           <div style={{
-            padding: '10px 20px',
-            borderBottom: '1px solid var(--border)',
-            fontSize: 11,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            color: 'var(--text-muted)',
-            flexShrink: 0,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
           }}>
-            {lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}
+            <div style={{
+              padding: '10px 20px',
+              borderBottom: '1px solid var(--border)',
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              color: 'var(--text-muted)',
+              flexShrink: 0,
+            }}>
+              {lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}
+            </div>
+            <textarea
+              value={draft}
+              onChange={e => handleDraftChange(e.target.value)}
+              placeholder={lang === 'ko'
+                ? '왼쪽 단계 내용을 참고하여 설교문을 작성하세요.\n\n"설교문에 반영" 버튼으로 단계 내용을 가져올 수 있습니다.'
+                : 'Write your sermon here.\n\nUse "Add to Sermon" to bring in step content.'}
+              style={{
+                flex: 1,
+                border: 'none',
+                outline: 'none',
+                resize: 'none',
+                padding: '20px 24px',
+                fontSize: 14,
+                lineHeight: 1.9,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                fontFamily: 'inherit',
+              }}
+            />
           </div>
-          <textarea
-            value={draft}
-            onChange={e => handleDraftChange(e.target.value)}
-            placeholder={lang === 'ko'
-              ? '왼쪽 단계 내용을 참고하여 설교문을 작성하세요.\n\n"설교문에 반영" 버튼으로 단계 내용을 가져올 수 있습니다.'
-              : 'Write your sermon here.\n\nUse "Add to Sermon" to bring in step content.'}
-            style={{
-              flex: 1,
-              border: 'none',
-              outline: 'none',
-              resize: 'none',
-              padding: '20px 24px',
-              fontSize: 14,
-              lineHeight: 1.9,
-              background: 'var(--bg)',
-              color: 'var(--text)',
-              fontFamily: 'inherit',
-            }}
-          />
-        </div>
+        )}
       </div>
     </div>
   )

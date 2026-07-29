@@ -49,12 +49,12 @@ export default function SermonForm({ sermon, onSave, lang }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={labelStyle}>{lang === 'ko' ? '본문' : 'Passage'}</label>
-          <input type="text" style={inputStyle} placeholder="예: 창세기 1:1-10" value={form.passage} onChange={e => set('passage', e.target.value)} />
-        </div>
-        <div>
           <label style={labelStyle}>{lang === 'ko' ? '설교 제목' : 'Title'}</label>
           <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '설교 제목' : 'Sermon title'} value={form.title} onChange={e => set('title', e.target.value)} />
+        </div>
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '본문' : 'Passage'}</label>
+          <input type="text" style={inputStyle} placeholder="예: 창세기 1:1-10" value={form.passage} onChange={e => set('passage', e.target.value)} />
         </div>
       </div>
       <div>

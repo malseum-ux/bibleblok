@@ -70,10 +70,12 @@ export default function Sidebar({ tab, items, selectedId, onSelect, onDelete, st
                   }}>
                     {tab === 'sermon'
                       ? (item.title || item.passage || '제목 없음')
+                      : tab === 'dawn'
+                      ? (item.title || item.passage || '제목 없음')
                       : (item.date || '날짜 없음')}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-                    {tab === 'sermon' ? item.date : item.season}
+                    {tab === 'sermon' ? item.date : tab === 'dawn' ? item.date : item.season}
                   </div>
                 </div>
                 <button

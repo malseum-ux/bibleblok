@@ -53,53 +53,84 @@ function getChurchSeason(dateStr) {
   const dateMs = date.getTime()
   const dayMs = 86400000
 
-  // 사순절: 부활절 46일 전 (재의 수요일) ~ 부활절 전날
   const ashWed = new Date(easterMs - 46 * dayMs)
-  // 성주간: 부활절 7일 전 주일(종려주일) ~ 부활절 전날
   const palmSunday = new Date(easterMs - 7 * dayMs)
-  // 부활절 기간: 부활절 ~ 오순절 (49일 후)
   const pentecost = new Date(easterMs + 49 * dayMs)
-  // 대림절: 성탄절 전 4번째 주일 ~ 12/24
+
   const christmas = new Date(year, 11, 25)
-  const adventStart = new Date(christmas.getTime() - (christmas.getDay() === 0 ? 28 : (christmas.getDay() + 28 - (christmas.getDay() % 7 || 7))) * dayMs)
-  // 대림절 시작: 성탄절에서 가장 가까운 이전 일요일 기준 4주 전
-  const christmasDow = christmas.getDay() // 0=일
+  const christmasDow = christmas.getDay()
   const daysToAdvent = christmasDow === 0 ? 28 : christmasDow + 21
   const advent = new Date(christmas.getTime() - daysToAdvent * dayMs)
 
-  // 특별 날짜 체크
+  // 고정 날짜
   if (month === 12 && day === 25) return '성탄절'
   if (month === 12 && day === 24) return '성탄전야'
   if (month === 1 && day === 1) return '신년주일'
   if (month === 1 && day === 6) return '주현절'
 
+  // 대림절 (성탄절 전 넷째 주일 ~ 성탄전야)
+  if (dateMs >= advent.getTime() && (month < 12 || day < 24)) return '대림절'
+
+  // 성탄절 기간 (성탄절 이튿날 ~ 주현절 전날)
+  if ((month === 12 && day > 25) || (month === 1 && day <= 5)) return '성탄절'
+
   // 추수감사주일: 11월 셋째 주일
   if (month === 11) {
     const nov1 = new Date(year, 10, 1)
     const firstSunday = (7 - nov1.getDay()) % 7
-    const thirdSunday = firstSunday + 14 + 1
-    if (day >= thirdSunday && day < thirdSunday + 7 && date.getDay() === 0) return '추수감사주일'
+    const thirdSundayDay = firstSunday + 14 + 1
+    if (day >= thirdSundayDay && day < thirdSundayDay + 7 && date.getDay() === 0) return '추수감사주일'
   }
 
-  // 종교개혁주일: 10월 31일에 가장 가까운 주일
-  if (month === 10) {
+  // 종교개혁주일: 10월 31일에 가장 가까운 주일 (11월 초에 걸릴 수 있음)
+  {
     const oct31 = new Date(year, 9, 31)
-    const dow = oct31.getDay()
-    const reformSunday = dow <= 3
-      ? new Date(oct31.getTime() - dow * dayMs)
-      : new Date(oct31.getTime() + (7 - dow) * dayMs)
+    const oct31dow = oct31.getDay()
+    const reformSunday = oct31dow <= 3
+      ? new Date(oct31.getTime() - oct31dow * dayMs)
+      : new Date(oct31.getTime() + (7 - oct31dow) * dayMs)
     if (date.toDateString() === reformSunday.toDateString()) return '종교개혁주일'
   }
 
-  if (dateMs >= advent.getTime() && (month < 12 || day < 25)) return '대림절'
-  if ((month === 12 && day > 25) || (month === 1 && day < 6)) return '성탄절'
-  if (month === 1 && day >= 7 && dateMs < ashWed.getTime()) return '주현절'
-  if (month === 2 && dateMs < ashWed.getTime()) return '주현절'
-  if (dateMs >= palmSunday.getTime() && dateMs < easterMs) return '성주간'
+  // 성령강림주일 (오순절 당일) — 빨강
+  if (date.toDateString() === pentecost.toDateString()) return '성령강림주일'
+
+  // 주현절 기간: 1/7 ~ 재의 수요일 전날 (3월 초까지 포함)
+  const jan7 = new Date(year, 0, 7)
+  if (dateMs >= jan7.getTime() && dateMs < ashWed.getTime()) return '주현절'
+
+  // 사순절: 재의 수요일 ~ 종려주일 전날
   if (dateMs >= ashWed.getTime() && dateMs < palmSunday.getTime()) return '사순절'
+
+  // 성주간: 종려주일 ~ 부활절 전날
+  if (dateMs >= palmSunday.getTime() && dateMs < easterMs) return '성주간'
+
+  // 부활절: 부활절 ~ 오순절 전날
   if (dateMs >= easterMs && dateMs < pentecost.getTime()) return '부활절'
-  if (dateMs >= pentecost.getTime()) return '성령강림절'
+
+  // 성령강림절: 오순절 다음날 ~ 대림절 전날
+  if (dateMs > pentecost.getTime()) return '성령강림절'
+
   return '일반 주일'
+}
+
+function getSeasonColor(season) {
+  const map = {
+    '대림절':      { label: '보라',   hex: '#7C3AED' },
+    '성탄절':      { label: '흰색',   hex: '#D97706' },
+    '성탄전야':    { label: '흰색',   hex: '#D97706' },
+    '신년주일':    { label: '흰색',   hex: '#D97706' },
+    '주현절':      { label: '초록',   hex: '#16A34A' },
+    '사순절':      { label: '보라',   hex: '#7C3AED' },
+    '성주간':      { label: '자주',   hex: '#9F1239' },
+    '부활절':      { label: '흰색',   hex: '#D97706' },
+    '성령강림주일':{ label: '빨강',   hex: '#DC2626' },
+    '성령강림절':  { label: '초록',   hex: '#16A34A' },
+    '추수감사주일':{ label: '초록',   hex: '#16A34A' },
+    '종교개혁주일':{ label: '빨강',   hex: '#DC2626' },
+    '일반 주일':   { label: '초록',   hex: '#16A34A' },
+  }
+  return map[season] || null
 }
 
 // 성서정과 Claude API 조회
@@ -170,29 +201,38 @@ export default function WorshipForm({ worship, onSave, lang }) {
     }
   }
 
+  const seasonColor = getSeasonColor(form.season)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <label style={labelStyle}>{lang === 'ko' ? '날짜' : 'Date'}</label>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '날짜' : 'Date'}</label>
           <input
             type="date"
-            style={{ ...inputStyle, paddingRight: 36 }}
+            style={inputStyle}
             value={form.date}
             onChange={e => handleDateChange(e.target.value)}
           />
         </div>
-      </div>
-
-      <div>
-        <label style={labelStyle}>{lang === 'ko' ? '교회력 절기' : 'Church Season'}</label>
-        <input
-          type="text"
-          style={{ ...inputStyle, background: 'var(--bg-sidebar)', color: 'var(--accent)', fontWeight: 600 }}
-          value={form.season}
-          onChange={e => set('season', e.target.value)}
-          placeholder={lang === 'ko' ? '날짜 선택 시 자동 입력' : 'Auto-filled from date'}
-        />
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '교회력 절기' : 'Church Season'}</label>
+          <div style={{
+            ...inputStyle,
+            background: 'var(--bg-sidebar)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'default',
+          }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{form.season || (lang === 'ko' ? '날짜 선택 시 자동 입력' : 'Auto-filled')}</span>
+            {seasonColor && (
+              <span style={{ color: seasonColor.hex, fontSize: 13, fontWeight: 500 }}>
+                ({seasonColor.label})
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <div>

@@ -26,6 +26,7 @@ export default function DawnForm({ dawn, onSave, lang }) {
   const [form, setForm] = useState({
     date: dawn?.date || new Date().toISOString().slice(0, 10),
     category: dawn?.category || '',
+    title: dawn?.title || '',
     passage: dawn?.passage || '',
     emphasis: dawn?.emphasis || '',
   })
@@ -46,9 +47,15 @@ export default function DawnForm({ dawn, onSave, lang }) {
           <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '강해, 주제, 시리즈명 등' : 'Expository, Topical, Series...'} value={form.category} onChange={e => set('category', e.target.value)} />
         </div>
       </div>
-      <div>
-        <label style={labelStyle}>{lang === 'ko' ? '본문' : 'Passage'}</label>
-        <input type="text" style={inputStyle} placeholder="예: 창세기 1:1-5" value={form.passage} onChange={e => set('passage', e.target.value)} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '제목' : 'Title'}</label>
+          <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '새벽 기도 제목' : 'Title'} value={form.title} onChange={e => set('title', e.target.value)} />
+        </div>
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '본문' : 'Passage'}</label>
+          <input type="text" style={inputStyle} placeholder="예: 창세기 1:1-5" value={form.passage} onChange={e => set('passage', e.target.value)} />
+        </div>
       </div>
       <div>
         <label style={labelStyle}>{lang === 'ko' ? '키워드' : 'Keywords'}</label>
