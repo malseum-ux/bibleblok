@@ -8,17 +8,11 @@ export default function ItemDetail({ tab, item, onSave, lang, defaultCategory })
 
   const isNew = !item
 
-  const title = isNew
-    ? (tab === 'sermon'
-        ? (lang === 'ko' ? '새 설교 작성' : 'New Sermon')
-        : tab === 'worship'
-        ? (lang === 'ko' ? '새 예배 작성' : 'New Worship')
-        : (lang === 'ko' ? '새 새벽 기도 작성' : 'New Dawn Prayer'))
-    : (tab === 'sermon'
-        ? (lang === 'ko' ? '설교 정보' : 'Sermon Info')
-        : tab === 'worship'
-        ? (lang === 'ko' ? '예배 정보' : 'Worship Info')
-        : (lang === 'ko' ? '새벽 기도 정보' : 'Dawn Prayer Info'))
+  const title = tab === 'sermon'
+    ? '설교 작성'
+    : tab === 'worship'
+    ? '예배인도문 작성'
+    : '새벽 설교 작성'
 
   return (
     <div style={{ padding: '24px' }}>

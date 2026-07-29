@@ -183,7 +183,6 @@ export default function WorshipForm({ worship, onSave, lang }) {
     return {
       date,
       season,
-      leader: worship?.leader || '',
       lectionary: worship?.lectionary || '',
     }
   })
@@ -226,32 +225,22 @@ export default function WorshipForm({ worship, onSave, lang }) {
           />
         </div>
         <div>
-          <label style={labelStyle}>{lang === 'ko' ? '예배인도자' : 'Leader'}</label>
-          <input
-            type="text"
-            style={inputStyle}
-            placeholder={lang === 'ko' ? '예배인도자 이름' : 'Leader name'}
-            value={form.leader}
-            onChange={e => set('leader', e.target.value)}
-          />
-        </div>
-      </div>
-      <div>
-        <label style={labelStyle}>{lang === 'ko' ? '교회력 절기' : 'Church Season'}</label>
-        <div style={{
-          ...inputStyle,
-          background: 'var(--bg-sidebar)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          cursor: 'default',
-        }}>
-          <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{form.season || (lang === 'ko' ? '날짜 선택 시 자동 입력' : 'Auto-filled')}</span>
-          {seasonColor && (
-            <span style={{ color: seasonColor.hex, fontSize: 13, fontWeight: 500 }}>
-              ({seasonColor.label})
-            </span>
-          )}
+          <label style={labelStyle}>{lang === 'ko' ? '교회력 절기' : 'Church Season'}</label>
+          <div style={{
+            ...inputStyle,
+            background: 'var(--bg-sidebar)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'default',
+          }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{form.season || (lang === 'ko' ? '날짜 선택 시 자동 입력' : 'Auto-filled')}</span>
+            {seasonColor && (
+              <span style={{ color: seasonColor.hex, fontSize: 13, fontWeight: 500 }}>
+                ({seasonColor.label})
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

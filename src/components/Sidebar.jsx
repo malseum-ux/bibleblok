@@ -17,9 +17,9 @@ export default function Sidebar({
   function getLabel(item) {
     const date = fmtDate(item.date)
     const name = tab === 'worship'
-      ? (item.leader || item.season || '')
+      ? '예배인도'
       : (item.title || item.passage || '제목 없음')
-    return date ? `${date} ${name}`.trim() : name
+    return date ? `${date} ${name}` : name
   }
 
   function toggleExpand(id) {
