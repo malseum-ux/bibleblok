@@ -4,7 +4,7 @@ import {
   createSermon, getSermons, updateSermon, deleteSermon, getSermonSteps,
   createWorship, getWorships, updateWorship, deleteWorship, getWorshipSteps,
   createDawn, getDawns, updateDawn, deleteDawn, getDawnSteps,
-  getFolders, createFolder, deleteFolder, moveItemToFolder,
+  getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
 import Sidebar from './components/Sidebar'
@@ -23,6 +23,7 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [selectedFolder, setSelectedFolder] = useState(null)
   const [stepContents, setStepContents] = useState({})
+  const [sidebarVisible, setSidebarVisible] = useState(true)
 
   const lang = settings.lang
 
@@ -62,16 +63,31 @@ export default function App() {
   }
 
   async function handleCreateFolder(name) {
-    await createFolder(tab, name)
+    await createFolder(tab, name, selectedFolder?.id || null)
     await loadFolders()
   }
 
   async function handleDeleteFolder(id) {
-    if (!confirm('폴더를 삭제하시겠습니까? 파일은 폴더 없음으로 이동됩니다.')) return
+    if (!confirm('폴더를 삭제하시겠습니까? 하위폴더와 파일은 루트로 이동됩니다.')) return
     await deleteFolder(id)
     await loadFolders()
-    if (selectedFolder?.id === id) setSelectedFolder(null)
+    setSelectedFolder(null)
     tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : await loadDawns()
+  }
+
+  function isFolderDescendant(folderId, targetId) {
+    if (targetId === null || targetId === undefined) return false
+    if (targetId === folderId) return true
+    const parent = folders.find(f => f.id === targetId)
+    if (!parent || parent.parentId === null) return false
+    return isFolderDescendant(folderId, parent.parentId)
+  }
+
+  async function handleMoveFolder(folderId, newParentId) {
+    if (newParentId === folderId) return
+    if (isFolderDescendant(folderId, newParentId)) return
+    await moveFolder(folderId, newParentId)
+    await loadFolders()
   }
 
   async function handleMoveItem(itemId, folderId) {
@@ -228,20 +244,48 @@ export default function App() {
       )}
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar
-          tab={tab}
-          items={items}
-          folders={folders}
-          selectedId={selected}
-          selectedFolderId={selectedFolder?.id}
-          onSelect={setSelected}
-          onDelete={handleDelete}
-          steps={steps}
-          onCreateFolder={handleCreateFolder}
-          onDeleteFolder={handleDeleteFolder}
-          onMoveItem={handleMoveItem}
-          onFolderSelect={handleFolderSelect}
-        />
+        {sidebarVisible && (
+          <Sidebar
+            tab={tab}
+            items={items}
+            folders={folders}
+            selectedId={selected}
+            selectedFolderId={selectedFolder?.id}
+            onSelect={setSelected}
+            onDelete={handleDelete}
+            steps={steps}
+            onCreateFolder={handleCreateFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onMoveItem={handleMoveItem}
+            onMoveFolder={handleMoveFolder}
+            onFolderSelect={handleFolderSelect}
+          />
+        )}
+
+        <div
+          onClick={() => setSidebarVisible(v => !v)}
+          title={sidebarVisible ? '사이드바 감추기' : '사이드바 보이기'}
+          style={{
+            width: 12,
+            flexShrink: 0,
+            background: 'var(--bg-sidebar)',
+            borderRight: '1px solid var(--border)',
+            borderLeft: sidebarVisible ? 'none' : '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            paddingTop: '28vh',
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{
+            fontSize: 9,
+            color: 'var(--text-muted)',
+            userSelect: 'none',
+            lineHeight: 1,
+          }}>
+            {sidebarVisible ? '◀' : '▶'}
+          </span>
+        </div>
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
           {!selected && (

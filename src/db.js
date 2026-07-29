@@ -28,6 +28,21 @@ db.version(3).stores({
   folders: '++id, tab',
 })
 
+// version 4: parentId 추가 (하위폴더 지원)
+db.version(4).stores({
+  sermons: '++id, date, category, title, passage, emphasis, createdAt',
+  sermonSteps: '++id, [sermonId+stepIndex], sermonId',
+  worships: '++id, date, season, createdAt',
+  worshipSteps: '++id, [worshipId+stepIndex], worshipId',
+  dawns: '++id, date, createdAt',
+  dawnSteps: '++id, [dawnId+stepIndex], dawnId',
+  folders: '++id, tab, parentId',
+}).upgrade(tx => {
+  return tx.table('folders').toCollection().modify(folder => {
+    if (folder.parentId === undefined) folder.parentId = null
+  })
+})
+
 // Sermons
 export async function createSermon(data) {
   const id = await db.sermons.add({ ...data, createdAt: Date.now() })
@@ -138,11 +153,15 @@ export async function getFolders(tab) {
   return db.folders.where('tab').equals(tab).toArray()
 }
 
-export async function createFolder(tab, name) {
-  return db.folders.add({ tab, name, createdAt: Date.now() })
+export async function createFolder(tab, name, parentId = null) {
+  return db.folders.add({ tab, name, parentId: parentId ?? null, createdAt: Date.now() })
 }
 
-export async function deleteFolder(id) {
+async function deleteFolderRecursive(id) {
+  const children = await db.folders.where('parentId').equals(id).toArray()
+  for (const child of children) {
+    await deleteFolderRecursive(child.id)
+  }
   const all = [
     ...(await db.sermons.toArray()),
     ...(await db.worships.toArray()),
@@ -155,6 +174,14 @@ export async function deleteFolder(id) {
     await table.update(item.id, { folderId: null })
   }
   await db.folders.delete(id)
+}
+
+export async function deleteFolder(id) {
+  await deleteFolderRecursive(id)
+}
+
+export async function moveFolder(folderId, newParentId) {
+  return db.folders.update(folderId, { parentId: newParentId ?? null })
 }
 
 export async function moveItemToFolder(tab, itemId, folderId) {
