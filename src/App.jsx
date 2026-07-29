@@ -27,8 +27,8 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(240)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchMode, setSearchMode] = useState('title')
-  const [contentMatchIds, setContentMatchIds] = useState(null)
+  const [searchMode, setSearchMode] = useState('sermon-title')
+  const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
 
   const lang = settings.lang
@@ -163,27 +163,42 @@ export default function App() {
   function closeSearch() {
     setSearchOpen(false)
     setSearchQuery('')
-    setContentMatchIds(null)
+    setSearchResults(null)
   }
+
+  useEffect(() => {
+    if (!searchOpen || searchMode === 'sermon-content') return
+    if (!searchQuery.trim()) { setSearchResults(null); return }
+    const q = searchQuery.toLowerCase()
+    if (searchMode === 'sermon-title') {
+      setSearchResults([...sermons, ...dawns].filter(item => {
+        const date = item.date ? item.date.replace(/-/g, '').slice(2) : ''
+        const name = item.title || item.passage || ''
+        return `${date} ${name}`.toLowerCase().includes(q)
+      }))
+    } else if (searchMode === 'worship') {
+      setSearchResults(worships.filter(item => {
+        const date = item.date ? item.date.replace(/-/g, '').slice(2) : ''
+        return `${date} 예배인도`.toLowerCase().includes(q)
+      }))
+    }
+  }, [searchQuery, searchMode, sermons, dawns, worships, searchOpen])
 
   async function handleContentSearch(query) {
     const q = (query || searchQuery).trim().toLowerCase()
-    if (!q) return
+    if (!q || searchMode !== 'sermon-content') return
     setSearchLoading(true)
-    const matchIds = new Set()
-    for (const item of items) {
-      const basic = [item.title, item.passage, item.category, item.emphasis, item.season, item.lectionary]
+    const matched = []
+    for (const item of [...sermons, ...dawns]) {
+      const basic = [item.title, item.passage, item.category, item.emphasis]
         .filter(Boolean).join(' ').toLowerCase()
-      if (basic.includes(q)) { matchIds.add(item.id); continue }
-      if (item.draft?.toLowerCase().includes(q)) { matchIds.add(item.id); continue }
-      const steps = tab === 'sermon'
-        ? await getSermonSteps(item.id)
-        : tab === 'worship'
-        ? await getWorshipSteps(item.id)
-        : await getDawnSteps(item.id)
-      if (steps.some(s => s.content?.toLowerCase().includes(q))) matchIds.add(item.id)
+      if (basic.includes(q)) { matched.push(item); continue }
+      if (item.draft?.toLowerCase().includes(q)) { matched.push(item); continue }
+      const isSermon = sermons.some(s => s.id === item.id)
+      const steps = isSermon ? await getSermonSteps(item.id) : await getDawnSteps(item.id)
+      if (steps.some(s => s.content?.toLowerCase().includes(q))) matched.push(item)
     }
-    setContentMatchIds([...matchIds])
+    setSearchResults(matched)
     setSearchLoading(false)
   }
 
@@ -234,22 +249,23 @@ export default function App() {
         {searchOpen && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-              {['title', 'content'].map((mode, i) => (
+              {[['sermon-title', '설교제목'], ['sermon-content', '설교내용'], ['worship', '예배인도']].map(([mode, label], i) => (
                 <button
                   key={mode}
-                  onClick={() => { setSearchMode(mode); setContentMatchIds(null) }}
+                  onClick={() => { setSearchMode(mode); setSearchResults(null); setSearchQuery('') }}
                   style={{
                     background: searchMode === mode ? 'var(--accent)' : 'transparent',
                     color: searchMode === mode ? '#fff' : 'var(--text-muted)',
                     border: 'none',
-                    borderRight: i === 0 ? '1px solid var(--border)' : 'none',
+                    borderRight: i < 2 ? '1px solid var(--border)' : 'none',
                     padding: '4px 10px',
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {mode === 'title' ? '제목' : '내용'}
+                  {label}
                 </button>
               ))}
             </div>
@@ -257,15 +273,12 @@ export default function App() {
               autoFocus
               type="text"
               value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value)
-                if (searchMode === 'title') setContentMatchIds(null)
-              }}
+              onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && searchMode === 'content') handleContentSearch(e.target.value)
+                if (e.key === 'Enter' && searchMode === 'sermon-content') handleContentSearch(e.target.value)
                 if (e.key === 'Escape') closeSearch()
               }}
-              placeholder={searchMode === 'title' ? '제목 검색...' : '내용 검색 후 Enter...'}
+              placeholder={searchMode === 'sermon-content' ? '설교내용 검색 후 Enter...' : searchMode === 'worship' ? '날짜 검색...' : '설교 제목 검색...'}
               style={{
                 width: 220,
                 fontSize: 13,
@@ -360,8 +373,8 @@ export default function App() {
             onMoveFolder={handleMoveFolder}
             onFolderSelect={handleFolderSelect}
             width={sidebarWidth}
-            searchQuery={searchMode === 'title' ? searchQuery : ''}
-            contentMatchIds={searchMode === 'content' ? contentMatchIds : null}
+            searchItems={searchResults}
+            searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
           />
         )}
 

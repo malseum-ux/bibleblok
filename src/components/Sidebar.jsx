@@ -25,8 +25,8 @@ export default function Sidebar({
   onSelect, onDelete, steps,
   onCreateFolder, onDeleteFolder, onMoveItem, onMoveFolder, onFolderSelect,
   width = 240,
-  searchQuery = '',
-  contentMatchIds = null,
+  searchItems = null,
+  searchItemsTab = null,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -39,8 +39,9 @@ export default function Sidebar({
   const [dropDisplay, setDropDisplay] = useState(undefined) // undefined=없음, null=루트, id=폴더
 
   function getLabel(item) {
+    const tabForLabel = searchItems !== null ? searchItemsTab : tab
     const date = fmtDate(item.date)
-    const name = tab === 'worship' ? '예배인도' : (item.title || item.passage || '제목 없음')
+    const name = tabForLabel === 'worship' ? '예배인도' : (item.title || item.passage || '제목 없음')
     return date ? `${date} ${name}` : name
   }
 
@@ -130,13 +131,7 @@ export default function Sidebar({
     }
   }
 
-  const isSearching = searchQuery.trim() !== '' || contentMatchIds !== null
-  const filteredItems = isSearching
-    ? items.filter(item => {
-        if (contentMatchIds !== null) return contentMatchIds.includes(item.id)
-        return getLabel(item).toLowerCase().includes(searchQuery.toLowerCase())
-      })
-    : null
+  const isSearching = searchItems !== null
 
   const tabLabel = tab === 'sermon' ? '설교 목록' : tab === 'worship' ? '예배 목록' : '새벽 목록'
   const selectedFolderName = selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : null
@@ -382,12 +377,12 @@ export default function Sidebar({
       {/* 검색 결과 모드 */}
       {isSearching ? (
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-          {filteredItems.length === 0 ? (
+          {searchItems.length === 0 ? (
             <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', opacity: 0.6 }}>
               검색 결과 없음
             </div>
           ) : (
-            filteredItems.map(item => renderFileItem(item, 0))
+            searchItems.map(item => renderFileItem(item, 0))
           )}
         </div>
       ) : (
