@@ -108,27 +108,36 @@ function getChurchSeason(dateStr) {
   // 부활절: 부활절 ~ 오순절 전날
   if (dateMs >= easterMs && dateMs < pentecost.getTime()) return '부활절'
 
-  // 성령강림절: 오순절 다음날 ~ 대림절 전날
-  if (dateMs > pentecost.getTime()) return '성령강림절'
+  // 오순절 이후: 삼위일체 주일 / 오순절 후 N번째 주일
+  if (dateMs > pentecost.getTime()) {
+    const dayOfWeek = date.getDay()
+    const thisSunday = new Date(dateMs - dayOfWeek * dayMs)
+    const weeksSincePentecost = Math.round((thisSunday.getTime() - pentecost.getTime()) / (7 * dayMs))
+    if (weeksSincePentecost === 0) return '성령강림절'
+    if (weeksSincePentecost === 1) return '삼위일체 주일'
+    return `오순절 후 ${weeksSincePentecost}번째 주일`
+  }
 
   return '일반 주일'
 }
 
 function getSeasonColor(season) {
+  if (season?.startsWith('오순절 후')) return { label: '초록', hex: '#16A34A' }
   const map = {
-    '대림절':      { label: '보라',   hex: '#7C3AED' },
-    '성탄절':      { label: '흰색',   hex: '#D97706' },
-    '성탄전야':    { label: '흰색',   hex: '#D97706' },
-    '신년주일':    { label: '흰색',   hex: '#D97706' },
-    '주현절':      { label: '초록',   hex: '#16A34A' },
-    '사순절':      { label: '보라',   hex: '#7C3AED' },
-    '성주간':      { label: '자주',   hex: '#9F1239' },
-    '부활절':      { label: '흰색',   hex: '#D97706' },
-    '성령강림주일':{ label: '빨강',   hex: '#DC2626' },
-    '성령강림절':  { label: '초록',   hex: '#16A34A' },
-    '추수감사주일':{ label: '초록',   hex: '#16A34A' },
-    '종교개혁주일':{ label: '빨강',   hex: '#DC2626' },
-    '일반 주일':   { label: '초록',   hex: '#16A34A' },
+    '대림절':       { label: '보라', hex: '#7C3AED' },
+    '성탄절':       { label: '흰색', hex: '#D97706' },
+    '성탄전야':     { label: '흰색', hex: '#D97706' },
+    '신년주일':     { label: '흰색', hex: '#D97706' },
+    '주현절':       { label: '초록', hex: '#16A34A' },
+    '사순절':       { label: '보라', hex: '#7C3AED' },
+    '성주간':       { label: '자주', hex: '#9F1239' },
+    '부활절':       { label: '흰색', hex: '#D97706' },
+    '성령강림주일': { label: '빨강', hex: '#DC2626' },
+    '성령강림절':   { label: '초록', hex: '#16A34A' },
+    '삼위일체 주일':{ label: '흰색', hex: '#D97706' },
+    '추수감사주일': { label: '초록', hex: '#16A34A' },
+    '종교개혁주일': { label: '빨강', hex: '#DC2626' },
+    '일반 주일':    { label: '초록', hex: '#16A34A' },
   }
   return map[season] || null
 }
