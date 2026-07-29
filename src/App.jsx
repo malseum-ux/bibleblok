@@ -5,6 +5,7 @@ import {
   createWorship, getWorships, updateWorship, deleteWorship,
   createDawn, getDawns, updateDawn, deleteDawn,
   getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder,
+  getSermonSteps, getWorshipSteps, getDawnSteps,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
 import Sidebar from './components/Sidebar'
@@ -24,6 +25,11 @@ export default function App() {
   const [selectedFolder, setSelectedFolder] = useState(null)
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(240)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchMode, setSearchMode] = useState('title')
+  const [contentMatchIds, setContentMatchIds] = useState(null)
+  const [searchLoading, setSearchLoading] = useState(false)
 
   const lang = settings.lang
 
@@ -151,7 +157,34 @@ export default function App() {
     setTab(t)
     setSelected(null)
     setSelectedFolder(null)
-    setStepContents({})
+    closeSearch()
+  }
+
+  function closeSearch() {
+    setSearchOpen(false)
+    setSearchQuery('')
+    setContentMatchIds(null)
+  }
+
+  async function handleContentSearch(query) {
+    const q = (query || searchQuery).trim().toLowerCase()
+    if (!q) return
+    setSearchLoading(true)
+    const matchIds = new Set()
+    for (const item of items) {
+      const basic = [item.title, item.passage, item.category, item.emphasis, item.season, item.lectionary]
+        .filter(Boolean).join(' ').toLowerCase()
+      if (basic.includes(q)) { matchIds.add(item.id); continue }
+      if (item.draft?.toLowerCase().includes(q)) { matchIds.add(item.id); continue }
+      const steps = tab === 'sermon'
+        ? await getSermonSteps(item.id)
+        : tab === 'worship'
+        ? await getWorshipSteps(item.id)
+        : await getDawnSteps(item.id)
+      if (steps.some(s => s.content?.toLowerCase().includes(q))) matchIds.add(item.id)
+    }
+    setContentMatchIds([...matchIds])
+    setSearchLoading(false)
   }
 
   function handleSettingsChange(next) {
@@ -196,6 +229,89 @@ export default function App() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
+
+        {/* 검색창 */}
+        {searchOpen && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+              {['title', 'content'].map((mode, i) => (
+                <button
+                  key={mode}
+                  onClick={() => { setSearchMode(mode); setContentMatchIds(null) }}
+                  style={{
+                    background: searchMode === mode ? 'var(--accent)' : 'transparent',
+                    color: searchMode === mode ? '#fff' : 'var(--text-muted)',
+                    border: 'none',
+                    borderRight: i === 0 ? '1px solid var(--border)' : 'none',
+                    padding: '4px 10px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {mode === 'title' ? '제목' : '내용'}
+                </button>
+              ))}
+            </div>
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value)
+                if (searchMode === 'title') setContentMatchIds(null)
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && searchMode === 'content') handleContentSearch(e.target.value)
+                if (e.key === 'Escape') closeSearch()
+              }}
+              placeholder={searchMode === 'title' ? '제목 검색...' : '내용 검색 후 Enter...'}
+              style={{
+                width: 220,
+                fontSize: 13,
+                padding: '5px 10px',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                outline: 'none',
+              }}
+            />
+            {searchLoading && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>검색 중...</span>
+            )}
+            <button
+              onClick={closeSearch}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* 찾기 버튼 */}
+        <button
+          onClick={() => setSearchOpen(v => !v)}
+          title="찾기"
+          style={{
+            background: searchOpen ? 'var(--accent-light)' : 'none',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            width: 32,
+            height: 32,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: searchOpen ? 'var(--accent)' : 'var(--text-muted)',
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </button>
+
         <button
           onClick={() => setSettingsOpen(true)}
           title={lang === 'ko' ? '설정' : 'Settings'}
@@ -244,6 +360,8 @@ export default function App() {
             onMoveFolder={handleMoveFolder}
             onFolderSelect={handleFolderSelect}
             width={sidebarWidth}
+            searchQuery={searchMode === 'title' ? searchQuery : ''}
+            contentMatchIds={searchMode === 'content' ? contentMatchIds : null}
           />
         )}
 

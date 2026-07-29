@@ -25,6 +25,8 @@ export default function Sidebar({
   onSelect, onDelete, steps,
   onCreateFolder, onDeleteFolder, onMoveItem, onMoveFolder, onFolderSelect,
   width = 240,
+  searchQuery = '',
+  contentMatchIds = null,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -127,6 +129,14 @@ export default function Sidebar({
       rootItems.push(item)
     }
   }
+
+  const isSearching = searchQuery.trim() !== '' || contentMatchIds !== null
+  const filteredItems = isSearching
+    ? items.filter(item => {
+        if (contentMatchIds !== null) return contentMatchIds.includes(item.id)
+        return getLabel(item).toLowerCase().includes(searchQuery.toLowerCase())
+      })
+    : null
 
   const tabLabel = tab === 'sermon' ? '설교 목록' : tab === 'worship' ? '예배 목록' : '새벽 목록'
   const selectedFolderName = selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : null
@@ -369,51 +379,63 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* data-drop-root: 이 영역 어디든 드롭하면 루트로 이동 */}
-      <div data-drop-root="true" style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-        {tree.map(node => renderFolder(node))}
+      {/* 검색 결과 모드 */}
+      {isSearching ? (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {filteredItems.length === 0 ? (
+            <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', opacity: 0.6 }}>
+              검색 결과 없음
+            </div>
+          ) : (
+            filteredItems.map(item => renderFileItem(item, 0))
+          )}
+        </div>
+      ) : (
+        /* 일반 목록 모드 */
+        <div data-drop-root="true" style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {tree.map(node => renderFolder(node))}
 
-        {folders.length > 0 && rootItems.length > 0 && (
-          <div style={{
-            margin: '6px 8px 2px',
-            borderTop: '1px solid var(--border)',
-            paddingTop: 6,
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            opacity: dropDisplay === null ? 1 : 0.6,
-            background: dropDisplay === null ? 'var(--accent-light)' : 'transparent',
-            borderRadius: 4,
-            padding: '4px 8px',
-          }}>
-            {dropDisplay === null ? '여기에 드롭 → 루트로 이동' : '폴더 없음'}
-          </div>
-        )}
+          {folders.length > 0 && rootItems.length > 0 && (
+            <div style={{
+              margin: '6px 8px 2px',
+              borderTop: '1px solid var(--border)',
+              paddingTop: 6,
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              opacity: dropDisplay === null ? 1 : 0.6,
+              background: dropDisplay === null ? 'var(--accent-light)' : 'transparent',
+              borderRadius: 4,
+              padding: '4px 8px',
+            }}>
+              {dropDisplay === null ? '여기에 드롭 → 루트로 이동' : '폴더 없음'}
+            </div>
+          )}
 
-        {rootItems.length === 0 && folders.length === 0 && (
-          <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', opacity: 0.6 }}>
-            {tab === 'sermon' ? '+ 버튼으로 설교를 추가하세요' : tab === 'worship' ? '+ 버튼으로 예배를 추가하세요' : '+ 버튼으로 새벽 기도를 추가하세요'}
-          </div>
-        )}
+          {rootItems.length === 0 && folders.length === 0 && (
+            <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', opacity: 0.6 }}>
+              {tab === 'sermon' ? '+ 버튼으로 설교를 추가하세요' : tab === 'worship' ? '+ 버튼으로 예배를 추가하세요' : '+ 버튼으로 새벽 기도를 추가하세요'}
+            </div>
+          )}
 
-        {rootItems.map(item => renderFileItem(item, 0))}
+          {rootItems.map(item => renderFileItem(item, 0))}
 
-        {/* 빈 공간도 루트 드롭 대상 */}
-        {dragDisplay && (
-          <div style={{
-            height: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 11,
-            color: dropDisplay === null ? 'var(--accent)' : 'var(--text-muted)',
-            opacity: dropDisplay === null ? 1 : 0.4,
-            borderTop: '1px dashed var(--border)',
-            margin: '4px 8px',
-          }}>
-            {dropDisplay === null ? '루트로 이동' : '폴더로 드래그'}
-          </div>
-        )}
-      </div>
+          {dragDisplay && (
+            <div style={{
+              height: 40,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 11,
+              color: dropDisplay === null ? 'var(--accent)' : 'var(--text-muted)',
+              opacity: dropDisplay === null ? 1 : 0.4,
+              borderTop: '1px dashed var(--border)',
+              margin: '4px 8px',
+            }}>
+              {dropDisplay === null ? '루트로 이동' : '폴더로 드래그'}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 드래그 고스트 — body에 렌더링 (사이드바 overflow:hidden을 벗어나기 위해) */}
       {dragDisplay && createPortal(
