@@ -25,7 +25,7 @@ const labelStyle = {
 export default function DawnForm({ dawn, onSave, lang }) {
   const [form, setForm] = useState({
     date: dawn?.date || new Date().toISOString().slice(0, 10),
-    seriesName: dawn?.seriesName || '',
+    category: dawn?.category || '',
     passage: dawn?.passage || '',
     emphasis: dawn?.emphasis || '',
   })
@@ -36,21 +36,23 @@ export default function DawnForm({ dawn, onSave, lang }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <label style={labelStyle}>{lang === 'ko' ? '날짜' : 'Date'}</label>
-        <input type="date" style={inputStyle} value={form.date} onChange={e => set('date', e.target.value)} />
-      </div>
-      <div>
-        <label style={labelStyle}>{lang === 'ko' ? '강해명 / 시리즈명' : 'Series Name'}</label>
-        <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '예: 창세기 강해 (없으면 빈칸)' : 'e.g. Genesis Series (optional)'} value={form.seriesName} onChange={e => set('seriesName', e.target.value)} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '날짜' : 'Date'}</label>
+          <input type="date" style={inputStyle} value={form.date} onChange={e => set('date', e.target.value)} />
+        </div>
+        <div>
+          <label style={labelStyle}>{lang === 'ko' ? '구분' : 'Category'}</label>
+          <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '강해, 주제, 시리즈명 등' : 'Expository, Topical, Series...'} value={form.category} onChange={e => set('category', e.target.value)} />
+        </div>
       </div>
       <div>
         <label style={labelStyle}>{lang === 'ko' ? '본문' : 'Passage'}</label>
         <input type="text" style={inputStyle} placeholder="예: 창세기 1:1-5" value={form.passage} onChange={e => set('passage', e.target.value)} />
       </div>
       <div>
-        <label style={labelStyle}>{lang === 'ko' ? '강조 주제' : 'Emphasis'}</label>
-        <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '강조하고 싶은 주제 (선택)' : 'Theme to emphasize (optional)'} value={form.emphasis} onChange={e => set('emphasis', e.target.value)} />
+        <label style={labelStyle}>{lang === 'ko' ? '키워드' : 'Keywords'}</label>
+        <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '강조할 단어나 문구 (선택)' : 'Word or phrase to emphasize (optional)'} value={form.emphasis} onChange={e => set('emphasis', e.target.value)} />
       </div>
       <button
         onClick={() => onSave(form)}

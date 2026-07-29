@@ -65,33 +65,17 @@ export default function App() {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
   const selectedItem = items.find(i => i.id === selected?.id)
 
-  async function handleCreate() {
+  async function handleCreateNew(formData) {
     if (tab === 'sermon') {
-      const id = await createSermon({
-        date: new Date().toISOString().slice(0, 10),
-        category: '',
-        seriesName: '',
-        title: '',
-        passage: '',
-        emphasis: '',
-      })
+      const id = await createSermon(formData)
       await loadSermons()
       setSelected({ id, step: null })
     } else if (tab === 'worship') {
-      const id = await createWorship({
-        date: new Date().toISOString().slice(0, 10),
-        season: '',
-        lectionary: '',
-      })
+      const id = await createWorship(formData)
       await loadWorships()
       setSelected({ id, step: null })
     } else {
-      const id = await createDawn({
-        date: new Date().toISOString().slice(0, 10),
-        seriesName: '',
-        passage: '',
-        emphasis: '',
-      })
+      const id = await createDawn(formData)
       await loadDawns()
       setSelected({ id, step: null })
     }
@@ -211,30 +195,19 @@ export default function App() {
           items={items}
           selectedId={selected}
           onSelect={setSelected}
-          onCreate={handleCreate}
           onDelete={handleDelete}
           steps={steps}
         />
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
           {!selected && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flex: 1,
-              color: 'var(--text-muted)',
-              gap: 8,
-            }}>
-              <div style={{ fontSize: 40, opacity: 0.15, fontWeight: 700 }}>
-                {tab === 'sermon' ? '설교' : tab === 'worship' ? '예배' : '새벽'}
-              </div>
-              <div style={{ fontSize: 14 }}>
-                {lang === 'ko'
-                  ? '왼쪽에서 항목을 선택하거나 + 버튼으로 새로 추가하세요'
-                  : 'Select an item or click + to create new'}
-              </div>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <ItemDetail
+                tab={tab}
+                item={null}
+                onSave={handleCreateNew}
+                lang={lang}
+              />
             </div>
           )}
 

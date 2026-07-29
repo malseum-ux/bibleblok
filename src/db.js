@@ -131,11 +131,11 @@ export async function getSeriesContext(type, seriesName, currentId) {
   let items = []
   if (type === 'sermon') {
     const all = await db.sermons.toArray()
-    items = all.filter(s => s.seriesName === seriesName && s.id !== currentId)
+    items = all.filter(s => s.category === seriesName && s.id !== currentId)
       .sort((a, b) => a.createdAt - b.createdAt)
   } else {
     const all = await db.dawns.toArray()
-    items = all.filter(d => d.seriesName === seriesName && d.id !== currentId)
+    items = all.filter(d => d.category === seriesName && d.id !== currentId)
       .sort((a, b) => a.createdAt - b.createdAt)
   }
 

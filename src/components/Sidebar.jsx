@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function Sidebar({ tab, items, selectedId, onSelect, onCreate, onDelete, steps, activeStep }) {
+export default function Sidebar({ tab, items, selectedId, onSelect, onDelete, steps }) {
   const [expandedId, setExpandedId] = useState(null)
 
   function toggleExpand(id) {
@@ -20,30 +20,10 @@ export default function Sidebar({ tab, items, selectedId, onSelect, onCreate, on
       <div style={{
         padding: '12px 12px 8px',
         borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
       }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {tab === 'sermon' ? '설교 목록' : tab === 'worship' ? '예배 목록' : '새벽 목록'}
         </span>
-        <button
-          onClick={onCreate}
-          style={{
-            background: 'var(--accent)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4,
-            width: 22,
-            height: 22,
-            cursor: 'pointer',
-            fontSize: 16,
-            lineHeight: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >+</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>

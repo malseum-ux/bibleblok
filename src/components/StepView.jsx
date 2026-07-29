@@ -28,7 +28,7 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
     setContent('')
     try {
       if (tab === 'sermon') {
-        const seriesCtx = await getSeriesContext('sermon', item.seriesName, item.id)
+        const seriesCtx = await getSeriesContext('sermon', item.category, item.id)
         await generateSermonStep(
           step.key,
           item.passage,
@@ -55,7 +55,7 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
           onSaved?.()
         })
       } else {
-        const seriesCtx = await getSeriesContext('dawn', item.seriesName, item.id)
+        const seriesCtx = await getSeriesContext('dawn', item.category, item.id)
         await generateDawnStep(
           step.key,
           item.passage,
