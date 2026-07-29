@@ -1,4 +1,4 @@
-const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || ''
 
 export const SERMON_STEP_ITEMS = {
   narrative: [
@@ -424,16 +424,14 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
 }
 
 async function streamCompletion(prompt, onChunk) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/openrouter/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${API_KEY}`,
       'content-type': 'application/json',
-      'anthropic-dangerous-allow-browser': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'anthropic/claude-sonnet-4-6',
       max_tokens: 8000,
       stream: true,
       messages: [{ role: 'user', content: prompt }],
@@ -459,7 +457,7 @@ async function streamCompletion(prompt, onChunk) {
       if (data === '[DONE]') continue
       try {
         const json = JSON.parse(data)
-        const text = json.delta?.text || ''
+        const text = json.choices?.[0]?.delta?.content || ''
         if (text) {
           fullText += text
           onChunk?.(fullText)
