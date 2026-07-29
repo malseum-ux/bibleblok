@@ -159,7 +159,7 @@ export default function Sidebar({
   }
 
   function renderFileItem(item, depth = 0) {
-    const isItemSelected = selectedId?.id === item.id && selectedId?.step == null
+    const isItemSelected = selectedId?.id === item.id
     const isMoving = movingItemId === item.id
     const isDraggingThis = dragDisplay && dragRef.current.type === 'file' && dragRef.current.id === item.id
 

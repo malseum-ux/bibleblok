@@ -100,7 +100,6 @@ export default function App() {
   function handleFolderSelect(folder) {
     setSelectedFolder(folder)
     setSelected(null)
-    setStepContents({})
   }
 
   const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
