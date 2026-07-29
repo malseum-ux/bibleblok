@@ -1,72 +1,110 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipStep, generateDawnStep } from '../claude'
-import { saveSermonStep, saveWorshipStep, saveDawnStep, updateSermon, updateDawn, getSeriesContext } from '../db'
+import { generateSermonStep, generateWorshipStep, generateDawnStep, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext } from '../db'
+import SermonForm from './SermonForm'
+import WorshipForm from './WorshipForm'
+import DawnForm from './DawnForm'
 
-export default function StepView({ tab, item, stepIndex, savedContent, lang, bible, onSaved }) {
-  const [content, setContent] = useState(savedContent || '')
+export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpdate }) {
+  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
+
+  const [currentStep, setCurrentStep] = useState(0)
+  const [stepContents, setStepContents] = useState({})
+  const [content, setContent] = useState('')
   const [draft, setDraft] = useState(item?.draft || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [instructionsOpen, setInstructionsOpen] = useState(false)
+  const [selectedItems, setSelectedItems] = useState([])
+  const [userKeyword, setUserKeyword] = useState('')
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [leftPct, setLeftPct] = useState(50)
   const draftTimer = useRef(null)
+  const splitContainerRef = useRef(null)
+
+  const step = steps[currentStep] || steps[0]
+  const stepItemsDefs = tab === 'sermon' ? SERMON_STEP_ITEMS : tab === 'worship' ? WORSHIP_STEP_ITEMS : DAWN_STEP_ITEMS
+  const currentItems = stepItemsDefs[step?.key] || []
+  const hasItems = currentItems.length >= 2
 
   useEffect(() => {
-    setContent(savedContent || '')
+    async function loadContents() {
+      if (!item?.id) return
+      const saved = tab === 'sermon'
+        ? await getSermonSteps(item.id)
+        : tab === 'worship'
+        ? await getWorshipSteps(item.id)
+        : await getDawnSteps(item.id)
+      const map = {}
+      saved.forEach(s => { map[s.stepIndex] = s.content })
+      setStepContents(map)
+    }
+    loadContents()
+  }, [item?.id, tab])
+
+  useEffect(() => {
+    setContent(stepContents[currentStep] || '')
     setError(null)
-  }, [savedContent, stepIndex, item?.id])
+    setInstructionsOpen(false)
+    const items = stepItemsDefs[step?.key] || []
+    setSelectedItems(items.map(i => i.key))
+  }, [currentStep, stepContents])
 
   useEffect(() => {
     setDraft(item?.draft || '')
   }, [item?.id])
 
-  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
-  const step = steps.find(s => s.index === stepIndex)
+  function toggleItem(key) {
+    setSelectedItems(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
+  function startSplitDrag(e) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const container = splitContainerRef.current
+    const onMove = (me) => {
+      const rect = container.getBoundingClientRect()
+      const pct = ((me.clientX - rect.left) / rect.width) * 100
+      setLeftPct(Math.min(Math.max(pct, 20), 80))
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', () => document.removeEventListener('pointermove', onMove), { once: true })
+  }
 
   async function generate() {
     setLoading(true)
     setError(null)
     setContent('')
+    const activeItems = hasItems ? selectedItems : null
     try {
       if (tab === 'sermon') {
         const seriesCtx = await getSeriesContext('sermon', item.category, item.id)
         await generateSermonStep(
-          step.key,
-          item.passage,
-          item.emphasis,
-          lang,
-          bible,
-          seriesCtx,
-          (text) => setContent(text)
+          step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
+          (text) => setContent(text), activeItems, userKeyword
         ).then(async (full) => {
-          await saveSermonStep(item.id, stepIndex, full)
-          onSaved?.()
+          await saveSermonStep(item.id, currentStep, full)
+          setStepContents(prev => ({ ...prev, [currentStep]: full }))
         })
       } else if (tab === 'worship') {
         await generateWorshipStep(
-          step.key,
-          item.date,
-          item.season,
-          item.lectionary,
-          lang,
-          bible,
-          (text) => setContent(text)
+          step.key, item.date, item.season, item.lectionary, lang, bible,
+          (text) => setContent(text), activeItems, userKeyword
         ).then(async (full) => {
-          await saveWorshipStep(item.id, stepIndex, full)
-          onSaved?.()
+          await saveWorshipStep(item.id, currentStep, full)
+          setStepContents(prev => ({ ...prev, [currentStep]: full }))
         })
       } else {
         const seriesCtx = await getSeriesContext('dawn', item.category, item.id)
         await generateDawnStep(
-          step.key,
-          item.passage,
-          item.emphasis,
-          lang,
-          bible,
-          seriesCtx,
-          (text) => setContent(text)
+          step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
+          (text) => setContent(text), activeItems, userKeyword
         ).then(async (full) => {
-          await saveDawnStep(item.id, stepIndex, full)
-          onSaved?.()
+          await saveDawnStep(item.id, currentStep, full)
+          setStepContents(prev => ({ ...prev, [currentStep]: full }))
         })
       }
     } catch (e) {
@@ -97,120 +135,245 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
   function applyToSermon() {
     if (!content) return
     const separator = draft.trim() ? '\n\n' : ''
-    const newDraft = draft + separator + content
-    handleDraftChange(newDraft)
+    handleDraftChange(draft + separator + content)
+  }
+
+  async function handleSaveItem(formData) {
+    await onSaveItem?.(formData)
+    await onItemUpdate?.()
+    setInfoOpen(false)
   }
 
   if (!step) return null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* 헤더 */}
+
+      {/* 단계 탭 + 기본정보 버튼 한 줄 */}
       <div style={{
-        padding: '12px 20px',
-        borderBottom: '1px solid var(--border)',
         display: 'flex',
-        alignItems: 'center',
-        gap: 10,
+        borderBottom: '1px solid var(--border)',
         flexShrink: 0,
+        background: 'var(--bg-sidebar)',
+        alignItems: 'center',
       }}>
+        {/* 단계 탭 - 가로 스크롤 */}
         <div style={{
-          width: 26,
-          height: 26,
-          borderRadius: '50%',
-          background: 'var(--accent)',
-          color: '#fff',
-          fontSize: 12,
-          fontWeight: 700,
           display: 'flex',
+          overflowX: 'auto',
+          flex: 1,
+          padding: '10px 16px',
+          gap: 0,
+          scrollbarWidth: 'none',
           alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
         }}>
-          {stepIndex + 1}
+          {steps.map((s, idx) => {
+            const isActive = s.index === currentStep
+            return (
+              <Fragment key={s.index}>
+                <div
+                  onClick={() => setCurrentStep(s.index)}
+                  style={{
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    background: isActive ? 'var(--accent)' : 'var(--accent-light)',
+                    color: isActive ? '#fff' : 'var(--accent)',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {s.index + 1}
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap' }}>
+                    {s.label.ko}
+                    {s.label.en !== s.label.ko && (
+                      <span style={{ fontSize: 13, fontWeight: 400, color: isActive ? 'var(--accent)' : 'var(--text-muted)', marginLeft: 6, opacity: 0.8 }}>
+                        {s.label.en}
+                      </span>
+                    )}
+                  </span>
+                  {stepContents[s.index] && (
+                    <span style={{ fontSize: 7, color: 'var(--accent)', lineHeight: 1, opacity: 0.7 }}>●</span>
+                  )}
+                </div>
+                {idx < steps.length - 1 && (
+                  <span style={{ fontSize: 18, color: 'var(--text-muted)', flexShrink: 0, opacity: 0.4, padding: '0 2px' }}>›</span>
+                )}
+              </Fragment>
+            )
+          })}
         </div>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-heading)' }}>
-          {step.label.ko}
-          {step.label.en !== step.label.ko && (
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8, fontWeight: 400 }}>
-              {step.label.en}
-            </span>
-          )}
-        </h2>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={generate}
-          disabled={loading}
-          style={{
-            background: loading ? 'var(--border)' : 'var(--accent)',
-            color: loading ? 'var(--text-muted)' : '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '6px 14px',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: loading ? 'default' : 'pointer',
-          }}
-        >
-          {loading
-            ? (lang === 'ko' ? '생성 중...' : 'Generating...')
-            : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
-        </button>
+
+        {/* 기본정보 버튼 - 우측 고정 */}
+        <div style={{ flexShrink: 0, padding: '0 14px', borderLeft: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setInfoOpen(v => !v)}
+            style={{
+              background: infoOpen ? 'var(--accent)' : 'transparent',
+              color: infoOpen ? '#fff' : 'var(--text-muted)',
+              border: '1px solid ' + (infoOpen ? 'var(--accent)' : 'var(--border)'),
+              borderRadius: 6,
+              padding: '4px 10px',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            기본정보 {infoOpen ? '▲' : '▼'}
+          </button>
+        </div>
       </div>
 
-      {/* 본문: 좌우 분할 */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* 기본정보 폼 */}
+      {infoOpen && (
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-sidebar)', flexShrink: 0, overflowY: 'auto', maxHeight: '40vh' }}>
+          {tab === 'sermon'
+            ? <SermonForm sermon={item} onSave={handleSaveItem} lang={lang} />
+            : tab === 'worship'
+            ? <WorshipForm worship={item} onSave={handleSaveItem} lang={lang} />
+            : <DawnForm dawn={item} onSave={handleSaveItem} lang={lang} />}
+        </div>
+      )}
 
-        {/* 왼쪽: 단계 내용 */}
+
+      {/* 본문 영역 */}
+      <div ref={splitContainerRef} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* 좌: AI 생성 내용 */}
         <div style={{
-          flex: 1,
+          width: tab === 'sermon' ? `${leftPct}%` : '100%',
+          flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          borderRight: tab === 'sermon' ? '1px solid var(--border)' : 'none',
         }}>
+
+          {/* 왼쪽 에디터 상단 - 지시 항목 + AI 생성 버튼 */}
+          <div style={{
+            height: 46,
+            padding: '0 16px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
+          }}>
+            {hasItems && (
+              <button
+                onClick={() => setInstructionsOpen(v => !v)}
+                style={{
+                  background: instructionsOpen ? 'var(--accent)' : 'transparent',
+                  color: instructionsOpen ? '#fff' : 'var(--text-muted)',
+                  border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)'),
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                지시 항목 {selectedItems.length}/{currentItems.length}
+              </button>
+            )}
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={generate}
+              disabled={loading}
+              style={{
+                background: loading ? 'var(--border)' : 'var(--accent)',
+                color: loading ? 'var(--text-muted)' : '#fff',
+                border: 'none',
+                borderRadius: 6,
+                padding: '5px 14px',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: loading ? 'default' : 'pointer',
+              }}
+            >
+              {loading
+                ? (lang === 'ko' ? '생성 중...' : 'Generating...')
+                : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
+            </button>
+          </div>
+
+          {/* 지시 항목 패널 */}
+          {instructionsOpen && hasItems && (
+            <div style={{
+              borderBottom: '1px solid var(--border)',
+              padding: '10px 16px',
+              background: 'var(--bg-sidebar)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {currentItems.map(ci => (
+                  <label key={ci.key} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.includes(ci.key)}
+                      onChange={() => toggleItem(ci.key)}
+                      style={{ accentColor: 'var(--accent)', cursor: 'pointer', width: 14, height: 14 }}
+                    />
+                    {ci.label}
+                  </label>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={userKeyword}
+                onChange={e => setUserKeyword(e.target.value)}
+                placeholder="추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)"
+                style={{
+                  width: '100%',
+                  fontSize: 13,
+                  padding: '6px 10px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          )}
+
           <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
             {error && (
-              <div style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: 8,
-                padding: '12px 16px',
-                color: '#dc2626',
-                fontSize: 13,
-                marginBottom: 16,
-              }}>
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
                 {error}
               </div>
             )}
             {content ? (
-              <div style={{
-                lineHeight: 1.8,
-                color: 'var(--text)',
-                fontSize: 14,
-                whiteSpace: 'pre-wrap',
-              }}>
+              <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize: 14, whiteSpace: 'pre-wrap' }}>
                 {content}
               </div>
             ) : !loading && (
-              <div style={{
-                color: 'var(--text-muted)',
-                fontSize: 13,
-                textAlign: 'center',
-                marginTop: 60,
-              }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
                 {lang === 'ko' ? 'AI 생성 버튼을 눌러 내용을 생성하세요' : 'Click Generate to create content'}
               </div>
             )}
           </div>
 
-          {/* 설교문에 반영 버튼 (설교 탭만) */}
           {tab === 'sermon' && content && !loading && (
-            <div style={{
-              padding: '12px 24px',
-              borderTop: '1px solid var(--border)',
-              flexShrink: 0,
-            }}>
+            <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
               <button
                 onClick={applyToSermon}
                 style={{
@@ -231,24 +394,26 @@ export default function StepView({ tab, item, stepIndex, savedContent, lang, bib
           )}
         </div>
 
-        {/* 오른쪽: 설교문 초안 (설교 탭만) */}
+        {/* 드래그 핸들 (설교 탭만) */}
         {tab === 'sermon' && (
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              padding: '10px 20px',
-              borderBottom: '1px solid var(--border)',
-              fontSize: 11,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--text-muted)',
+          <div
+            onPointerDown={startSplitDrag}
+            style={{
+              width: 5,
               flexShrink: 0,
-            }}>
+              background: 'var(--border)',
+              cursor: 'col-resize',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--border)'}
+          />
+        )}
+
+        {/* 우: 설교문 초안 (설교 탭만) */}
+        {tab === 'sermon' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ height: 46, padding: '0 20px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               {lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}
             </div>
             <textarea

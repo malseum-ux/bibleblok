@@ -24,6 +24,7 @@ export default function Sidebar({
   tab, items, folders, selectedId, selectedFolderId,
   onSelect, onDelete, steps,
   onCreateFolder, onDeleteFolder, onMoveItem, onMoveFolder, onFolderSelect,
+  width = 240,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -154,7 +155,6 @@ export default function Sidebar({
 
   function renderFileItem(item, depth = 0) {
     const isItemSelected = selectedId?.id === item.id && selectedId?.step == null
-    const isExpanded = expandedIds.has(item.id)
     const isMoving = movingItemId === item.id
     const isDraggingThis = dragDisplay && dragRef.current.type === 'file' && dragRef.current.id === item.id
 
@@ -173,17 +173,8 @@ export default function Sidebar({
             gap: 4,
             userSelect: 'none',
           }}
-          onClick={() => { toggleExpand(item.id); onSelect({ id: item.id, step: null }) }}
+          onClick={() => onSelect({ id: item.id, step: null })}
         >
-          <span style={{
-            fontSize: 8,
-            color: 'var(--text-muted)',
-            transform: isExpanded ? 'rotate(90deg)' : 'none',
-            display: 'inline-block',
-            transition: 'transform 0.15s',
-            flexShrink: 0,
-            opacity: 0.6,
-          }}>▶</span>
           <span style={{
             flex: 1,
             minWidth: 0,
@@ -230,31 +221,6 @@ export default function Sidebar({
                 {f.name}
               </button>
             ))}
-          </div>
-        )}
-
-        {isExpanded && (
-          <div style={{ paddingLeft: 10 + depth * 14 + 10 }}>
-            {steps.map(step => {
-              const isStepSelected = selectedId?.id === item.id && selectedId?.step === step.index
-              return (
-                <div
-                  key={step.index}
-                  onClick={() => onSelect({ id: item.id, step: step.index })}
-                  style={{
-                    padding: '3px 8px',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    color: isStepSelected ? 'var(--accent)' : 'var(--text-muted)',
-                    background: isStepSelected ? 'var(--accent-light)' : 'transparent',
-                    borderLeft: isStepSelected ? '2px solid var(--accent)' : '2px solid transparent',
-                    fontWeight: isStepSelected ? 500 : 400,
-                  }}
-                >
-                  {step.index + 1}. {step.label.ko}
-                </div>
-              )
-            })}
           </div>
         )}
       </div>
@@ -346,8 +312,8 @@ export default function Sidebar({
 
   return (
     <aside style={{
-      width: 240,
-      minWidth: 200,
+      width: width,
+      minWidth: 140,
       background: 'var(--bg-sidebar)',
       borderRight: '1px solid var(--border)',
       display: 'flex',

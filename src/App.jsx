@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
-  createSermon, getSermons, updateSermon, deleteSermon, getSermonSteps,
-  createWorship, getWorships, updateWorship, deleteWorship, getWorshipSteps,
-  createDawn, getDawns, updateDawn, deleteDawn, getDawnSteps,
+  createSermon, getSermons, updateSermon, deleteSermon,
+  createWorship, getWorships, updateWorship, deleteWorship,
+  createDawn, getDawns, updateDawn, deleteDawn,
   getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
@@ -22,8 +22,8 @@ export default function App() {
   const [folders, setFolders] = useState([])
   const [selected, setSelected] = useState(null)
   const [selectedFolder, setSelectedFolder] = useState(null)
-  const [stepContents, setStepContents] = useState({})
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [sidebarWidth, setSidebarWidth] = useState(240)
 
   const lang = settings.lang
 
@@ -41,10 +41,6 @@ export default function App() {
     loadFolders()
     setSelectedFolder(null)
   }, [tab])
-
-  useEffect(() => {
-    if (selected) loadStepContents()
-  }, [selected])
 
   async function loadSermons() {
     setSermons(await getSermons())
@@ -99,18 +95,6 @@ export default function App() {
     setSelectedFolder(folder)
     setSelected(null)
     setStepContents({})
-  }
-
-  async function loadStepContents() {
-    if (!selected?.id) return
-    const steps = tab === 'sermon'
-      ? await getSermonSteps(selected.id)
-      : tab === 'worship'
-      ? await getWorshipSteps(selected.id)
-      : await getDawnSteps(selected.id)
-    const map = {}
-    steps.forEach(s => { map[s.stepIndex] = s.content })
-    setStepContents(map)
   }
 
   const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
@@ -192,7 +176,7 @@ export default function App() {
         </span>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <div style={{ display: 'flex', gap: 2 }}>
-          {[['sermon', '설교'], ['worship', '예배'], ['dawn', '새벽']].map(([t, label]) => (
+          {[['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교']].map(([t, label]) => (
             <button
               key={t}
               onClick={() => switchTab(t)}
@@ -251,7 +235,7 @@ export default function App() {
             folders={folders}
             selectedId={selected}
             selectedFolderId={selectedFolder?.id}
-            onSelect={setSelected}
+            onSelect={(sel) => setSelected({ id: sel.id, step: 0 })}
             onDelete={handleDelete}
             steps={steps}
             onCreateFolder={handleCreateFolder}
@@ -259,12 +243,31 @@ export default function App() {
             onMoveItem={handleMoveItem}
             onMoveFolder={handleMoveFolder}
             onFolderSelect={handleFolderSelect}
+            width={sidebarWidth}
           />
         )}
 
         <div
-          onClick={() => setSidebarVisible(v => !v)}
-          title={sidebarVisible ? '사이드바 감추기' : '사이드바 보이기'}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
+            const startX = e.clientX
+            const startW = sidebarWidth
+            let moved = false
+            const onMove = (me) => {
+              if (Math.abs(me.clientX - startX) > 4) moved = true
+              if (!moved) return
+              const newW = Math.min(Math.max(startW + (me.clientX - startX), 140), 520)
+              setSidebarWidth(newW)
+              if (!sidebarVisible) setSidebarVisible(true)
+            }
+            const onUp = () => {
+              document.removeEventListener('pointermove', onMove)
+              if (!moved) setSidebarVisible(v => !v)
+            }
+            document.addEventListener('pointermove', onMove)
+            document.addEventListener('pointerup', onUp, { once: true })
+          }}
+          title={sidebarVisible ? '사이드바 감추기 (드래그로 너비 조절)' : '사이드바 보이기'}
           style={{
             width: 12,
             flexShrink: 0,
@@ -274,7 +277,8 @@ export default function App() {
             display: 'flex',
             alignItems: 'flex-start',
             paddingTop: '28vh',
-            cursor: 'pointer',
+            cursor: sidebarVisible ? 'col-resize' : 'pointer',
+            userSelect: 'none',
           }}
         >
           <span style={{
@@ -301,28 +305,16 @@ export default function App() {
             </div>
           )}
 
-          {selected && selected.step == null && selectedItem && (
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <ItemDetail
-                tab={tab}
-                item={selectedItem}
-                onSave={handleSave}
-                lang={lang}
-              />
-            </div>
-          )}
-
-          {selected && selected.step != null && selectedItem && (
+          {selected?.id && selectedItem && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <StepView
-                key={`${selected.id}-${selected.step}`}
+                key={selected.id}
                 tab={tab}
                 item={selectedItem}
-                stepIndex={selected.step}
-                savedContent={stepContents[selected.step]}
                 lang={lang}
                 bible={settings.bible}
-                onSaved={loadStepContents}
+                onSaveItem={handleSave}
+                onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
               />
             </div>
           )}
