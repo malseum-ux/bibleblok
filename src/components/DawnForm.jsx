@@ -22,10 +22,10 @@ const labelStyle = {
   letterSpacing: '0.05em',
 }
 
-export default function DawnForm({ dawn, onSave, lang }) {
+export default function DawnForm({ dawn, onSave, lang, defaultCategory }) {
   const [form, setForm] = useState({
     date: dawn?.date || new Date().toISOString().slice(0, 10),
-    category: dawn?.category || '',
+    category: dawn?.category || defaultCategory || '',
     title: dawn?.title || '',
     passage: dawn?.passage || '',
     emphasis: dawn?.emphasis || '',

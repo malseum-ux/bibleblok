@@ -18,6 +18,16 @@ db.version(2).stores({
   dawnSteps: '++id, [dawnId+stepIndex], dawnId',
 })
 
+db.version(3).stores({
+  sermons: '++id, date, category, title, passage, emphasis, createdAt',
+  sermonSteps: '++id, [sermonId+stepIndex], sermonId',
+  worships: '++id, date, season, createdAt',
+  worshipSteps: '++id, [worshipId+stepIndex], worshipId',
+  dawns: '++id, date, createdAt',
+  dawnSteps: '++id, [dawnId+stepIndex], dawnId',
+  folders: '++id, tab',
+})
+
 // Sermons
 export async function createSermon(data) {
   const id = await db.sermons.add({ ...data, createdAt: Date.now() })
@@ -121,6 +131,36 @@ export async function saveDawnStep(dawnId, stepIndex, content) {
   } else {
     await db.dawnSteps.add({ dawnId, stepIndex, content })
   }
+}
+
+// Folders
+export async function getFolders(tab) {
+  return db.folders.where('tab').equals(tab).toArray()
+}
+
+export async function createFolder(tab, name) {
+  return db.folders.add({ tab, name, createdAt: Date.now() })
+}
+
+export async function deleteFolder(id) {
+  const all = [
+    ...(await db.sermons.toArray()),
+    ...(await db.worships.toArray()),
+    ...(await db.dawns.toArray()),
+  ]
+  for (const item of all.filter(i => i.folderId === id)) {
+    const table = item.season !== undefined ? db.worships
+      : item.passage !== undefined && item.category !== undefined ? db.sermons
+      : db.dawns
+    await table.update(item.id, { folderId: null })
+  }
+  await db.folders.delete(id)
+}
+
+export async function moveItemToFolder(tab, itemId, folderId) {
+  if (tab === 'sermon') return db.sermons.update(itemId, { folderId })
+  if (tab === 'worship') return db.worships.update(itemId, { folderId })
+  return db.dawns.update(itemId, { folderId })
 }
 
 // 강해 시리즈 컨텍스트 조회

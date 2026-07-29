@@ -22,10 +22,10 @@ const labelStyle = {
   letterSpacing: '0.05em',
 }
 
-export default function SermonForm({ sermon, onSave, lang }) {
+export default function SermonForm({ sermon, onSave, lang, defaultCategory }) {
   const [form, setForm] = useState({
     date: sermon?.date || new Date().toISOString().slice(0, 10),
-    category: sermon?.category || '',
+    category: sermon?.category || defaultCategory || '',
     title: sermon?.title || '',
     passage: sermon?.passage || '',
     emphasis: sermon?.emphasis || '',

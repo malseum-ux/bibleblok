@@ -4,6 +4,7 @@ import {
   createSermon, getSermons, updateSermon, deleteSermon, getSermonSteps,
   createWorship, getWorships, updateWorship, deleteWorship, getWorshipSteps,
   createDawn, getDawns, updateDawn, deleteDawn, getDawnSteps,
+  getFolders, createFolder, deleteFolder, moveItemToFolder,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
 import Sidebar from './components/Sidebar'
@@ -18,7 +19,9 @@ export default function App() {
   const [sermons, setSermons] = useState([])
   const [worships, setWorships] = useState([])
   const [dawns, setDawns] = useState([])
+  const [folders, setFolders] = useState([])
   const [selected, setSelected] = useState(null)
+  const [selectedFolder, setSelectedFolder] = useState(null)
   const [stepContents, setStepContents] = useState({})
 
   const lang = settings.lang
@@ -34,6 +37,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    loadFolders()
+    setSelectedFolder(null)
+  }, [tab])
+
+  useEffect(() => {
     if (selected) loadStepContents()
   }, [selected])
 
@@ -47,6 +55,34 @@ export default function App() {
 
   async function loadDawns() {
     setDawns(await getDawns())
+  }
+
+  async function loadFolders() {
+    setFolders(await getFolders(tab))
+  }
+
+  async function handleCreateFolder(name) {
+    await createFolder(tab, name)
+    await loadFolders()
+  }
+
+  async function handleDeleteFolder(id) {
+    if (!confirm('폴더를 삭제하시겠습니까? 파일은 폴더 없음으로 이동됩니다.')) return
+    await deleteFolder(id)
+    await loadFolders()
+    if (selectedFolder?.id === id) setSelectedFolder(null)
+    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : await loadDawns()
+  }
+
+  async function handleMoveItem(itemId, folderId) {
+    await moveItemToFolder(tab, itemId, folderId)
+    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : await loadDawns()
+  }
+
+  function handleFolderSelect(folder) {
+    setSelectedFolder(folder)
+    setSelected(null)
+    setStepContents({})
   }
 
   async function loadStepContents() {
@@ -66,16 +102,17 @@ export default function App() {
   const selectedItem = items.find(i => i.id === selected?.id)
 
   async function handleCreateNew(formData) {
+    const data = { ...formData, folderId: selectedFolder?.id || null }
     if (tab === 'sermon') {
-      const id = await createSermon(formData)
+      const id = await createSermon(data)
       await loadSermons()
       setSelected({ id, step: null })
     } else if (tab === 'worship') {
-      const id = await createWorship(formData)
+      const id = await createWorship(data)
       await loadWorships()
       setSelected({ id, step: null })
     } else {
-      const id = await createDawn(formData)
+      const id = await createDawn(data)
       await loadDawns()
       setSelected({ id, step: null })
     }
@@ -113,6 +150,7 @@ export default function App() {
   function switchTab(t) {
     setTab(t)
     setSelected(null)
+    setSelectedFolder(null)
     setStepContents({})
   }
 
@@ -193,20 +231,28 @@ export default function App() {
         <Sidebar
           tab={tab}
           items={items}
+          folders={folders}
           selectedId={selected}
+          selectedFolderId={selectedFolder?.id}
           onSelect={setSelected}
           onDelete={handleDelete}
           steps={steps}
+          onCreateFolder={handleCreateFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onMoveItem={handleMoveItem}
+          onFolderSelect={handleFolderSelect}
         />
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
           {!selected && (
             <div style={{ flex: 1, overflow: 'auto' }}>
               <ItemDetail
+                key={`new-${tab}-${selectedFolder?.id ?? 'root'}`}
                 tab={tab}
                 item={null}
                 onSave={handleCreateNew}
                 lang={lang}
+                defaultCategory={selectedFolder?.name}
               />
             </div>
           )}

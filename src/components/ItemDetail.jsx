@@ -3,7 +3,7 @@ import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
 
-export default function ItemDetail({ tab, item, onSave, lang }) {
+export default function ItemDetail({ tab, item, onSave, lang, defaultCategory }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const isNew = !item
@@ -26,10 +26,10 @@ export default function ItemDetail({ tab, item, onSave, lang }) {
         {title}
       </h2>
       {tab === 'sermon'
-        ? <SermonForm sermon={item} onSave={onSave} lang={lang} />
+        ? <SermonForm sermon={item} onSave={onSave} lang={lang} defaultCategory={defaultCategory} />
         : tab === 'worship'
         ? <WorshipForm worship={item} onSave={onSave} lang={lang} />
-        : <DawnForm dawn={item} onSave={onSave} lang={lang} />}
+        : <DawnForm dawn={item} onSave={onSave} lang={lang} defaultCategory={defaultCategory} />}
 
       {!isNew && (
         <div style={{ marginTop: 32 }}>
