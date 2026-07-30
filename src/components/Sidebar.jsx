@@ -263,7 +263,6 @@ export default function Sidebar({
             gap: 4,
             userSelect: 'none',
           }}
-          onClick={() => { toggleExpand(`folder-${node.id}`); onFolderSelect(node) }}
         >
           <span style={{
             fontSize: 8,
