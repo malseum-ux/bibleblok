@@ -142,13 +142,12 @@ function getSeasonColor(season) {
   return map[season] || null
 }
 
-// 성서정과 Claude API 조회
+// 성서정과 AI 조회
 async function fetchLectionary(date, season, lang, bible) {
-  const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+  const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || ''
   if (!API_KEY) throw new Error('API_KEY_MISSING')
 
   const year = new Date(date).getFullYear()
-  // RCL 주기 계산: A=2022,2025,2028... B=2023,2026... C=2024,2027...
   const cycle = ['A', 'B', 'C'][(year - 2022) % 3] || 'A'
 
   const prompt = `개정 공동 성구집(RCL) ${cycle}년 주기를 기준으로, ${date} (${season || '일반 주일'})의 성서정과 본문을 알려주세요.
@@ -156,23 +155,21 @@ async function fetchLectionary(date, season, lang, bible) {
 예시 형식: 사 40:1-11 | 시 85:1-2, 8-13 | 막 1:1-8 | 빌 1:3-11
 번역본: ${bible || '개역개정성경'}`
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/openrouter/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${API_KEY}`,
       'content-type': 'application/json',
-      'anthropic-dangerous-allow-browser': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'anthropic/claude-sonnet-4-6',
       max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
   if (!response.ok) throw new Error('API error')
   const data = await response.json()
-  return data.content?.[0]?.text?.trim() || ''
+  return data.choices?.[0]?.message?.content?.trim() || ''
 }
 
 export default function WorshipForm({ worship, onSave, lang }) {
