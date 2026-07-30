@@ -416,7 +416,7 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   const prompt = SERMON_STEP_PROMPTS_WITH_EMPHASIS[stepKey]?.(passage, emphasis, lang, bible, selectedItems)
   let fullPrompt = seriesCtx
-    ? prompt + `\n\n${seriesCtx}\n이 시리즈의 흐름을 이어가도록 작성해 주세요.`
+    ? prompt + `\n\n${seriesCtx}\n\n[강해설교 연속성 지침]\n- 위 이전 설교들의 본문 흐름과 신학적 주제를 반드시 파악하세요.\n- 이번 본문이 시리즈 전체에서 어떤 위치에 있는지 의식하며 작성하세요.\n- 이전 설교에서 다룬 내용을 반복하지 말고, 자연스럽게 그 위에 쌓아가세요.\n- 회중이 앞 설교의 흐름을 기억하며 이번 말씀을 들을 수 있도록 연결 고리를 살려 주세요.`
     : prompt
   if (userKeyword) fullPrompt += `\n\n[사용자 추가 키워드/지시]: ${userKeyword}`
   return streamCompletion(fullPrompt, onChunk)
