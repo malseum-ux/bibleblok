@@ -59,24 +59,27 @@ export default function SermonForm({ sermon, onSave, lang, defaultCategory }) {
       </div>
       <div>
         <label style={labelStyle}>{lang === 'ko' ? '키워드' : 'Keywords'}</label>
-        <input type="text" style={inputStyle} placeholder={lang === 'ko' ? '강조할 단어나 문구 (선택)' : 'Word or phrase to emphasize (optional)'} value={form.emphasis} onChange={e => set('emphasis', e.target.value)} />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input type="text" style={{ ...inputStyle, flex: 1 }} placeholder={lang === 'ko' ? '강조할 단어나 문구 (선택)' : 'Word or phrase to emphasize (optional)'} value={form.emphasis} onChange={e => set('emphasis', e.target.value)} />
+          <button
+            onClick={() => onSave(form)}
+            style={{
+              flexShrink: 0,
+              background: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '0 20px',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {lang === 'ko' ? '저장' : 'Save'}
+          </button>
+        </div>
       </div>
-      <button
-        onClick={() => onSave(form)}
-        style={{
-          background: 'var(--accent)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          padding: '9px 20px',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          alignSelf: 'flex-end',
-        }}
-      >
-        {lang === 'ko' ? '저장' : 'Save'}
-      </button>
     </div>
   )
 }
