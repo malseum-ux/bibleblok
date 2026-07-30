@@ -30,6 +30,7 @@ export default function App() {
   const [searchMode, setSearchMode] = useState('sermon-title')
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14 })
 
   const lang = settings.lang
 
@@ -324,6 +325,25 @@ export default function App() {
           </svg>
         </button>
 
+        {/* 글자 크기 조절 */}
+        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 32 }}>
+          <button
+            onClick={() => setFontSizes(prev => ({ ...prev, [tab]: Math.max(11, prev[tab] - 1) }))}
+            style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1 }}
+          >
+            ↓
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 22, textAlign: 'center', userSelect: 'none' }}>
+            {fontSizes[tab]}
+          </span>
+          <button
+            onClick={() => setFontSizes(prev => ({ ...prev, [tab]: Math.min(22, prev[tab] + 1) }))}
+            style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1 }}
+          >
+            ↑
+          </button>
+        </div>
+
         <button
           onClick={() => setSettingsOpen(true)}
           title={lang === 'ko' ? '설정' : 'Settings'}
@@ -443,6 +463,7 @@ export default function App() {
                 item={selectedItem}
                 lang={lang}
                 bible={settings.bible}
+                fontSize={fontSizes[tab]}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
               />

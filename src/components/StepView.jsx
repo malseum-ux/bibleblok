@@ -100,7 +100,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
-export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpdate }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 14, onSaveItem, onItemUpdate }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -609,7 +609,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                 outline: 'none',
                 resize: 'none',
                 padding: '20px 24px',
-                fontSize: 14,
+                fontSize,
                 lineHeight: 1.8,
                 background: 'var(--bg)',
                 color: 'var(--text)',
@@ -630,7 +630,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                     const sel = window.getSelection()?.toString().trim()
                     lastSelectionRef.current = sel || ''
                   }}
-                  style={{ lineHeight: 1.8, color: 'var(--text)', fontSize: 14, whiteSpace: 'pre-wrap' }}
+                  style={{ lineHeight: 1.8, color: 'var(--text)', fontSize, whiteSpace: 'pre-wrap' }}
                 >
                   {content}
                 </div>
@@ -750,7 +750,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                 outline: 'none',
                 resize: 'none',
                 padding: '20px 24px',
-                fontSize: 14,
+                fontSize,
                 lineHeight: 1.9,
                 background: 'var(--bg)',
                 color: 'var(--text)',
