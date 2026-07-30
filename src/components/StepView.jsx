@@ -110,6 +110,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const [editing, setEditing] = useState(false)
   const [refining, setRefining] = useState(false)
   const [draftSaved, setDraftSaved] = useState(false)
+  const [resultCopied, setResultCopied] = useState(false)
+  const [draftCopied, setDraftCopied] = useState(false)
   const resultHistory = useTextHistory('', null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -514,6 +516,26 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                         </button>
                       )}
                       <div style={{ flex: 1 }} />
+                      {content && !loading && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(editing ? resultHistory.text : content)
+                            setResultCopied(true)
+                            setTimeout(() => setResultCopied(false), 1500)
+                          }}
+                          style={{
+                            background: resultCopied ? 'var(--accent)' : 'transparent',
+                            color: resultCopied ? '#fff' : 'var(--text-muted)',
+                            border: '1px solid ' + (resultCopied ? 'var(--accent)' : 'var(--border)'),
+                            borderRadius: 6,
+                            padding: '5px 10px',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                        >{resultCopied ? '복사됨' : '복사'}</button>
+                      )}
                       {tab !== 'sermon' && content && !loading && (
                         <button
                           onClick={startEdit}
@@ -699,6 +721,29 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
             }}>
               <span>{lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}</span>
               <div style={{ flex: 1 }} />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(draftHistory.text)
+                  setDraftCopied(true)
+                  setTimeout(() => setDraftCopied(false), 1500)
+                }}
+                disabled={!draftHistory.text.trim()}
+                style={{
+                  background: draftCopied ? 'var(--accent)' : 'transparent',
+                  color: draftCopied ? '#fff' : 'var(--text-muted)',
+                  border: '1px solid ' + (draftCopied ? 'var(--accent)' : 'var(--border)'),
+                  borderRadius: 5,
+                  padding: '2px 9px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: draftHistory.text.trim() ? 'pointer' : 'default',
+                  opacity: !draftHistory.text.trim() ? 0.4 : 1,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {draftCopied ? '복사됨' : '복사'}
+              </button>
               <button
                 onClick={saveDraftNow}
                 style={{
