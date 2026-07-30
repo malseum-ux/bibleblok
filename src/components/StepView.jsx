@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipCombined, generateDawnCombined, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext } from '../db'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
@@ -92,7 +92,12 @@ function useTextHistory(initialValue, resetKey) {
     }
   }
 
-  return { text, onChange, reset, undo, redo, canUndo, canRedo }
+  function forceSnapshot() {
+    clearTimeout(timer.current)
+    pushSnapshot(textRef.current)
+  }
+
+  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
 export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpdate }) {
@@ -103,6 +108,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   const [content, setContent] = useState('')
   const draftHistory = useTextHistory(item?.draft || '', item?.id)
   const [editing, setEditing] = useState(false)
+  const [refining, setRefining] = useState(false)
   const resultHistory = useTextHistory('', null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -114,6 +120,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   const [leftPct, setLeftPct] = useState(50)
   const draftTimer = useRef(null)
   const splitContainerRef = useRef(null)
+  const lastSelectionRef = useRef('')
 
   const step = steps[currentStep] || steps[0]
   const stepItemsDefs = tab === 'sermon' ? SERMON_STEP_ITEMS : tab === 'worship' ? WORSHIP_STEP_ITEMS : DAWN_STEP_ITEMS
@@ -244,8 +251,28 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
 
   function applyToSermon() {
     if (!content) return
+    // 결과창에서 드래그 선택된 텍스트가 있으면 그것만, 없으면 전체
+    const textToAdd = lastSelectionRef.current || content
+    lastSelectionRef.current = ''
     const separator = draftHistory.text.trim() ? '\n\n' : ''
-    handleDraftChange(draftHistory.text + separator + content)
+    handleDraftChange(draftHistory.text + separator + textToAdd)
+  }
+
+  async function refineSermonDraft() {
+    if (!draftHistory.text.trim() || refining || loading) return
+    const currentDraft = draftHistory.text
+    draftHistory.forceSnapshot()  // 다듬기 전 상태를 히스토리에 저장 (언두 가능)
+    setRefining(true)
+    try {
+      const refined = await refineDraft(currentDraft, lang, bible, (text) => {
+        draftHistory.onChange(text)  // 스트리밍 중 실시간 반영
+      })
+      handleDraftChange(refined)  // DB 저장
+    } catch (e) {
+      handleDraftChange(currentDraft)  // 오류 시 원래 내용 복원
+    } finally {
+      setRefining(false)
+    }
   }
 
   async function handleSaveItem(formData) {
@@ -589,7 +616,13 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                 </div>
               )}
               {content ? (
-                <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize: 14, whiteSpace: 'pre-wrap' }}>
+                <div
+                  onMouseUp={() => {
+                    const sel = window.getSelection()?.toString().trim()
+                    lastSelectionRef.current = sel || ''
+                  }}
+                  style={{ lineHeight: 1.8, color: 'var(--text)', fontSize: 14, whiteSpace: 'pre-wrap' }}
+                >
                   {content}
                 </div>
               ) : !loading && (
@@ -657,12 +690,31 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
             }}>
               <span>{lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}</span>
               <div style={{ flex: 1 }} />
+              <button
+                onClick={refineSermonDraft}
+                disabled={refining || loading || !draftHistory.text.trim()}
+                style={{
+                  background: refining ? 'var(--border)' : 'var(--accent-light)',
+                  color: refining ? 'var(--text-muted)' : 'var(--accent)',
+                  border: '1px solid ' + (refining ? 'var(--border)' : 'var(--accent)'),
+                  borderRadius: 5,
+                  padding: '2px 9px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: (refining || loading || !draftHistory.text.trim()) ? 'default' : 'pointer',
+                  opacity: !draftHistory.text.trim() ? 0.4 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {refining ? (lang === 'ko' ? '다듬는 중...' : 'Refining...') : (lang === 'ko' ? 'AI 다듬기' : 'AI Refine')}
+              </button>
               <button onClick={draftHistory.undo} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
               <button onClick={draftHistory.redo} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
             <textarea
               value={draftHistory.text}
               onChange={e => handleDraftChange(e.target.value)}
+              disabled={refining}
               placeholder={lang === 'ko'
                 ? '왼쪽 단계 내용을 참고하여 설교문을 작성하세요.\n\n"설교문에 반영" 버튼으로 단계 내용을 가져올 수 있습니다.'
                 : 'Write your sermon here.\n\nUse "Add to Sermon" to bring in step content.'}

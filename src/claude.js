@@ -519,6 +519,42 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   return streamCompletion(prompt, onChunk)
 }
 
+export async function refineDraft(draft, lang, bible, onChunk) {
+  if (!API_KEY) throw new Error('API_KEY_MISSING')
+  const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
+  const prompt = lang === 'en'
+    ? `You are a sermon writing expert.
+
+Below is a sermon draft assembled from multiple research stages. Please refine it into a single, naturally flowing sermon.
+
+[Principles]
+- Preserve the original order and core content
+- Connect paragraph transitions naturally
+- Remove duplicate expressions (keep only once)
+- Do not add or delete content arbitrarily
+- Ensure it reads as a coherent, well-structured sermon
+[Bible version]: ${bibleRef}
+
+[Sermon draft]
+${draft}`
+    : `당신은 설교 작성 전문가입니다.
+
+아래는 여러 단계에서 작성된 설교 초안입니다. 이 내용을 자연스럽고 유기적으로 흐르는 하나의 설교문으로 다듬어 주세요.
+
+[다듬기 원칙]
+- 원래 내용의 순서와 핵심을 최대한 유지할 것
+- 단락 간 전환을 자연스럽게 연결할 것
+- 중복되는 표현은 한 번만 남길 것
+- 임의로 내용을 추가하거나 삭제하지 말 것
+- 설교문으로서의 언어 흐름을 갖출 것
+[사용 성경]: ${bibleRef}
+
+[설교 초안]
+${draft}`
+
+  return streamCompletion(prompt, onChunk)
+}
+
 async function streamCompletion(prompt, onChunk) {
   const response = await fetch('/api/openrouter/api/v1/chat/completions', {
     method: 'POST',
