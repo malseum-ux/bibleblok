@@ -270,25 +270,26 @@ export default function WorshipForm({ worship, onSave, lang }) {
           >
             {loadingLectionary ? '조회 중...' : 'AI 조회'}
           </button>
+          <div style={{ width: 32 }} />
+          <button
+            onClick={() => onSave(form)}
+            style={{
+              flexShrink: 0,
+              background: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '0 16px',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {lang === 'ko' ? '저장' : 'Save'}
+          </button>
         </div>
       </div>
-
-      <button
-        onClick={() => onSave(form)}
-        style={{
-          background: 'var(--accent)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          padding: '9px 20px',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          alignSelf: 'flex-end',
-        }}
-      >
-        {lang === 'ko' ? '저장' : 'Save'}
-      </button>
     </div>
   )
 }
