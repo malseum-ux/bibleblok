@@ -253,6 +253,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.call_verse, selectedKeys)}
 
 [예배의 부름 기도문]
 절기 분위기를 담아 회중을 예배로 부르는 기도문을 작성해 주세요. (10~15줄 분량)
+진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 기도문 본문만 작성하세요.
 `,
   confession: (date, season, lectionary, lang, bible) => `
 예배 인도자를 위한 실용적인 제안입니다. 바로 사용할 수 있게 작성해 주세요.
@@ -261,7 +262,11 @@ ${buildItems(WORSHIP_STEP_ITEMS.call_verse, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [참회의 기도문]
-해당 절기에 맞는 죄 고백의 기도문을 작성해 주세요. (10~15줄 분량)
+해당 절기에 맞는 참회의 기도문을 작성해 주세요. (10~15줄 분량)
+말과 생각과 행동, 그리고 마땅히 해야 할 일을 하지 않은 태만까지, 구체적인 죄의 영역을 짚어 주세요.
+단, 특정 개인이나 상황에 국한되지 않고 누구나 공감할 수 있는 일반적인 언어로 작성하세요.
+삶의 반성과 진실한 회개의 내용이 담기도록 하세요.
+진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 기도문 본문만 작성하세요.
 `,
   forgiveness: (date, season, lectionary, lang, bible, selectedKeys = null) => `
 예배 인도자를 위한 실용적인 제안입니다. 간결하게 답해 주세요.
@@ -280,6 +285,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 
 [예배를 위한 기도문]
 말씀 선포와 성령의 역사를 구하는 기도문을 작성해 주세요. (10~15줄 분량)
+진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 기도문 본문만 작성하세요.
 `,
   offering: (date, season, lectionary, lang, bible) => `
 예배 인도자를 위한 실용적인 제안입니다. 바로 사용할 수 있게 작성해 주세요.
@@ -289,6 +295,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 
 [봉헌기도문]
 헌금의 감사와 절기 정신을 담은 봉헌기도문을 작성해 주세요. (8~12줄 분량)
+진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 기도문 본문만 작성하세요.
 `,
   responsive_reading: (date, season, lectionary, lang, bible, selectedKeys = null) => `
 예배 인도자를 위한 실용적인 제안입니다. 바로 사용할 수 있게 작성해 주세요.
@@ -317,6 +324,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.hymns, selectedKeys)}
 
 [축도]
 해당 절기에 어울리는 축도문을 삼위일체 하나님의 이름으로 작성해 주세요. (5~8줄 분량)
+진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 축도문 본문만 작성하세요.
 `,
   sending: (date, season, lectionary, lang, bible, selectedKeys = null) => `
 예배 인도자를 위한 실용적인 제안입니다. 간결하게 답해 주세요.
@@ -418,6 +426,7 @@ export async function generateWorshipCombined(date, season, lectionary, lang, bi
 
   let prompt = `예배 인도자를 위한 완성된 주일 예배 가이드를 A4 2장 분량(약 2,500~3,500자)으로 작성해 주세요.
 각 순서별로 예배에서 바로 사용할 수 있게 실용적으로 작성해 주세요.
+기도문과 축도문은 진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 본문만 작성하세요.
 
 날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -431,7 +440,8 @@ ${sel('call_verse')}
 - 절기 분위기를 담아 회중을 예배로 부르는 기도문 (8~12줄)
 
 [3. 참회의 기도문]
-- 해당 절기에 맞는 죄 고백의 기도문 (8~12줄)
+- 해당 절기에 맞는 참회의 기도문 (8~12줄)
+- 말과 생각과 행동, 마땅히 해야 할 일을 하지 않은 태만까지 구체적인 죄의 영역을 짚되, 누구나 공감할 수 있는 일반적인 언어로 작성
 
 [4. 용서의 선언]
 ${sel('forgiveness')}
