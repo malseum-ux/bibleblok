@@ -60,8 +60,8 @@ export default function Sidebar({
     setCreatingFolder(false)
   }
 
-  // 드래그 시작 — 500ms 길게 누르면 활성화
-  function startDrag(e, type, id, label) {
+  // 드래그 시작 — 500ms 길게 누르면 활성화, 짧은 클릭이면 clickCallback 실행
+  function startDrag(e, type, id, label, clickCallback) {
     if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
     const dr = dragRef.current
@@ -99,6 +99,9 @@ export default function Sidebar({
         dr.active = false
         setDragDisplay(null)
         setDropDisplay(undefined)
+      } else if (!moved) {
+        // 짧은 클릭 — 드래그 없이 손을 뗀 경우 선택/폴더 열기 실행
+        clickCallback?.()
       }
     }
 
@@ -166,7 +169,7 @@ export default function Sidebar({
     return (
       <div key={item.id} style={{ opacity: isDraggingThis ? 0.35 : 1 }}>
         <div
-          onPointerDown={e => startDrag(e, 'file', item.id, getLabel(item))}
+          onPointerDown={e => startDrag(e, 'file', item.id, getLabel(item), () => onSelect({ id: item.id, step: null }))}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -178,7 +181,6 @@ export default function Sidebar({
             gap: 4,
             userSelect: 'none',
           }}
-          onClick={() => onSelect({ id: item.id, step: null })}
         >
           <span style={{
             flex: 1,
@@ -244,7 +246,7 @@ export default function Sidebar({
       <div key={node.id} style={{ opacity: isDraggingThis ? 0.35 : 1 }}>
         <div
           data-drop-folder={node.id}
-          onPointerDown={e => startDrag(e, 'folder', node.id, node.name)}
+          onPointerDown={e => startDrag(e, 'folder', node.id, node.name, () => { toggleExpand(`folder-${node.id}`); onFolderSelect(node) })}
           style={{
             display: 'flex',
             alignItems: 'center',

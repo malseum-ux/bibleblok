@@ -406,8 +406,16 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
   return streamCompletion(fullPrompt, onChunk)
 }
 
-export async function generateWorshipCombined(date, season, lectionary, lang, bible, onChunk, userKeyword = '') {
+export async function generateWorshipCombined(date, season, lectionary, lang, bible, stepSelectedItems, onChunk, userKeyword = '') {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
+  // 단계별로 선택된 지시항목을 사용해 동적으로 프롬프트 구성
+  const sel = (key) => {
+    const items = WORSHIP_STEP_ITEMS[key] || []
+    if (items.length === 0) return ''
+    const selected = stepSelectedItems?.[key]
+    return buildItems(items, selected ?? items.map(i => i.key))
+  }
+
   let prompt = `예배 인도자를 위한 완성된 주일 예배 가이드를 A4 2장 분량(약 2,500~3,500자)으로 작성해 주세요.
 각 순서별로 예배에서 바로 사용할 수 있게 실용적으로 작성해 주세요.
 
@@ -417,8 +425,7 @@ export async function generateWorshipCombined(date, season, lectionary, lang, bi
 다음 예배 순서를 모두 포함하세요:
 
 [1. 예배의 부름 성경구절]
-- 추천 구절 1~2개 (장절 + 본문 전체)
-- 선택 이유 (2~3줄)
+${sel('call_verse')}
 
 [2. 예배의 부름 기도문]
 - 절기 분위기를 담아 회중을 예배로 부르는 기도문 (8~12줄)
@@ -427,8 +434,7 @@ export async function generateWorshipCombined(date, season, lectionary, lang, bi
 - 해당 절기에 맞는 죄 고백의 기도문 (8~12줄)
 
 [4. 용서의 선언]
-- 하나님의 용서와 은혜를 선포하는 구절 1~2개 (장절 + 본문 전체)
-- 선택 이유와 선포 방식 제안
+${sel('forgiveness')}
 
 [5. 예배를 위한 기도문]
 - 말씀 선포와 성령의 역사를 구하는 기도문 (10~15줄)
@@ -437,26 +443,30 @@ export async function generateWorshipCombined(date, season, lectionary, lang, bi
 - 헌금의 감사와 절기 정신을 담은 봉헌기도문 (8~12줄)
 
 [7. 교독문]
-- 대한예수교장로회 예배모범 교독문 번호와 제목 제안
-- 인도자/회중 구분하여 교독문 전문
+${sel('responsive_reading')}
 
 [8. 예배 찬송 추천]
-- 입례송, 말씀 전, 응답송, 봉헌송, 파송송 각 1곡 (찬송가 번호/제목 + 이유 한 줄)
-- CCM 1~2곡 추가 추천 (제목, 아티스트)
+${sel('hymns')}
 
 [9. 축도]
 - 절기에 어울리는 축도문 (5~8줄)
 
 [10. 파송의 말씀]
-- 추천 성경구절 1개 (장절 + 본문 전체)
-- 세상으로 나아가는 파송 선언문 (3~5줄)
+${sel('sending')}
 `
   if (userKeyword) prompt += `\n[사용자 추가 키워드/지시]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
-export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, onChunk, userKeyword = '') {
+export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '') {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
+  const sel = (key) => {
+    const items = DAWN_STEP_ITEMS[key] || []
+    if (items.length === 0) return ''
+    const selected = stepSelectedItems?.[key]
+    return buildItems(items, selected ?? items.map(i => i.key))
+  }
+
   let prompt = `당신은 새벽 기도회를 섬기는 목회자입니다. 아래 본문으로 새벽 기도회 전체 순서에 사용할 수 있는 완성된 말씀 자료를 A4 2장 분량(약 2,500~3,500자)으로 작성해 주세요.
 목회자가 새벽 기도회를 인도할 때 바로 사용할 수 있게 실용적으로 작성해 주세요.
 
@@ -469,33 +479,24 @@ ${emphasis ? `\n강조하고 싶은 주제: ${emphasis}` : ''}
 다음 내용을 모두 포함하세요:
 
 [1. 본문 해설]
-- 본문을 자연스럽게 소개하고 배경을 간략히 설명
-- 본문의 핵심 내용을 따뜻하고 힘 있게 풀어서 전달 (설교문 형식으로, 학술 분석 아님)
-- 오늘 하루를 시작하는 성도들에게 힘과 위로를 주는 마무리
+${sel('exposition')}
+- 설교문 형식으로 작성 (학술 분석 아님)
 
 [2. 핵심 메시지]
-- 오늘 이 말씀이 전하는 단 하나의 메시지를 선명하게 선포
-- 그 메시지를 뒷받침하는 핵심 포인트 2~3가지
-- "오늘 하루 이 말씀을 붙들고 나아가십시오"라는 마음으로 마무리
+${sel('core_message')}
 
 [3. 묵상]
-- 성도들의 마음 문을 여는 짧은 도입
-- 오늘 하루 마음에 품을 묵상 질문 2~3개
-- 하루 동안 반복해서 되새길 핵심 구절 1개
+${sel('meditation')}
 
 [4. 적용]
-- 오늘 하루 딱 하나 실천할 수 있는 적용 (가정/직장/교회/이웃 중 한 영역)
-- 그 적용이 왜 이 본문에서 나오는지 자연스럽게 연결
-- 결단을 촉구하는 짧고 힘 있는 마무리 (기도문 한 줄 포함)
+${sel('application')}
 
 [5. 기도 제목]
-- 개인 기도: 본문 말씀을 내 삶에 적용하는 기도 (2~3문장)
-- 교회 공동체를 위한 기도 (2~3문장)
-- 나라와 이웃을 위한 기도 (2~3문장)
+${sel('prayer_topics')}
+- 각 기도는 2~4문장, 성도들이 마음으로 따라할 수 있는 언어로
 
 [6. 찬송 추천]
-- 한국 찬송가 1곡 (번호, 제목, 이 본문과 연결되는 이유 2~3줄)
-- CCM 1곡 (제목, 아티스트, 이 본문과 연결되는 이유 2~3줄)
+${sel('hymn')}
 `
   if (userKeyword) prompt += `\n[사용자 추가 키워드/지시]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
