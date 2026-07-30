@@ -122,6 +122,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const [infoOpen, setInfoOpen] = useState(false)
   const [leftPct, setLeftPct] = useState(50)
   const draftTimer = useRef(null)
+  const resultEditTimer = useRef(null)
   const splitContainerRef = useRef(null)
   const lastSelectionRef = useRef('')
 
@@ -313,6 +314,18 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   function cancelEdit() {
     setEditing(false)
   }
+
+  useEffect(() => {
+    if (!editing) return
+    clearTimeout(resultEditTimer.current)
+    resultEditTimer.current = setTimeout(async () => {
+      const text = resultHistory.text
+      if (!text.trim()) return
+      if (tab === 'worship') await saveWorshipStep(item.id, 0, text)
+      else await saveDawnStep(item.id, 0, text)
+      setStepContents(prev => ({ ...prev, [0]: text }))
+    }, 800)
+  }, [resultHistory.text, editing]) // eslint-disable-line
 
   if (!step) return null
 
