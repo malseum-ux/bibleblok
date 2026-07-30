@@ -109,6 +109,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   const draftHistory = useTextHistory(item?.draft || '', item?.id)
   const [editing, setEditing] = useState(false)
   const [refining, setRefining] = useState(false)
+  const [draftSaved, setDraftSaved] = useState(false)
   const resultHistory = useTextHistory('', null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -256,6 +257,14 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
     lastSelectionRef.current = ''
     const separator = draftHistory.text.trim() ? '\n\n' : ''
     handleDraftChange(draftHistory.text + separator + textToAdd)
+  }
+
+  function saveDraftNow() {
+    clearTimeout(draftTimer.current)
+    if (tab === 'dawn') updateDawn(item.id, { draft: draftHistory.text })
+    else updateSermon(item.id, { draft: draftHistory.text })
+    setDraftSaved(true)
+    setTimeout(() => setDraftSaved(false), 1500)
   }
 
   async function refineSermonDraft() {
@@ -690,6 +699,23 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
             }}>
               <span>{lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}</span>
               <div style={{ flex: 1 }} />
+              <button
+                onClick={saveDraftNow}
+                style={{
+                  background: draftSaved ? 'var(--accent)' : 'transparent',
+                  color: draftSaved ? '#fff' : 'var(--text-muted)',
+                  border: '1px solid ' + (draftSaved ? 'var(--accent)' : 'var(--border)'),
+                  borderRadius: 5,
+                  padding: '2px 9px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {draftSaved ? (lang === 'ko' ? '저장됨' : 'Saved') : (lang === 'ko' ? '저장' : 'Save')}
+              </button>
               <button
                 onClick={refineSermonDraft}
                 disabled={refining || loading || !draftHistory.text.trim()}
