@@ -66,8 +66,8 @@ export const WORSHIP_STEP_ITEMS = {
   worship_prayer: [],
   offering: [],
   responsive_reading: [
-    { key: 'number', label: '교독문 번호 제안', text: '- 대한예수교장로회 예배모범 교독문 번호와 제목 제안' },
-    { key: 'full', label: '교독문 전문', text: '- 해당 절기에 맞는 교독문 전문 (인도자/회중 구분하여 작성)' },
+    { key: 'number', label: '교독문 번호 제안', text: '- 찬송가공회 찬송가 수록 교독문 번호와 제목 제안' },
+    { key: 'full', label: '교독문 전문', text: '- 해당 교독문 전문 (인도자/회중 구분하여 작성)' },
   ],
   hymns: [
     { key: 'entrance', label: '입례송', text: '- 입례송: 찬송가 번호/제목 + 이유 한 줄' },
@@ -309,6 +309,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [교독문]
+반드시 찬송가공회(한국찬송가공회)에서 발행한 찬송가 뒤에 수록된 교독문만을 참고하세요.
 ${buildItems(WORSHIP_STEP_ITEMS.responsive_reading, selectedKeys)}
 `,
   hymns: (date, season, lectionary, lang, bible, selectedKeys = null) => `
@@ -458,6 +459,7 @@ ${sel('forgiveness')}
 - 헌금의 감사와 절기 정신을 담은 봉헌기도문 (8~12줄)
 
 [7. 교독문]
+반드시 찬송가공회(한국찬송가공회) 찬송가 뒤에 수록된 교독문만을 참고하세요.
 ${sel('responsive_reading')}
 
 [8. 예배 찬송 추천]
