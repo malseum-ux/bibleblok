@@ -1,10 +1,99 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipStep, generateDawnStep, generateWorshipCombined, generateDawnCombined, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { generateSermonStep, generateWorshipCombined, generateDawnCombined, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext } from '../db'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
+
+// 언두/리두 히스토리 훅
+// resetKey가 바뀌면 히스토리를 initialValue로 초기화
+function useTextHistory(initialValue, resetKey) {
+  const [text, setText] = useState(initialValue)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const snapshots = useRef([initialValue])
+  const snapIdx = useRef(0)
+  const timer = useRef(null)
+  const textRef = useRef(initialValue)
+  const prevKey = useRef(resetKey)
+
+  useEffect(() => {
+    if (prevKey.current === resetKey) return
+    prevKey.current = resetKey
+    clearTimeout(timer.current)
+    textRef.current = initialValue
+    setText(initialValue)
+    snapshots.current = [initialValue]
+    snapIdx.current = 0
+    setCanUndo(false)
+    setCanRedo(false)
+  }, [resetKey]) // eslint-disable-line
+
+  function updateFlags() {
+    setCanUndo(snapIdx.current > 0 || textRef.current !== snapshots.current[snapIdx.current])
+    setCanRedo(snapIdx.current < snapshots.current.length - 1)
+  }
+
+  function pushSnapshot(val) {
+    snapshots.current = snapshots.current.slice(0, snapIdx.current + 1)
+    if (snapshots.current[snapshots.current.length - 1] !== val) {
+      snapshots.current.push(val)
+      if (snapshots.current.length > 100) snapshots.current.shift()
+    }
+    snapIdx.current = snapshots.current.length - 1
+    updateFlags()
+  }
+
+  function onChange(newText) {
+    textRef.current = newText
+    setText(newText)
+    updateFlags()
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => pushSnapshot(newText), 800)
+  }
+
+  function reset(value) {
+    clearTimeout(timer.current)
+    textRef.current = value
+    setText(value)
+    snapshots.current = [value]
+    snapIdx.current = 0
+    setCanUndo(false)
+    setCanRedo(false)
+  }
+
+  function undo() {
+    clearTimeout(timer.current)
+    const curr = textRef.current
+    // 아직 커밋되지 않은 변경이 있으면 먼저 스냅샷으로 저장 (리두로 복원 가능)
+    if (curr !== snapshots.current[snapIdx.current]) {
+      snapshots.current = snapshots.current.slice(0, snapIdx.current + 1)
+      snapshots.current.push(curr)
+      snapIdx.current = snapshots.current.length - 1
+    }
+    if (snapIdx.current > 0) {
+      snapIdx.current--
+      const val = snapshots.current[snapIdx.current]
+      textRef.current = val
+      setText(val)
+    }
+    updateFlags()
+  }
+
+  function redo() {
+    clearTimeout(timer.current)
+    if (snapIdx.current < snapshots.current.length - 1) {
+      snapIdx.current++
+      const val = snapshots.current[snapIdx.current]
+      textRef.current = val
+      setText(val)
+      updateFlags()
+    }
+  }
+
+  return { text, onChange, reset, undo, redo, canUndo, canRedo }
+}
 
 export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpdate }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
@@ -12,12 +101,14 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   const [currentStep, setCurrentStep] = useState(0)
   const [stepContents, setStepContents] = useState({})
   const [content, setContent] = useState('')
-  const [draft, setDraft] = useState(item?.draft || '')
+  const draftHistory = useTextHistory(item?.draft || '', item?.id)
+  const [editing, setEditing] = useState(false)
+  const resultHistory = useTextHistory('', null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
-  const [selectedItems, setSelectedItems] = useState([])        // 설교작성 탭용
-  const [stepSelectedItems, setStepSelectedItems] = useState({}) // 예배/새벽 탭용: { stepKey: [itemKey] }
+  const [selectedItems, setSelectedItems] = useState([])
+  const [stepSelectedItems, setStepSelectedItems] = useState({})
   const [userKeyword, setUserKeyword] = useState('')
   const [infoOpen, setInfoOpen] = useState(false)
   const [leftPct, setLeftPct] = useState(50)
@@ -57,11 +148,8 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   useEffect(() => {
     setStepSelectedItems({})
     setUserKeyword('')
+    setEditing(false)
   }, [item?.id, tab])
-
-  useEffect(() => {
-    setDraft(item?.draft || '')
-  }, [item?.id])
 
   function toggleItem(key) {
     if (tab === 'sermon') {
@@ -94,6 +182,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   }
 
   async function generate() {
+    setEditing(false)
     setLoading(true)
     setError(null)
     setContent('')
@@ -142,7 +231,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   }
 
   function handleDraftChange(text) {
-    setDraft(text)
+    draftHistory.onChange(text)
     clearTimeout(draftTimer.current)
     draftTimer.current = setTimeout(() => {
       if (tab === 'dawn') {
@@ -155,8 +244,8 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
 
   function applyToSermon() {
     if (!content) return
-    const separator = draft.trim() ? '\n\n' : ''
-    handleDraftChange(draft + separator + content)
+    const separator = draftHistory.text.trim() ? '\n\n' : ''
+    handleDraftChange(draftHistory.text + separator + content)
   }
 
   async function handleSaveItem(formData) {
@@ -165,7 +254,41 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
     setInfoOpen(false)
   }
 
+  function startEdit() {
+    resultHistory.reset(content)
+    setInstructionsOpen(false)
+    setEditing(true)
+  }
+
+  async function saveEdit() {
+    const text = resultHistory.text
+    if (tab === 'worship') {
+      await saveWorshipStep(item.id, 0, text)
+    } else {
+      await saveDawnStep(item.id, 0, text)
+    }
+    setStepContents(prev => ({ ...prev, [0]: text }))
+    setContent(text)
+    setEditing(false)
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+  }
+
   if (!step) return null
+
+  const undoBtnStyle = (can) => ({
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    border: '1px solid var(--border)',
+    borderRadius: 5,
+    padding: '2px 7px',
+    fontSize: 12,
+    cursor: can ? 'pointer' : 'default',
+    opacity: can ? 1 : 0.35,
+    lineHeight: 1,
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -271,7 +394,6 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
         </div>
       )}
 
-
       {/* 본문 영역 */}
       <div ref={splitContainerRef} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -284,7 +406,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
           overflow: 'hidden',
         }}>
 
-          {/* 왼쪽 에디터 상단 - 지시 항목 + AI 생성 버튼 */}
+          {/* 툴바 */}
           {(() => {
             // 현재 단계에서 표시할 선택 항목 (설교: selectedItems, 예배/새벽: stepSelectedItems[key] 또는 전체)
             const displaySelected = tab === 'sermon'
@@ -301,46 +423,100 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                   gap: 8,
                   flexShrink: 0,
                 }}>
-                  {hasItems && (
-                    <button
-                      onClick={() => setInstructionsOpen(v => !v)}
-                      style={{
-                        background: instructionsOpen ? 'var(--accent)' : 'transparent',
-                        color: instructionsOpen ? '#fff' : 'var(--text-muted)',
-                        border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)'),
-                        borderRadius: 6,
-                        padding: '4px 10px',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      지시 항목 {displaySelected.length}/{currentItems.length}
-                    </button>
+                  {editing ? (
+                    // 편집 모드: 언두/리두 + 취소/저장
+                    <>
+                      <div style={{ flex: 1 }} />
+                      <button onClick={resultHistory.undo} disabled={!resultHistory.canUndo} style={undoBtnStyle(resultHistory.canUndo)}>↩</button>
+                      <button onClick={resultHistory.redo} disabled={!resultHistory.canRedo} style={undoBtnStyle(resultHistory.canRedo)}>↪</button>
+                      <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+                      <button
+                        onClick={cancelEdit}
+                        style={{
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 6,
+                          padding: '4px 10px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >취소</button>
+                      <button
+                        onClick={saveEdit}
+                        style={{
+                          background: 'var(--accent)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '5px 14px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >저장</button>
+                    </>
+                  ) : (
+                    // 일반 모드: 지시항목 + (수정) + AI생성
+                    <>
+                      {hasItems && (
+                        <button
+                          onClick={() => setInstructionsOpen(v => !v)}
+                          style={{
+                            background: instructionsOpen ? 'var(--accent)' : 'transparent',
+                            color: instructionsOpen ? '#fff' : 'var(--text-muted)',
+                            border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)'),
+                            borderRadius: 6,
+                            padding: '4px 10px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          지시 항목 {displaySelected.length}/{currentItems.length}
+                        </button>
+                      )}
+                      <div style={{ flex: 1 }} />
+                      {tab !== 'sermon' && content && !loading && (
+                        <button
+                          onClick={startEdit}
+                          style={{
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            padding: '5px 10px',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >수정</button>
+                      )}
+                      <button
+                        onClick={generate}
+                        disabled={loading}
+                        style={{
+                          background: loading ? 'var(--border)' : 'var(--accent)',
+                          color: loading ? 'var(--text-muted)' : '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '5px 14px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: loading ? 'default' : 'pointer',
+                        }}
+                      >
+                        {loading
+                          ? (lang === 'ko' ? '생성 중...' : 'Generating...')
+                          : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
+                      </button>
+                    </>
                   )}
-                  <div style={{ flex: 1 }} />
-                  <button
-                    onClick={generate}
-                    disabled={loading}
-                    style={{
-                      background: loading ? 'var(--border)' : 'var(--accent)',
-                      color: loading ? 'var(--text-muted)' : '#fff',
-                      border: 'none',
-                      borderRadius: 6,
-                      padding: '5px 14px',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: loading ? 'default' : 'pointer',
-                    }}
-                  >
-                    {loading
-                      ? (lang === 'ko' ? '생성 중...' : 'Generating...')
-                      : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
-                  </button>
                 </div>
 
-                {/* 지시 항목 패널 */}
-                {instructionsOpen && hasItems && (
+                {/* 지시 항목 패널 (편집 모드가 아닐 때만) */}
+                {!editing && instructionsOpen && hasItems && (
                   <div style={{
                     borderBottom: '1px solid var(--border)',
                     padding: '10px 16px',
@@ -386,22 +562,43 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
             )
           })()}
 
-          <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-            {error && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
-                {error}
-              </div>
-            )}
-            {content ? (
-              <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize: 14, whiteSpace: 'pre-wrap' }}>
-                {content}
-              </div>
-            ) : !loading && (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
-                {lang === 'ko' ? 'AI 생성 버튼을 눌러 내용을 생성하세요' : 'Click Generate to create content'}
-              </div>
-            )}
-          </div>
+          {/* 결과창: 편집 모드이면 textarea, 아니면 읽기 전용 */}
+          {editing ? (
+            <textarea
+              value={resultHistory.text}
+              onChange={e => resultHistory.onChange(e.target.value)}
+              style={{
+                flex: 1,
+                border: 'none',
+                outline: 'none',
+                resize: 'none',
+                padding: '20px 24px',
+                fontSize: 14,
+                lineHeight: 1.8,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                fontFamily: 'inherit',
+                overflow: 'auto',
+              }}
+            />
+          ) : (
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
+                  {error}
+                </div>
+              )}
+              {content ? (
+                <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize: 14, whiteSpace: 'pre-wrap' }}>
+                  {content}
+                </div>
+              ) : !loading && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
+                  {lang === 'ko' ? 'AI 생성 버튼을 눌러 내용을 생성하세요' : 'Click Generate to create content'}
+                </div>
+              )}
+            </div>
+          )}
 
           {tab === 'sermon' && content && !loading && (
             <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
@@ -444,11 +641,27 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
         {/* 우: 설교문 초안 (설교 탭만) */}
         {tab === 'sermon' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ height: 46, padding: '0 20px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-              {lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}
+            <div style={{
+              height: 46,
+              padding: '0 20px',
+              borderBottom: '1px solid var(--border)',
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              color: 'var(--text-muted)',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span>{lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}</span>
+              <div style={{ flex: 1 }} />
+              <button onClick={draftHistory.undo} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
+              <button onClick={draftHistory.redo} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
             <textarea
-              value={draft}
+              value={draftHistory.text}
               onChange={e => handleDraftChange(e.target.value)}
               placeholder={lang === 'ko'
                 ? '왼쪽 단계 내용을 참고하여 설교문을 작성하세요.\n\n"설교문에 반영" 버튼으로 단계 내용을 가져올 수 있습니다.'
