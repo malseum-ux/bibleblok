@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipStep, generateDawnStep, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { generateSermonStep, generateWorshipStep, generateDawnStep, generateWorshipCombined, generateDawnCombined, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext } from '../db'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
@@ -44,7 +44,8 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
   }, [item?.id, tab])
 
   useEffect(() => {
-    setContent(stepContents[currentStep] || '')
+    // 예배인도/새벽설교는 통합 결과를 step 0에 저장하므로 항상 step 0 내용을 표시
+    setContent(tab === 'sermon' ? (stepContents[currentStep] || '') : (stepContents[0] || ''))
     setError(null)
     setInstructionsOpen(false)
     const items = stepItemsDefs[step?.key] || []
@@ -90,28 +91,30 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
           setStepContents(prev => ({ ...prev, [currentStep]: full }))
         })
       } else if (tab === 'worship') {
-        await generateWorshipStep(
-          step.key, item.date, item.season, item.lectionary, lang, bible,
-          (text) => setContent(text), activeItems, userKeyword
+        // 모든 순서를 반영한 통합 문서 생성 후 step 0에 저장
+        await generateWorshipCombined(
+          item.date, item.season, item.lectionary, lang, bible,
+          (text) => setContent(text), userKeyword
         ).then(async (full) => {
-          await saveWorshipStep(item.id, currentStep, full)
-          setStepContents(prev => ({ ...prev, [currentStep]: full }))
+          await saveWorshipStep(item.id, 0, full)
+          setStepContents(prev => ({ ...prev, [0]: full }))
         })
       } else {
         const seriesCtx = await getSeriesContext('dawn', item.category, item.id)
-        await generateDawnStep(
-          step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
-          (text) => setContent(text), activeItems, userKeyword
+        // 모든 순서를 반영한 통합 문서 생성 후 step 0에 저장
+        await generateDawnCombined(
+          item.passage, item.emphasis, lang, bible, seriesCtx,
+          (text) => setContent(text), userKeyword
         ).then(async (full) => {
-          await saveDawnStep(item.id, currentStep, full)
-          setStepContents(prev => ({ ...prev, [currentStep]: full }))
+          await saveDawnStep(item.id, 0, full)
+          setStepContents(prev => ({ ...prev, [0]: full }))
         })
       }
     } catch (e) {
       if (e.message === 'API_KEY_MISSING') {
         setError(lang === 'ko'
-          ? 'API 키가 설정되지 않았습니다. .env 파일에 VITE_ANTHROPIC_API_KEY를 추가하세요.'
-          : 'API key not set. Add VITE_ANTHROPIC_API_KEY to your .env file.')
+          ? 'API 키가 설정되지 않았습니다. .env 파일에 VITE_OPENROUTER_API_KEY를 추가하세요.'
+          : 'API key not set. Add VITE_OPENROUTER_API_KEY to your .env file.')
       } else {
         setError(e.message)
       }
@@ -206,7 +209,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                       </span>
                     )}
                   </span>
-                  {stepContents[s.index] && (
+                  {(tab === 'sermon' ? stepContents[s.index] : stepContents[0]) && (
                     <span style={{ fontSize: 7, color: 'var(--accent)', lineHeight: 1, opacity: 0.7 }}>●</span>
                   )}
                 </div>
@@ -273,7 +276,8 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
             gap: 8,
             flexShrink: 0,
           }}>
-            {hasItems && (
+            {/* 설교작성 탭만 지시 항목 버튼 표시 */}
+            {tab === 'sermon' && hasItems && (
               <button
                 onClick={() => setInstructionsOpen(v => !v)}
                 style={{
@@ -290,7 +294,26 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                 지시 항목 {selectedItems.length}/{currentItems.length}
               </button>
             )}
-            <div style={{ flex: 1 }} />
+            {/* 예배인도/새벽설교: 키워드 입력창 상단 노출 */}
+            {tab !== 'sermon' && (
+              <input
+                type="text"
+                value={userKeyword}
+                onChange={e => setUserKeyword(e.target.value)}
+                placeholder="추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)"
+                style={{
+                  flex: 1,
+                  fontSize: 12,
+                  padding: '5px 10px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  outline: 'none',
+                }}
+              />
+            )}
+            {tab === 'sermon' && <div style={{ flex: 1 }} />}
             <button
               onClick={generate}
               disabled={loading}
@@ -303,6 +326,7 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: loading ? 'default' : 'pointer',
+                flexShrink: 0,
               }}
             >
               {loading
@@ -311,8 +335,8 @@ export default function StepView({ tab, item, lang, bible, onSaveItem, onItemUpd
             </button>
           </div>
 
-          {/* 지시 항목 패널 */}
-          {instructionsOpen && hasItems && (
+          {/* 지시 항목 패널 - 설교작성 탭만 */}
+          {tab === 'sermon' && instructionsOpen && hasItems && (
             <div style={{
               borderBottom: '1px solid var(--border)',
               padding: '10px 16px',
