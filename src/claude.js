@@ -418,7 +418,7 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
   let fullPrompt = seriesCtx
     ? prompt + `\n\n${seriesCtx}\n\n[강해설교 연속성 지침]\n- 위 이전 설교들의 본문 흐름과 신학적 주제를 반드시 파악하세요.\n- 이번 본문이 시리즈 전체에서 어떤 위치에 있는지 의식하며 작성하세요.\n- 이전 설교에서 다룬 내용을 반복하지 말고, 자연스럽게 그 위에 쌓아가세요.\n- 회중이 앞 설교의 흐름을 기억하며 이번 말씀을 들을 수 있도록 연결 고리를 살려 주세요.`
     : prompt
-  if (userKeyword) fullPrompt += `\n\n[사용자 추가 키워드/지시]: ${userKeyword}`
+  if (userKeyword) fullPrompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(fullPrompt, onChunk)
 }
 
@@ -473,7 +473,7 @@ ${sel('hymns')}
 [10. 파송의 말씀]
 ${sel('sending')}
 `
-  if (userKeyword) prompt += `\n[사용자 추가 키워드/지시]: ${userKeyword}`
+  if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
@@ -517,14 +517,14 @@ ${sel('prayer_topics')}
 [6. 찬송 추천]
 ${sel('hymn')}
 `
-  if (userKeyword) prompt += `\n[사용자 추가 키워드/지시]: ${userKeyword}`
+  if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
 export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk, selectedItems = null, userKeyword = '') {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   let prompt = WORSHIP_STEP_PROMPTS[stepKey]?.(date, season, lectionary, lang, bible, selectedItems)
-  if (userKeyword) prompt += `\n\n[사용자 추가 키워드/지시]: ${userKeyword}`
+  if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
@@ -534,7 +534,7 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   if (!promptFn) throw new Error('Unknown step key: ' + stepKey)
   const base = promptFn(passage, lang, bible, seriesCtx, selectedItems)
   let prompt = emphasis ? base + `\n\n강조하고 싶은 주제: ${emphasis}` : base
-  if (userKeyword) prompt += `\n\n[사용자 추가 키워드/지시]: ${userKeyword}`
+  if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
