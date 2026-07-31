@@ -585,7 +585,10 @@ async function streamCompletion(prompt, onChunk) {
       model: 'anthropic/claude-sonnet-4-6',
       max_tokens: 8000,
       stream: true,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요.' },
+        { role: 'user', content: prompt },
+      ],
     }),
   })
 
