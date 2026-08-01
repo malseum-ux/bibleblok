@@ -8,12 +8,11 @@ function fmtLabel(name) {
   return front.replace(/_/g, ' ').trim()
 }
 
-export default function LocalSidebar({ tab, rootHandle, refreshKey, onPickFolder, onClearFolder, width = 220 }) {
+export default function LocalSidebar({ tab, rootHandle, refreshKey, width = 200 }) {
   const [files, setFiles]   = useState([])
   const [loading, setLoading] = useState(false)
   const [viewer, setViewer]   = useState(null)
   const [copied, setCopied]   = useState(false)
-  const folderName = rootHandle?.name || '로컬 폴더'
 
   useEffect(() => {
     if (!rootHandle) { setFiles([]); return }
@@ -29,29 +28,7 @@ export default function LocalSidebar({ tab, rootHandle, refreshKey, onPickFolder
     return () => { cancelled = true }
   }, [tab, rootHandle, refreshKey])
 
-  if (!rootHandle) {
-    return (
-      <aside style={{
-        width, minWidth: 160,
-        background: 'var(--bg-sidebar)',
-        borderLeft: '1px solid var(--border)',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        gap: 10, padding: 16,
-      }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7 }}>
-          로컬 폴더를 선택하면 생성 자료가 자동 저장됩니다
-        </div>
-        <button onClick={onPickFolder} style={{
-          background: 'var(--accent)', color: '#fff',
-          border: 'none', borderRadius: 6,
-          padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-        }}>
-          폴더 선택
-        </button>
-      </aside>
-    )
-  }
+  if (!rootHandle) return null
 
   async function openFile(file) {
     const content = await readFileContent(file.handle)
@@ -65,8 +42,6 @@ export default function LocalSidebar({ tab, rootHandle, refreshKey, onPickFolder
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const btnBase = { background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', color: 'var(--text-muted)', opacity: 0.5 }
-
   return (
     <>
       <aside style={{
@@ -76,19 +51,16 @@ export default function LocalSidebar({ tab, rootHandle, refreshKey, onPickFolder
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         <div style={{
-          padding: '10px 10px 8px',
+          padding: '10px 12px 8px',
           borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <span style={{
             fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
             textTransform: 'uppercase', letterSpacing: '0.05em',
-            flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={folderName}>
-            {folderName}
+            display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }} title={rootHandle.name}>
+            {rootHandle.name}
           </span>
-          <button onClick={() => { setFiles([]); setLoading(true); listTabFiles(rootHandle, tab).then(l => { setFiles(l); setLoading(false) }) }} title="새로고침" style={{ ...btnBase, fontSize: 14 }}>↺</button>
-          <button onClick={onClearFolder} title="폴더 연결 해제" style={{ ...btnBase, fontSize: 16 }}>×</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
@@ -115,16 +87,6 @@ export default function LocalSidebar({ tab, rootHandle, refreshKey, onPickFolder
               {fmtLabel(file.name)}
             </div>
           ))}
-        </div>
-
-        <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)' }}>
-          <button onClick={onPickFolder} style={{
-            width: '100%', background: 'none',
-            border: '1px solid var(--border)', borderRadius: 5,
-            color: 'var(--text-muted)', fontSize: 11, padding: '5px 0', cursor: 'pointer',
-          }}>
-            폴더 변경
-          </button>
         </div>
       </aside>
 

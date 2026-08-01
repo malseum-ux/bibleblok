@@ -414,6 +414,8 @@ export default function App() {
           settings={settings}
           onChange={handleSettingsChange}
           onClose={() => setSettingsOpen(false)}
+          rootHandle={rootHandle}
+          onPickFolder={handlePickFolder}
         />
       )}
 
@@ -518,8 +520,6 @@ export default function App() {
           tab={tab}
           rootHandle={rootHandle}
           refreshKey={fsRefreshKey}
-          onPickFolder={handlePickFolder}
-          onClearFolder={handleClearFolder}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { LANGUAGES, BIBLE_VERSIONS, THEMES } from '../constants'
 
-export default function SettingsPanel({ settings, onChange, onClose }) {
+export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder }) {
   const lang = settings.lang
 
   function set(key, value) {
@@ -134,6 +134,30 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               getCode={b => b.code}
               getLabel={b => b.label}
             />
+          </div>
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '로컬 폴더' : 'Local Folder'}</div>
+            {rootHandle && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, wordBreak: 'break-all' }}>
+                {rootHandle.name}
+              </div>
+            )}
+            <button
+              onClick={onPickFolder}
+              style={{
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '8px 12px',
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              {rootHandle ? (lang === 'ko' ? '폴더 변경' : 'Change Folder') : (lang === 'ko' ? '폴더 선택' : 'Select Folder')}
+            </button>
           </div>
         </div>
       </div>
