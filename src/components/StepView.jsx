@@ -112,6 +112,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const [draftSaved, setDraftSaved] = useState(false)
   const [resultCopied, setResultCopied] = useState(false)
   const [draftCopied, setDraftCopied] = useState(false)
+  const [manualSaved, setManualSaved] = useState(false)
   const resultHistory = useTextHistory('', null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -416,6 +417,12 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     setEditing(false)
   }
 
+  async function handleManualSave() {
+    await onGenerated?.(item.id)
+    setManualSaved(true)
+    setTimeout(() => setManualSaved(false), 1500)
+  }
+
   useEffect(() => {
     if (!editing) return
     clearTimeout(resultEditTimer.current)
@@ -515,8 +522,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
           })}
         </div>
 
-        {/* 기본정보 버튼 - 우측 고정 */}
-        <div style={{ flexShrink: 0, padding: '0 14px', borderLeft: '1px solid var(--border)' }}>
+        {/* 기본정보 + 저장 버튼 - 우측 고정 */}
+        <div style={{ flexShrink: 0, padding: '0 14px', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
           <button
             onClick={() => setInfoOpen(v => !v)}
             style={{
@@ -532,6 +539,23 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
             }}
           >
             기본정보 {infoOpen ? '▲' : '▼'}
+          </button>
+          <button
+            onClick={handleManualSave}
+            style={{
+              background: manualSaved ? 'var(--accent)' : 'transparent',
+              color: manualSaved ? '#fff' : 'var(--text-muted)',
+              border: '1px solid ' + (manualSaved ? 'var(--accent)' : 'var(--border)'),
+              borderRadius: 6,
+              padding: '4px 10px',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s',
+            }}
+          >
+            {manualSaved ? '저장됨' : '저장'}
           </button>
         </div>
       </div>
