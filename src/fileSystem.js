@@ -95,7 +95,7 @@ function buildFileName(tab, item) {
   const name = tab === 'worship'
     ? '예배인도'
     : sanitize(item.title || item.passage || '제목없음')
-  return `${date}_${name}${SEP}${item.id}.txt`
+  return `${date}_${name}${SEP}${item.id}.sbl`
 }
 
 function formatContent(tab, item, steps) {
