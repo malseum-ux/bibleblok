@@ -1,7 +1,29 @@
-import { LANGUAGES, BIBLE_VERSIONS, THEMES } from '../constants'
+import { useState } from 'react'
+import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
+
+const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS }
+const TAB_LABELS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교' }
+
+function getDefaultKeywords() {
+  const result = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith('defaultKeyword_')) continue
+    const rest = key.slice('defaultKeyword_'.length)
+    const sepIdx = rest.indexOf('_')
+    if (sepIdx === -1) continue
+    const tab = rest.slice(0, sepIdx)
+    const stepKey = rest.slice(sepIdx + 1)
+    const steps = ALL_STEPS[tab] || []
+    const step = steps.find(s => s.key === stepKey)
+    result.push({ key, tab, stepKey, stepLabel: step ? step.label.ko : stepKey, value: localStorage.getItem(key) })
+  }
+  return result
+}
 
 export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder }) {
   const lang = settings.lang
+  const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
 
   function set(key, value) {
     onChange({ ...settings, [key]: value })
@@ -159,6 +181,44 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               {rootHandle ? (lang === 'ko' ? '폴더 변경' : 'Change Folder') : (lang === 'ko' ? '폴더 선택' : 'Select Folder')}
             </button>
           </div>
+
+          {defaultKeywords.length > 0 && (
+            <div style={sectionStyle}>
+              <div style={labelStyle}>{lang === 'ko' ? '기억된 지시어' : 'Saved Keywords'}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {defaultKeywords.map(item => (
+                  <div key={item.key} style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    padding: '8px 12px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {TAB_LABELS[item.tab] || item.tab} · {item.stepLabel}
+                      </span>
+                      <button
+                        onClick={() => {
+                          localStorage.removeItem(item.key)
+                          setDefaultKeywords(getDefaultKeywords())
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-muted)',
+                          fontSize: 16,
+                          lineHeight: 1,
+                          padding: '0 2px',
+                        }}
+                      >×</button>
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--text)', wordBreak: 'break-all' }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

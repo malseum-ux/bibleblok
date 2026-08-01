@@ -185,9 +185,15 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   useEffect(() => {
     setStepSelectedItems({})
     setStepSelectedCustomKeys({})
-    setUserKeyword('')
     setEditing(false)
   }, [item?.id, tab])
+
+  // 탭/단계/항목 변경 시 해당 기본 키워드 로드
+  useEffect(() => {
+    if (!step?.key) return
+    const saved = localStorage.getItem(`defaultKeyword_${tab}_${step.key}`) || ''
+    setUserKeyword(saved)
+  }, [tab, step?.key, item?.id]) // eslint-disable-line
 
   function toggleItem(key) {
     if (tab === 'sermon') {
@@ -272,6 +278,19 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     setEditing(false)
     setLoading(true)
     setError(null)
+
+    // "기억해(줘/주세요)" 트리거 처리: 저장 후 제거된 키워드로 생성
+    let effectiveKeyword = userKeyword
+    if (/기억해(?:줘|주세요)?/.test(userKeyword)) {
+      const cleaned = userKeyword.replace(/기억해(?:줘|주세요)?/g, '').replace(/^[,\s]+|[,\s]+$/g, '').trim()
+      if (step?.key) {
+        if (cleaned) localStorage.setItem(`defaultKeyword_${tab}_${step.key}`, cleaned)
+        else localStorage.removeItem(`defaultKeyword_${tab}_${step.key}`)
+      }
+      effectiveKeyword = cleaned
+      setUserKeyword(cleaned)
+    }
+
     const prevContent = content
     const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
     const activeItems = hasItems ? selectedItems : null
@@ -285,7 +304,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         const customText = buildCustomText(selectedCustomKeys, customItems)
         await generateSermonStep(
           step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
-          (text) => setContent(prevContent + SEP + text), activeItems, userKeyword, customText
+          (text) => setContent(prevContent + SEP + text), activeItems, effectiveKeyword, customText
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           await saveSermonStep(item.id, currentStep, combined)
@@ -303,7 +322,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         }
         await generateWorshipCombined(
           item.date, item.season, item.lectionary, lang, bible,
-          stepSelectedItems, (text) => setContent(prevContent + SEP + text), userKeyword, customStepTexts
+          stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           await saveWorshipStep(item.id, 0, combined)
@@ -322,7 +341,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         }
         await generateDawnCombined(
           item.passage, item.emphasis, lang, bible, seriesCtx,
-          stepSelectedItems, (text) => setContent(prevContent + SEP + text), userKeyword, customStepTexts
+          stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           await saveDawnStep(item.id, 0, combined)
