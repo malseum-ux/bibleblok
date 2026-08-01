@@ -133,6 +133,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const resultEditTimer = useRef(null)
   const splitContainerRef = useRef(null)
   const draftTextareaRef = useRef(null)
+  const resultTextareaRef = useRef(null)
   const lastSelectionRef = useRef('')
 
   const step = steps[currentStep] || steps[0]
@@ -456,6 +457,36 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     }
   }
 
+  async function handleResultKeyDown(e) {
+    if (e.key !== 'Enter' || e.shiftKey) return
+    const text = resultHistory.text
+    const cursor = resultTextareaRef.current?.selectionStart ?? 0
+    const before = text.slice(0, cursor)
+    const lastOpen = before.lastIndexOf('[')
+    if (lastOpen === -1) return
+    const closeIdx = text.indexOf(']', lastOpen)
+    if (closeIdx === -1 || closeIdx < cursor - 1) return
+    const instruction = text.slice(lastOpen + 1, closeIdx).trim()
+    if (!instruction) return
+    e.preventDefault()
+    const contextBefore = text.slice(0, lastOpen)
+    const contextAfter = text.slice(closeIdx + 1)
+    resultHistory.forceSnapshot()
+    setRefining(true)
+    try {
+      let generated = ''
+      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+        generated = chunk
+        resultHistory.onChange(contextBefore + chunk + contextAfter)
+      })
+      resultHistory.onChange(contextBefore + generated + contextAfter)
+    } catch {
+      resultHistory.onChange(text)
+    } finally {
+      setRefining(false)
+    }
+  }
+
   async function handleSaveItem(formData) {
     await onSaveItem?.(formData)
     setInfoOpen(false)
@@ -469,12 +500,16 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
 
   async function saveEdit() {
     const text = resultHistory.text
-    if (tab === 'worship') {
+    if (tab === 'sermon') {
+      await saveSermonStep(item.id, currentStep, text)
+      setStepContents(prev => ({ ...prev, [currentStep]: text }))
+    } else if (tab === 'worship') {
       await saveWorshipStep(item.id, 0, text)
+      setStepContents(prev => ({ ...prev, [0]: text }))
     } else {
       await saveDawnStep(item.id, 0, text)
+      setStepContents(prev => ({ ...prev, [0]: text }))
     }
-    setStepContents(prev => ({ ...prev, [0]: text }))
     setContent(text)
     setEditing(false)
     onGenerated?.(item.id)
@@ -501,9 +536,16 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     resultEditTimer.current = setTimeout(async () => {
       const text = resultHistory.text
       if (!text.trim()) return
-      if (tab === 'worship') await saveWorshipStep(item.id, 0, text)
-      else await saveDawnStep(item.id, 0, text)
-      setStepContents(prev => ({ ...prev, [0]: text }))
+      if (tab === 'sermon') {
+        await saveSermonStep(item.id, currentStep, text)
+        setStepContents(prev => ({ ...prev, [currentStep]: text }))
+      } else if (tab === 'worship') {
+        await saveWorshipStep(item.id, 0, text)
+        setStepContents(prev => ({ ...prev, [0]: text }))
+      } else {
+        await saveDawnStep(item.id, 0, text)
+        setStepContents(prev => ({ ...prev, [0]: text }))
+      }
       onGenerated?.(item.id)
     }, 800)
   }, [resultHistory.text, editing]) // eslint-disable-line
@@ -747,7 +789,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                           }}
                         >{resultCopied ? '복사됨' : '복사'}</button>
                       )}
-                      {tab !== 'sermon' && content && !loading && (
+                      {content && !loading && (
                         <button
                           onClick={startEdit}
                           style={{
@@ -888,8 +930,11 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
           {/* 결과창: 편집 모드이면 textarea, 아니면 읽기 전용 */}
           {editing ? (
             <textarea
+              ref={resultTextareaRef}
               value={resultHistory.text}
               onChange={e => resultHistory.onChange(e.target.value)}
+              onKeyDown={handleResultKeyDown}
+              disabled={refining}
               style={{
                 flex: 1,
                 border: 'none',
