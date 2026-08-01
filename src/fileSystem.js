@@ -114,6 +114,13 @@ function formatContent(tab, item, steps) {
       lines.push('')
     }
   }
+  if (item.draft?.trim()) {
+    lines.push('━'.repeat(30))
+    lines.push('[설교문 초안]')
+    lines.push('')
+    lines.push(item.draft)
+    lines.push('')
+  }
   return lines.join('\n')
 }
 
