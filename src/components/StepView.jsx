@@ -984,8 +984,25 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
               alignItems: 'center',
               gap: 8,
             }}>
-              <span>{lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}</span>
-              <div style={{ flex: 1 }} />
+              <span style={{ flexShrink: 0 }}>{lang === 'ko' ? '설교문 초안' : 'Sermon Draft'}</span>
+              <input
+                type="text"
+                value={userKeyword}
+                onChange={e => setUserKeyword(e.target.value)}
+                placeholder={lang === 'ko' ? '키워드 지시어 (예: 청년 대상)' : 'Keyword directive'}
+                style={{
+                  flex: 1,
+                  margin: '0 10px',
+                  fontSize: 12,
+                  padding: '3px 8px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 5,
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  outline: 'none',
+                  minWidth: 0,
+                }}
+              />
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(draftHistory.text)
