@@ -425,7 +425,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     setRefining(true)
     try {
       let generated = ''
-      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, (chunk) => {
+      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
         generated = chunk
         draftHistory.onChange(contextBefore + chunk + contextAfter)
       })

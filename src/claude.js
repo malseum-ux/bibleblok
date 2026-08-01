@@ -543,12 +543,20 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   return streamCompletion(prompt, onChunk)
 }
 
-export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, onChunk) {
+export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, passage, title, onChunk) {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
+  const sermonInfo = [
+    passage ? `설교 본문: ${passage}` : '',
+    title ? `설교 제목: ${title}` : '',
+  ].filter(Boolean).join('\n')
+
   const prompt = `당신은 설교 작성 전문가입니다.
 
 아래 설교문의 지정된 위치에 들어갈 내용을 생성해 주세요.
+모든 답변은 반드시 설교 본문 말씀을 중심으로 작성하세요.
+
+${sermonInfo}
 
 [지시사항]: ${instruction}
 
