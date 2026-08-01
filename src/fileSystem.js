@@ -84,8 +84,6 @@ const TAB_DIRS = {
   dawn:    '새벽설교',
 }
 
-const SEP = '___'
-
 async function getOrCreateSubDir(parent, name) {
   return parent.getDirectoryHandle(sanitize(name), { create: true })
 }
@@ -95,7 +93,7 @@ function buildFileName(tab, item) {
   const name = tab === 'worship'
     ? '예배인도'
     : sanitize(item.title || item.passage || '제목없음')
-  return `${date}_${name}${SEP}${item.id}.sbl`
+  return `${date}_${name}.sbl`
 }
 
 function formatContent(tab, item, steps) {
@@ -137,15 +135,11 @@ export async function saveItemToDirectory(root, tab, item, steps) {
   } catch {}
 }
 
-export async function deleteItemFromDirectory(root, tab, itemId) {
+export async function deleteItemFromDirectory(root, tab, item) {
   try {
     const tabDir = await root.getDirectoryHandle(TAB_DIRS[tab])
-    for await (const [name, entry] of tabDir.entries()) {
-      if (entry.kind === 'file' && name.includes(`${SEP}${itemId}.txt`)) {
-        await tabDir.removeEntry(name)
-        break
-      }
-    }
+    const fileName = buildFileName(tab, item)
+    await tabDir.removeEntry(fileName)
   } catch {}
 }
 

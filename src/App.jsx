@@ -173,7 +173,9 @@ export default function App() {
     }
     if (selected?.id === id) setSelected(null)
     if (rootHandle) {
-      await deleteItemFromDirectory(rootHandle, tab, id)
+      const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
+      const item = allItems.find(i => i.id === id)
+      if (item) await deleteItemFromDirectory(rootHandle, tab, item)
     }
   }
 
