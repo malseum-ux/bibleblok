@@ -409,6 +409,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     setStepContents(prev => ({ ...prev, [0]: text }))
     setContent(text)
     setEditing(false)
+    onGenerated?.(item.id)
   }
 
   function cancelEdit() {
@@ -424,6 +425,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
       if (tab === 'worship') await saveWorshipStep(item.id, 0, text)
       else await saveDawnStep(item.id, 0, text)
       setStepContents(prev => ({ ...prev, [0]: text }))
+      onGenerated?.(item.id)
     }, 800)
   }, [resultHistory.text, editing]) // eslint-disable-line
 
