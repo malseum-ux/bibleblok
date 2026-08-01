@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
-import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext } from '../db'
+import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
@@ -119,6 +119,13 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const [selectedItems, setSelectedItems] = useState([])
   const [stepSelectedItems, setStepSelectedItems] = useState({})
   const [userKeyword, setUserKeyword] = useState('')
+  const [customItems, setCustomItems] = useState([])
+  const [selectedCustomKeys, setSelectedCustomKeys] = useState([])
+  const [stepSelectedCustomKeys, setStepSelectedCustomKeys] = useState({})
+  const [editingCustom, setEditingCustom] = useState(false)
+  const [newCustomLabel, setNewCustomLabel] = useState('')
+  const [draggedId, setDraggedId] = useState(null)
+  const [dragOverId, setDragOverId] = useState(null)
   const [infoOpen, setInfoOpen] = useState(false)
   const [leftPct, setLeftPct] = useState(50)
   const draftTimer = useRef(null)
@@ -129,7 +136,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const step = steps[currentStep] || steps[0]
   const stepItemsDefs = tab === 'sermon' ? SERMON_STEP_ITEMS : tab === 'worship' ? WORSHIP_STEP_ITEMS : DAWN_STEP_ITEMS
   const currentItems = stepItemsDefs[step?.key] || []
-  const hasItems = currentItems.length >= 2
+  const hasItems = currentItems.length >= 2 || customItems.length > 0
 
   useEffect(() => {
     async function loadContents() {
@@ -155,9 +162,27 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     setSelectedItems(items.map(i => i.key))
   }, [currentStep, stepContents])
 
+  // 단계 변경 시 커스텀 항목 로드
+  useEffect(() => {
+    if (!step?.key) return
+    getCustomStepItems(tab, step.key).then(items => {
+      setCustomItems(items)
+      setSelectedCustomKeys(prev => {
+        const allIds = items.map(i => i.id)
+        // 이전에 선택한 항목 유지, 새 항목은 선택 추가
+        const kept = prev.filter(id => allIds.includes(id))
+        const added = allIds.filter(id => !prev.includes(id))
+        return [...kept, ...added]
+      })
+    })
+    setEditingCustom(false)
+    setNewCustomLabel('')
+  }, [tab, step?.key])
+
   // 다른 항목으로 이동하면 단계별 선택 초기화
   useEffect(() => {
     setStepSelectedItems({})
+    setStepSelectedCustomKeys({})
     setUserKeyword('')
     setEditing(false)
   }, [item?.id, tab])
@@ -179,6 +204,55 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     }
   }
 
+  function toggleCustomItem(id) {
+    if (tab === 'sermon') {
+      setSelectedCustomKeys(prev =>
+        prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
+      )
+    } else {
+      setStepSelectedCustomKeys(prev => {
+        const current = prev[step.key] ?? customItems.map(i => i.id)
+        return {
+          ...prev,
+          [step.key]: current.includes(id) ? current.filter(k => k !== id) : [...current, id],
+        }
+      })
+    }
+  }
+
+  async function handleAddCustomItem() {
+    if (!newCustomLabel.trim()) return
+    await addCustomStepItem(tab, step.key, newCustomLabel.trim())
+    const items = await getCustomStepItems(tab, step.key)
+    setCustomItems(items)
+    setSelectedCustomKeys(prev => [...prev, items[items.length - 1].id])
+    setNewCustomLabel('')
+  }
+
+  async function handleDeleteCustomItem(id) {
+    await deleteCustomStepItem(id)
+    const items = await getCustomStepItems(tab, step.key)
+    setCustomItems(items)
+    setSelectedCustomKeys(prev => prev.filter(k => k !== id))
+    setStepSelectedCustomKeys(prev => ({
+      ...prev,
+      [step.key]: (prev[step.key] ?? []).filter(k => k !== id),
+    }))
+  }
+
+  async function handleDrop(targetId) {
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return }
+    const items = [...customItems]
+    const fromIdx = items.findIndex(i => i.id === draggedId)
+    const toIdx = items.findIndex(i => i.id === targetId)
+    const [moved] = items.splice(fromIdx, 1)
+    items.splice(toIdx, 0, moved)
+    await setCustomStepItemOrders(items.map(i => i.id))
+    setCustomItems(items)
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
   function startSplitDrag(e) {
     if (e.button !== 0) return
     e.preventDefault()
@@ -196,38 +270,61 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     setEditing(false)
     setLoading(true)
     setError(null)
-    setContent('')
+    const prevContent = content
+    const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
     const activeItems = hasItems ? selectedItems : null
+    // 커스텀 항목 텍스트 빌드
+    const buildCustomText = (ids, items) =>
+      items.filter(i => ids.includes(i.id)).map(i => i.text).join('\n')
+
     try {
       if (tab === 'sermon') {
         const seriesCtx = await getSeriesContext('sermon', item.category, item.id)
+        const customText = buildCustomText(selectedCustomKeys, customItems)
         await generateSermonStep(
           step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
-          (text) => setContent(text), activeItems, userKeyword
+          (text) => setContent(prevContent + SEP + text), activeItems, userKeyword, customText
         ).then(async (full) => {
-          await saveSermonStep(item.id, currentStep, full)
-          setStepContents(prev => ({ ...prev, [currentStep]: full }))
+          const combined = prevContent + SEP + full
+          await saveSermonStep(item.id, currentStep, combined)
+          setStepContents(prev => ({ ...prev, [currentStep]: combined }))
           onGenerated?.(item.id)
         })
       } else if (tab === 'worship') {
-        // 단계별 선택 항목을 반영한 통합 문서 생성 후 step 0에 저장
+        const allCustom = await getAllCustomStepItemsForTab('worship')
+        const customStepTexts = {}
+        for (const s of WORSHIP_STEPS) {
+          const stepCustom = allCustom.filter(i => i.stepKey === s.key)
+          const selectedIds = stepSelectedCustomKeys[s.key] ?? stepCustom.map(i => i.id)
+          const text = buildCustomText(selectedIds, stepCustom)
+          if (text) customStepTexts[s.key] = text
+        }
         await generateWorshipCombined(
           item.date, item.season, item.lectionary, lang, bible,
-          stepSelectedItems, (text) => setContent(text), userKeyword
+          stepSelectedItems, (text) => setContent(prevContent + SEP + text), userKeyword, customStepTexts
         ).then(async (full) => {
-          await saveWorshipStep(item.id, 0, full)
-          setStepContents(prev => ({ ...prev, [0]: full }))
+          const combined = prevContent + SEP + full
+          await saveWorshipStep(item.id, 0, combined)
+          setStepContents(prev => ({ ...prev, [0]: combined }))
           onGenerated?.(item.id)
         })
       } else {
         const seriesCtx = await getSeriesContext('dawn', item.category, item.id)
-        // 단계별 선택 항목을 반영한 통합 문서 생성 후 step 0에 저장
+        const allCustom = await getAllCustomStepItemsForTab('dawn')
+        const customStepTexts = {}
+        for (const s of DAWN_STEPS) {
+          const stepCustom = allCustom.filter(i => i.stepKey === s.key)
+          const selectedIds = stepSelectedCustomKeys[s.key] ?? stepCustom.map(i => i.id)
+          const text = buildCustomText(selectedIds, stepCustom)
+          if (text) customStepTexts[s.key] = text
+        }
         await generateDawnCombined(
           item.passage, item.emphasis, lang, bible, seriesCtx,
-          stepSelectedItems, (text) => setContent(text), userKeyword
+          stepSelectedItems, (text) => setContent(prevContent + SEP + text), userKeyword, customStepTexts
         ).then(async (full) => {
-          await saveDawnStep(item.id, 0, full)
-          setStepContents(prev => ({ ...prev, [0]: full }))
+          const combined = prevContent + SEP + full
+          await saveDawnStep(item.id, 0, combined)
+          setStepContents(prev => ({ ...prev, [0]: combined }))
           onGenerated?.(item.id)
         })
       }
@@ -528,7 +625,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                             cursor: 'pointer',
                           }}
                         >
-                          지시 항목 {displaySelected.length}/{currentItems.length}
+                          지시 항목 {displaySelected.length + (tab === 'sermon' ? selectedCustomKeys : (stepSelectedCustomKeys[step?.key] ?? customItems.map(i => i.id))).length}/{currentItems.length + customItems.length}
                         </button>
                       )}
                       <div style={{ flex: 1 }} />
@@ -600,7 +697,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                     gap: 10,
                     flexShrink: 0,
                   }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
                       {currentItems.map(ci => (
                         <label key={ci.key} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
                           <input
@@ -612,7 +709,62 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                           {ci.label}
                         </label>
                       ))}
+
+                      {customItems.map(ci => {
+                        const isSelected = tab === 'sermon'
+                          ? selectedCustomKeys.includes(ci.id)
+                          : (stepSelectedCustomKeys[step.key] ?? customItems.map(i => i.id)).includes(ci.id)
+                        return editingCustom ? (
+                          <div
+                            key={ci.id}
+                            draggable
+                            onDragStart={e => { e.dataTransfer.setData('text/plain', String(ci.id)); setDraggedId(ci.id) }}
+                            onDragOver={e => { e.preventDefault(); setDragOverId(ci.id) }}
+                            onDrop={e => { e.preventDefault(); handleDrop(ci.id) }}
+                            onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              background: dragOverId === ci.id ? 'var(--accent)' : 'rgba(99,102,241,0.12)',
+                              color: dragOverId === ci.id ? '#fff' : 'var(--accent)',
+                              border: `1px solid ${draggedId === ci.id ? 'transparent' : 'var(--accent)'}`,
+                              borderRadius: 14, padding: '3px 10px',
+                              fontSize: 13, cursor: 'grab', userSelect: 'none',
+                              opacity: draggedId === ci.id ? 0.4 : 1,
+                            }}
+                          >
+                            ≡ {ci.label}
+                            <span onPointerDown={e => { e.stopPropagation(); handleDeleteCustomItem(ci.id) }} style={{ cursor: 'pointer', opacity: 0.7, fontSize: 15, lineHeight: 1 }}>×</span>
+                          </div>
+                        ) : (
+                          <label key={ci.id} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--accent)', userSelect: 'none' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleCustomItem(ci.id)}
+                              style={{ accentColor: 'var(--accent)', cursor: 'pointer', width: 14, height: 14 }}
+                            />
+                            {ci.label}
+                          </label>
+                        )
+                      })}
+
+                      {editingCustom && (
+                        <input
+                          autoFocus
+                          value={newCustomLabel}
+                          onChange={e => setNewCustomLabel(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleAddCustomItem(); if (e.key === 'Escape') { setEditingCustom(false); setNewCustomLabel('') } }}
+                          placeholder="새 항목"
+                          style={{ width: 90, fontSize: 13, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
+                        />
+                      )}
+
+                      {!editingCustom
+                        ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>편집</button>
+                        : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>완료</button>
+                      }
                     </div>
+
                     <input
                       type="text"
                       value={userKeyword}

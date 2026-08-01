@@ -412,17 +412,18 @@ ${buildItems(DAWN_STEP_ITEMS.hymn, selectedKeys)}
 `,
 }
 
-export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '') {
+export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '', customText = '') {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   const prompt = SERMON_STEP_PROMPTS_WITH_EMPHASIS[stepKey]?.(passage, emphasis, lang, bible, selectedItems)
   let fullPrompt = seriesCtx
     ? prompt + `\n\n${seriesCtx}\n\n[강해설교 연속성 지침]\n- 위 이전 설교들의 본문 흐름과 신학적 주제를 반드시 파악하세요.\n- 이번 본문이 시리즈 전체에서 어떤 위치에 있는지 의식하며 작성하세요.\n- 이전 설교에서 다룬 내용을 반복하지 말고, 자연스럽게 그 위에 쌓아가세요.\n- 회중이 앞 설교의 흐름을 기억하며 이번 말씀을 들을 수 있도록 연결 고리를 살려 주세요.`
     : prompt
+  if (customText) fullPrompt += `\n${customText}`
   if (userKeyword) fullPrompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(fullPrompt, onChunk)
 }
 
-export async function generateWorshipCombined(date, season, lectionary, lang, bible, stepSelectedItems, onChunk, userKeyword = '') {
+export async function generateWorshipCombined(date, season, lectionary, lang, bible, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   // 단계별로 선택된 지시항목을 사용해 동적으로 프롬프트 구성
   const sel = (key) => {
@@ -473,11 +474,13 @@ ${sel('hymns')}
 [10. 파송의 말씀]
 ${sel('sending')}
 `
+  const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
+  if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
-export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '') {
+export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   const sel = (key) => {
     const items = DAWN_STEP_ITEMS[key] || []
@@ -517,6 +520,8 @@ ${sel('prayer_topics')}
 [6. 찬송 추천]
 ${sel('hymn')}
 `
+  const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
+  if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }

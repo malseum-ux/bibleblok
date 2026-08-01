@@ -28,7 +28,6 @@ db.version(3).stores({
   folders: '++id, tab',
 })
 
-// version 4: parentId 추가 (하위폴더 지원)
 db.version(4).stores({
   sermons: '++id, date, category, title, passage, emphasis, createdAt',
   sermonSteps: '++id, [sermonId+stepIndex], sermonId',
@@ -42,6 +41,54 @@ db.version(4).stores({
     if (folder.parentId === undefined) folder.parentId = null
   })
 })
+
+db.version(5).stores({
+  sermons: '++id, date, category, title, passage, emphasis, createdAt',
+  sermonSteps: '++id, [sermonId+stepIndex], sermonId',
+  worships: '++id, date, season, createdAt',
+  worshipSteps: '++id, [worshipId+stepIndex], worshipId',
+  dawns: '++id, date, createdAt',
+  dawnSteps: '++id, [dawnId+stepIndex], dawnId',
+  folders: '++id, tab, parentId',
+  customStepItems: '++id, tab, stepKey',
+})
+
+// Custom step items
+export async function getCustomStepItems(tab, stepKey) {
+  const all = await db.customStepItems
+    .where('tab').equals(tab)
+    .filter(i => i.stepKey === stepKey)
+    .toArray()
+  return all.sort((a, b) => a.order - b.order)
+}
+
+export async function getAllCustomStepItemsForTab(tab) {
+  return db.customStepItems.where('tab').equals(tab).toArray()
+}
+
+export async function addCustomStepItem(tab, stepKey, label) {
+  const existing = await getCustomStepItems(tab, stepKey)
+  const order = existing.length
+  return db.customStepItems.add({ tab, stepKey, label, text: `- ${label}`, order })
+}
+
+export async function deleteCustomStepItem(id) {
+  return db.customStepItems.delete(id)
+}
+
+export async function setCustomStepItemOrders(orderedIds) {
+  await Promise.all(orderedIds.map((id, idx) => db.customStepItems.update(id, { order: idx })))
+}
+
+export async function reorderCustomStepItem(id, direction, tab, stepKey) {
+  const items = await getCustomStepItems(tab, stepKey)
+  const idx = items.findIndex(i => i.id === id)
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+  if (swapIdx < 0 || swapIdx >= items.length) return
+  const [a, b] = [items[idx], items[swapIdx]]
+  await db.customStepItems.update(a.id, { order: b.order })
+  await db.customStepItems.update(b.id, { order: a.order })
+}
 
 // Sermons
 export async function createSermon(data) {
