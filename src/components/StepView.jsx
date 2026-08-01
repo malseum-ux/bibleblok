@@ -437,7 +437,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
 
   async function handleSaveItem(formData) {
     await onSaveItem?.(formData)
-    await onItemUpdate?.()
     setInfoOpen(false)
   }
 
@@ -465,6 +464,11 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   }
 
   async function handleManualSave() {
+    clearTimeout(draftTimer.current)
+    if (draftHistory.text.trim()) {
+      if (tab === 'dawn') await updateDawn(item.id, { draft: draftHistory.text })
+      else if (tab === 'sermon') await updateSermon(item.id, { draft: draftHistory.text })
+    }
     await onGenerated?.(item.id)
     setManualSaved(true)
     setTimeout(() => setManualSaved(false), 1500)
