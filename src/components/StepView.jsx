@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, executeInlineCommand, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
@@ -132,6 +132,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const draftTimer = useRef(null)
   const resultEditTimer = useRef(null)
   const splitContainerRef = useRef(null)
+  const draftTextareaRef = useRef(null)
   const lastSelectionRef = useRef('')
 
   const step = steps[currentStep] || steps[0]
@@ -373,16 +374,62 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
 
   async function refineSermonDraft() {
     if (!draftHistory.text.trim() || refining || loading) return
-    const currentDraft = draftHistory.text
-    draftHistory.forceSnapshot()  // 다듬기 전 상태를 히스토리에 저장 (언두 가능)
+    const textarea = draftTextareaRef.current
+    const selStart = textarea?.selectionStart ?? 0
+    const selEnd = textarea?.selectionEnd ?? 0
+    const hasSelection = selStart !== selEnd
+    const fullText = draftHistory.text
+    draftHistory.forceSnapshot()
     setRefining(true)
     try {
-      const refined = await refineDraft(currentDraft, lang, bible, (text) => {
-        draftHistory.onChange(text)  // 스트리밍 중 실시간 반영
+      if (hasSelection) {
+        const selected = fullText.slice(selStart, selEnd)
+        const before = fullText.slice(0, selStart)
+        const after = fullText.slice(selEnd)
+        let refined = ''
+        await refineDraft(selected, lang, bible, (text) => {
+          refined = text
+          draftHistory.onChange(before + text + after)
+        })
+        handleDraftChange(before + refined + after)
+      } else {
+        const refined = await refineDraft(fullText, lang, bible, (text) => {
+          draftHistory.onChange(text)
+        })
+        handleDraftChange(refined)
+      }
+    } catch {
+      handleDraftChange(fullText)
+    } finally {
+      setRefining(false)
+    }
+  }
+
+  async function handleDraftKeyDown(e) {
+    if (e.key !== 'Enter' || e.shiftKey) return
+    const text = draftHistory.text
+    const cursor = draftTextareaRef.current?.selectionStart ?? 0
+    const before = text.slice(0, cursor)
+    const lastOpen = before.lastIndexOf('[')
+    if (lastOpen === -1) return
+    const closeIdx = text.indexOf(']', lastOpen)
+    if (closeIdx === -1 || closeIdx < cursor - 1) return
+    const instruction = text.slice(lastOpen + 1, closeIdx).trim()
+    if (!instruction) return
+    e.preventDefault()
+    const contextBefore = text.slice(0, lastOpen)
+    const contextAfter = text.slice(closeIdx + 1)
+    draftHistory.forceSnapshot()
+    setRefining(true)
+    try {
+      let generated = ''
+      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, (chunk) => {
+        generated = chunk
+        draftHistory.onChange(contextBefore + chunk + contextAfter)
       })
-      handleDraftChange(refined)  // DB 저장
-    } catch (e) {
-      handleDraftChange(currentDraft)  // 오류 시 원래 내용 복원
+      handleDraftChange(contextBefore + generated + contextAfter)
+    } catch {
+      handleDraftChange(text)
     } finally {
       setRefining(false)
     }
@@ -939,23 +986,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                 {draftCopied ? '복사됨' : '복사'}
               </button>
               <button
-                onClick={saveDraftNow}
-                style={{
-                  background: draftSaved ? 'var(--accent)' : 'transparent',
-                  color: draftSaved ? '#fff' : 'var(--text-muted)',
-                  border: '1px solid ' + (draftSaved ? 'var(--accent)' : 'var(--border)'),
-                  borderRadius: 5,
-                  padding: '2px 9px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {draftSaved ? (lang === 'ko' ? '저장됨' : 'Saved') : (lang === 'ko' ? '저장' : 'Save')}
-              </button>
-              <button
                 onClick={refineSermonDraft}
                 disabled={refining || loading || !draftHistory.text.trim()}
                 style={{
@@ -977,8 +1007,10 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
               <button onClick={draftHistory.redo} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
             <textarea
+              ref={draftTextareaRef}
               value={draftHistory.text}
               onChange={e => handleDraftChange(e.target.value)}
+              onKeyDown={handleDraftKeyDown}
               disabled={refining}
               placeholder={lang === 'ko'
                 ? '왼쪽 단계 내용을 참고하여 설교문을 작성하세요.\n\n"설교문에 반영" 버튼으로 단계 내용을 가져올 수 있습니다.'

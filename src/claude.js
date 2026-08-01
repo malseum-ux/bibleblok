@@ -543,6 +543,27 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   return streamCompletion(prompt, onChunk)
 }
 
+export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, onChunk) {
+  if (!API_KEY) throw new Error('API_KEY_MISSING')
+  const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
+  const prompt = `당신은 설교 작성 전문가입니다.
+
+아래 설교문의 지정된 위치에 들어갈 내용을 생성해 주세요.
+
+[지시사항]: ${instruction}
+
+[앞 문맥]
+${contextBefore.slice(-600)}
+
+[뒤 문맥]
+${contextAfter.slice(0, 600)}
+
+생성된 내용만 출력하세요. 별도 설명이나 머리말 없이.
+[사용 성경]: ${bibleRef}`
+
+  return streamCompletion(prompt, onChunk)
+}
+
 export async function refineDraft(draft, lang, bible, onChunk) {
   if (!API_KEY) throw new Error('API_KEY_MISSING')
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
