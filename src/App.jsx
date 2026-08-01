@@ -10,7 +10,6 @@ import {
 import { getSettings, saveSettings, applyTheme } from './settings'
 import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory } from './fileSystem'
 import Sidebar from './components/Sidebar'
-import LocalSidebar from './components/LocalSidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
 import SettingsPanel from './components/SettingsPanel'
@@ -34,7 +33,6 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14 })
   const [rootHandle, setRootHandle] = useState(null)
-  const [fsRefreshKey, setFsRefreshKey] = useState(0)
 
   const lang = settings.lang
 
@@ -133,7 +131,6 @@ export default function App() {
     const stepsMap = {}
     steps.forEach(s => { stepsMap[s.stepIndex] = s.content })
     await saveItemToDirectory(rootHandle, t, item, stepsMap)
-    setFsRefreshKey(k => k + 1)
   }
 
   function handleFolderSelect(folder) {
@@ -177,7 +174,6 @@ export default function App() {
     if (selected?.id === id) setSelected(null)
     if (rootHandle) {
       await deleteItemFromDirectory(rootHandle, tab, id)
-      setFsRefreshKey(k => k + 1)
     }
   }
 
@@ -516,11 +512,6 @@ export default function App() {
           )}
         </main>
 
-        <LocalSidebar
-          tab={tab}
-          rootHandle={rootHandle}
-          refreshKey={fsRefreshKey}
-        />
       </div>
     </div>
   )
