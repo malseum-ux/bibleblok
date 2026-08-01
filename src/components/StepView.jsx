@@ -431,16 +431,17 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     if (e.key !== 'Enter' || e.shiftKey) return
     const text = draftHistory.text
     const cursor = draftTextareaRef.current?.selectionStart ?? 0
-    const before = text.slice(0, cursor)
-    const lastOpen = before.lastIndexOf('[')
-    if (lastOpen === -1) return
-    const closeIdx = text.indexOf(']', lastOpen)
-    if (closeIdx === -1 || closeIdx < cursor - 1) return
-    const instruction = text.slice(lastOpen + 1, closeIdx).trim()
+    const textBeforeCursor = text.slice(0, cursor)
+    const lastNewline = textBeforeCursor.lastIndexOf('\n')
+    const currentLineStart = lastNewline + 1
+    const currentLine = textBeforeCursor.slice(currentLineStart)
+    const slashIdx = currentLine.indexOf('//')
+    if (slashIdx === -1) return
+    const instruction = currentLine.slice(slashIdx + 2).trim()
     if (!instruction) return
     e.preventDefault()
-    const contextBefore = text.slice(0, lastOpen)
-    const contextAfter = text.slice(closeIdx + 1)
+    const contextBefore = text.slice(0, currentLineStart + slashIdx)
+    const contextAfter = text.slice(cursor)
     draftHistory.forceSnapshot()
     setRefining(true)
     try {
@@ -461,16 +462,17 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     if (e.key !== 'Enter' || e.shiftKey) return
     const text = resultHistory.text
     const cursor = resultTextareaRef.current?.selectionStart ?? 0
-    const before = text.slice(0, cursor)
-    const lastOpen = before.lastIndexOf('[')
-    if (lastOpen === -1) return
-    const closeIdx = text.indexOf(']', lastOpen)
-    if (closeIdx === -1 || closeIdx < cursor - 1) return
-    const instruction = text.slice(lastOpen + 1, closeIdx).trim()
+    const textBeforeCursor = text.slice(0, cursor)
+    const lastNewline = textBeforeCursor.lastIndexOf('\n')
+    const currentLineStart = lastNewline + 1
+    const currentLine = textBeforeCursor.slice(currentLineStart)
+    const slashIdx = currentLine.indexOf('//')
+    if (slashIdx === -1) return
+    const instruction = currentLine.slice(slashIdx + 2).trim()
     if (!instruction) return
     e.preventDefault()
-    const contextBefore = text.slice(0, lastOpen)
-    const contextAfter = text.slice(closeIdx + 1)
+    const contextBefore = text.slice(0, currentLineStart + slashIdx)
+    const contextAfter = text.slice(cursor)
     resultHistory.forceSnapshot()
     setRefining(true)
     try {
