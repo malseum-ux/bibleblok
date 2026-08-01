@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, executeInlineCommand, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, executeInlineCommand, stopCurrentGeneration, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
@@ -331,7 +331,9 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         })
       }
     } catch (e) {
-      if (e.message === 'API_KEY_MISSING') {
+      if (e.name === 'AbortError') {
+        // 사용자가 중지 — 에러 표시 없이 현재 내용 유지
+      } else if (e.message === 'API_KEY_MISSING') {
         setError(lang === 'ko'
           ? 'API 키가 설정되지 않았습니다. .env 파일에 VITE_OPENROUTER_API_KEY를 추가하세요.'
           : 'API key not set. Add VITE_OPENROUTER_API_KEY to your .env file.')
@@ -742,21 +744,20 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
                         >수정</button>
                       )}
                       <button
-                        onClick={generate}
-                        disabled={loading}
+                        onClick={loading ? stopCurrentGeneration : generate}
                         style={{
-                          background: loading ? 'var(--border)' : 'var(--accent)',
-                          color: loading ? 'var(--text-muted)' : '#fff',
+                          background: loading ? '#dc2626' : 'var(--accent)',
+                          color: '#fff',
                           border: 'none',
                           borderRadius: 6,
                           padding: '5px 14px',
                           fontSize: 13,
                           fontWeight: 600,
-                          cursor: loading ? 'default' : 'pointer',
+                          cursor: 'pointer',
                         }}
                       >
                         {loading
-                          ? (lang === 'ko' ? '생성 중...' : 'Generating...')
+                          ? (lang === 'ko' ? '중지' : 'Stop')
                           : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
                       </button>
                     </>

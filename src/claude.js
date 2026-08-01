@@ -600,9 +600,19 @@ ${draft}`
   return streamCompletion(prompt, onChunk)
 }
 
+let _currentAbortController = null
+
+export function stopCurrentGeneration() {
+  _currentAbortController?.abort()
+  _currentAbortController = null
+}
+
 async function streamCompletion(prompt, onChunk) {
+  _currentAbortController = new AbortController()
+  const signal = _currentAbortController.signal
   const response = await fetch('/api/openrouter/api/v1/chat/completions', {
     method: 'POST',
+    signal,
     headers: {
       'Authorization': `Bearer ${API_KEY}`,
       'content-type': 'application/json',
@@ -627,23 +637,28 @@ async function streamCompletion(prompt, onChunk) {
   const decoder = new TextDecoder()
   let fullText = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    const chunk = decoder.decode(value)
-    const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
-    for (const line of lines) {
-      const data = line.slice(6)
-      if (data === '[DONE]') continue
-      try {
-        const json = JSON.parse(data)
-        const text = json.choices?.[0]?.delta?.content || ''
-        if (text) {
-          fullText += text
-          onChunk?.(fullText)
-        }
-      } catch {}
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+      for (const line of lines) {
+        const data = line.slice(6)
+        if (data === '[DONE]') continue
+        try {
+          const json = JSON.parse(data)
+          const text = json.choices?.[0]?.delta?.content || ''
+          if (text) {
+            fullText += text
+            onChunk?.(fullText)
+          }
+        } catch {}
+      }
     }
+  } finally {
+    _currentAbortController = null
+    reader.releaseLock()
   }
 
   return fullText
