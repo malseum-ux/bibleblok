@@ -100,7 +100,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 14, onSaveItem, onItemUpdate }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 14, onSaveItem, onItemUpdate, onGenerated }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -207,6 +207,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         ).then(async (full) => {
           await saveSermonStep(item.id, currentStep, full)
           setStepContents(prev => ({ ...prev, [currentStep]: full }))
+          onGenerated?.(item.id)
         })
       } else if (tab === 'worship') {
         // 단계별 선택 항목을 반영한 통합 문서 생성 후 step 0에 저장
@@ -216,6 +217,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         ).then(async (full) => {
           await saveWorshipStep(item.id, 0, full)
           setStepContents(prev => ({ ...prev, [0]: full }))
+          onGenerated?.(item.id)
         })
       } else {
         const seriesCtx = await getSeriesContext('dawn', item.category, item.id)
@@ -226,6 +228,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         ).then(async (full) => {
           await saveDawnStep(item.id, 0, full)
           setStepContents(prev => ({ ...prev, [0]: full }))
+          onGenerated?.(item.id)
         })
       }
     } catch (e) {

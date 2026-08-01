@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
@@ -8,7 +8,9 @@ import {
   getSermonSteps, getWorshipSteps, getDawnSteps,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
+import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory } from './fileSystem'
 import Sidebar from './components/Sidebar'
+import LocalSidebar from './components/LocalSidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
 import SettingsPanel from './components/SettingsPanel'
@@ -31,6 +33,8 @@ export default function App() {
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14 })
+  const [rootHandle, setRootHandle] = useState(null)
+  const [fsRefreshKey, setFsRefreshKey] = useState(0)
 
   const lang = settings.lang
 
@@ -42,6 +46,13 @@ export default function App() {
     loadSermons()
     loadWorships()
     loadDawns()
+    if (isFileSystemSupported()) {
+      loadRootHandle().then(async handle => {
+        if (!handle) return
+        const ok = await verifyPermission(handle)
+        if (ok) setRootHandle(handle)
+      })
+    }
   }, [])
 
   useEffect(() => {
@@ -98,6 +109,33 @@ export default function App() {
     tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : await loadDawns()
   }
 
+  async function handlePickFolder() {
+    const handle = await pickRootDirectory()
+    if (handle) setRootHandle(handle)
+  }
+
+  async function handleClearFolder() {
+    await clearRootHandle()
+    setRootHandle(null)
+  }
+
+  async function saveItemToFs(itemId, targetTab) {
+    if (!rootHandle) return
+    const t = targetTab || tab
+    const allItems = t === 'sermon' ? await getSermons() : t === 'worship' ? await getWorships() : await getDawns()
+    const item = allItems.find(i => i.id === itemId)
+    if (!item) return
+    const steps = t === 'sermon'
+      ? await getSermonSteps(itemId)
+      : t === 'worship'
+      ? await getWorshipSteps(itemId)
+      : await getDawnSteps(itemId)
+    const stepsMap = {}
+    steps.forEach(s => { stepsMap[s.stepIndex] = s.content })
+    await saveItemToDirectory(rootHandle, t, item, stepsMap)
+    setFsRefreshKey(k => k + 1)
+  }
+
   function handleFolderSelect(folder) {
     setSelectedFolder(folder)
     setSelected(null)
@@ -137,6 +175,10 @@ export default function App() {
       await loadDawns()
     }
     if (selected?.id === id) setSelected(null)
+    if (rootHandle) {
+      await deleteItemFromDirectory(rootHandle, tab, id)
+      setFsRefreshKey(k => k + 1)
+    }
   }
 
   async function handleSave(form) {
@@ -466,10 +508,19 @@ export default function App() {
                 fontSize={fontSizes[tab]}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
+                onGenerated={(itemId) => saveItemToFs(itemId)}
               />
             </div>
           )}
         </main>
+
+        <LocalSidebar
+          tab={tab}
+          rootHandle={rootHandle}
+          refreshKey={fsRefreshKey}
+          onPickFolder={handlePickFolder}
+          onClearFolder={handleClearFolder}
+        />
       </div>
     </div>
   )
