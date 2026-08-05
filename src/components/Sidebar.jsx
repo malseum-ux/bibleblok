@@ -456,9 +456,6 @@ export default function Sidebar({
                     gap: 6,
                   }}
                 >
-                  <span style={{ fontSize: 8, color: file.type === 'json' ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }}>
-                    {file.type === 'json' ? '●' : '○'}
-                  </span>
                   <span style={{
                     flex: 1,
                     fontSize: 12,
