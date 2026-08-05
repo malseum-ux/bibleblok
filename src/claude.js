@@ -124,7 +124,7 @@ function buildItems(items, selectedKeys) {
 const SERMON_STEP_PROMPTS = {
   narrative: (passage, lang, bible, selectedKeys = null) => `
 당신은 성경 신학자입니다. 다음 성경 본문에 대해 서사적 관점에서 해설해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -135,7 +135,7 @@ ${buildItems(SERMON_STEP_ITEMS.narrative, selectedKeys)}
 `,
   original: (passage, lang, bible, selectedKeys = null) => `
 당신은 성경 원어 전문가입니다. 다음 본문을 원어로 해설해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -146,7 +146,7 @@ ${buildItems(SERMON_STEP_ITEMS.original, selectedKeys)}
 `,
   message: (passage, lang, bible, selectedKeys = null) => `
 앞서 분석한 내용을 바탕으로 이 본문이 전하는 핵심 메시지를 정리해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -156,7 +156,7 @@ ${buildItems(SERMON_STEP_ITEMS.message, selectedKeys)}
 `,
   lesson: (passage, lang, bible, selectedKeys = null) => `
 이 본문에서 배울 수 있는 신앙적 교훈을 정리해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -166,7 +166,7 @@ ${buildItems(SERMON_STEP_ITEMS.lesson, selectedKeys)}
 `,
   research: (passage, lang, bible, selectedKeys = null) => `
 이 본문을 다양한 학문적 관점으로 확장 연구해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -177,7 +177,7 @@ ${buildItems(SERMON_STEP_ITEMS.research, selectedKeys)}
 `,
   illustration: (passage, lang, bible, selectedKeys = null) => `
 당신은 설교 전문가입니다. 다음 본문의 메시지를 효과적으로 전달할 수 있는 예화를 제시해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -198,7 +198,7 @@ ${buildItems(SERMON_STEP_ITEMS.hymns, selectedKeys)}
 `,
   application: (passage, lang, bible, selectedKeys = null) => `
 지금까지의 해설을 종합하여 오늘날 삶에 적용하는 내용을 작성해 주세요.
-A4 용지 2~3매 분량(약 1,500~2,500자)으로 상세하게 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -252,7 +252,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.call_verse, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [예배의 부름 기도문]
-절기 분위기를 담아 회중을 예배로 부르는 기도문을 작성해 주세요. (10~15줄 분량)
+절기 분위기를 담아 회중을 예배로 부르는 기도문을 작성해 주세요. (15~22줄 분량)
 진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 기도문 본문만 작성하세요.
 `,
   confession: (date, season, lectionary, lang, bible) => `
@@ -262,7 +262,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.call_verse, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [참회의 기도문]
-해당 절기에 맞는 참회의 기도문을 작성해 주세요. (10~15줄 분량)
+해당 절기에 맞는 참회의 기도문을 작성해 주세요. (15~22줄 분량)
 말과 생각과 행동, 그리고 마땅히 해야 할 일을 하지 않은 태만까지, 구체적인 죄의 영역을 짚어 주세요.
 단, 특정 개인이나 상황에 국한되지 않고 누구나 공감할 수 있는 일반적인 언어로 작성하세요.
 삶의 반성과 진실한 회개의 내용이 담기도록 하세요.
@@ -284,7 +284,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [예배를 위한 기도문]
-다음 순서로 구성된 기도문을 30~40줄 분량으로 작성해 주세요.
+다음 순서로 구성된 기도문을 45~60줄 분량으로 작성해 주세요.
 1. 찬양 - 하나님의 성품과 위대하심을 높임
 2. 감사 - 절기와 삶 속에서 베푸신 은혜에 감사
 3. 회개 - 말씀 앞에 나아가기 전 죄를 고백하고 용서를 구함
@@ -299,7 +299,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [봉헌기도문]
-헌금의 감사와 절기 정신을 담은 봉헌기도문을 작성해 주세요. (8~12줄 분량)
+헌금의 감사와 절기 정신을 담은 봉헌기도문을 작성해 주세요. (12~18줄 분량)
 진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 기도문 본문만 작성하세요.
 `,
   responsive_reading: (date, season, lectionary, lang, bible, selectedKeys = null) => `
@@ -348,7 +348,7 @@ ${buildItems(WORSHIP_STEP_ITEMS.sending, selectedKeys)}
 const DAWN_STEP_PROMPTS = {
   exposition: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
 당신은 새벽 기도회를 섬기는 목회자입니다. 다음 본문으로 성도들이 하루를 시작할 때 들을 새벽 메시지를 직접 작성해 주세요.
-5~10분 낭독 분량(약 800~1,200자)으로 목회자가 회중에게 직접 전하는 말씀 형식으로 써 주세요.
+10~15분 낭독 분량(약 1,200~1,800자)으로 목회자가 회중에게 직접 전하는 말씀 형식으로 써 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -360,7 +360,7 @@ ${buildItems(DAWN_STEP_ITEMS.exposition, selectedKeys)}
 `,
   core_message: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
 당신은 새벽 기도회를 섬기는 목회자입니다. 이 본문의 핵심 메시지를 성도들에게 전하는 글로 직접 작성해 주세요.
-약 600~800자, 목회자가 강단에서 말하듯 써 주세요.
+약 900~1,200자, 목회자가 강단에서 말하듯 써 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -371,7 +371,7 @@ ${buildItems(DAWN_STEP_ITEMS.core_message, selectedKeys)}
 `,
   meditation: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
 당신은 새벽 기도회를 섬기는 목회자입니다. 성도들이 하루 중 말씀을 묵상하도록 안내하는 글을 직접 작성해 주세요.
-약 600~800자, 목회자가 부드럽게 이끌어 가는 묵상 안내문 형식으로 써 주세요.
+약 900~1,200자, 목회자가 부드럽게 이끌어 가는 묵상 안내문 형식으로 써 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -381,7 +381,7 @@ ${buildItems(DAWN_STEP_ITEMS.meditation, selectedKeys)}
 `,
   application: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
 당신은 새벽 기도회를 섬기는 목회자입니다. 오늘 말씀을 삶에 적용하도록 촉구하는 글을 직접 작성해 주세요.
-약 600~800자, 구체적이고 따뜻하게, 성도들의 일상에 닿는 언어로 써 주세요.
+약 900~1,200자, 구체적이고 따뜻하게, 성도들의 일상에 닿는 언어로 써 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -391,14 +391,14 @@ ${buildItems(DAWN_STEP_ITEMS.application, selectedKeys)}
 `,
   prayer_topics: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
 당신은 새벽 기도회를 섬기는 목회자입니다. 오늘 본문을 중심으로 성도들이 함께 기도할 내용을 작성해 주세요.
-약 500~700자, 성도들이 바로 따라 기도할 수 있는 실제 기도문 형식으로 써 주세요.
+약 800~1,100자, 성도들이 바로 따라 기도할 수 있는 실제 기도문 형식으로 써 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
 기본 번역본: ${bible || '개역개정성경'}
 
 ${buildItems(DAWN_STEP_ITEMS.prayer_topics, selectedKeys)}
-- 각 기도는 2~4문장, 성도들이 마음으로 따라할 수 있는 언어로
+- 각 기도는 4~6문장, 성도들이 마음으로 따라할 수 있는 언어로
 `,
   hymn: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
 당신은 교회 음악을 잘 아는 목회자입니다. 오늘 새벽 기도 본문에 가장 잘 어울리는 찬송을 추천해 주세요.
@@ -433,7 +433,7 @@ export async function generateWorshipCombined(date, season, lectionary, lang, bi
     return buildItems(items, selected ?? items.map(i => i.key))
   }
 
-  let prompt = `예배 인도자를 위한 완성된 주일 예배 가이드를 A4 2장 분량(약 2,500~3,500자)으로 작성해 주세요.
+  let prompt = `예배 인도자를 위한 완성된 주일 예배 가이드를 A4 3~4장 분량(약 4,000~5,500자)으로 작성해 주세요.
 각 순서별로 예배에서 바로 사용할 수 있게 실용적으로 작성해 주세요.
 기도문과 축도문은 진행 지시어나 괄호 안 설명 없이 바로 낭독할 수 있는 본문만 작성하세요.
 
@@ -456,7 +456,7 @@ ${sel('call_verse')}
 ${sel('forgiveness')}
 
 [5. 예배를 위한 기도문]
-- 찬양 → 감사 → 회개 → 중보(국가/사회/교회/예배) → 간구(가정/성도의 필요) 순서로 구성 (30~40줄)
+- 찬양 → 감사 → 회개 → 중보(국가/사회/교회/예배) → 간구(가정/성도의 필요) 순서로 구성 (45~60줄)
 
 [6. 봉헌기도문]
 - 헌금의 감사와 절기 정신을 담은 봉헌기도문 (8~12줄)
@@ -469,7 +469,7 @@ ${sel('responsive_reading')}
 ${sel('hymns')}
 
 [9. 축도]
-- "주 예수 그리스도의 은혜와, ~~~하나님의 사랑과, ~~~성령의 위로(교통)하심이 ~~~ 성도 위에 함께 하시기를 축원하노라" 형식으로 작성. 삼위 각각의 수식어를 절기와 말씀에 맞게 채울 것. (5~8줄)
+- "주 예수 그리스도의 은혜와, ~~~하나님의 사랑과, ~~~성령의 위로(교통)하심이 ~~~ 성도 위에 함께 하시기를 축원하노라" 형식으로 작성. 삼위 각각의 수식어를 절기와 말씀에 맞게 채울 것. (8~12줄)
 
 [10. 파송의 말씀]
 ${sel('sending')}
@@ -489,7 +489,7 @@ export async function generateDawnCombined(passage, emphasis, lang, bible, serie
     return buildItems(items, selected ?? items.map(i => i.key))
   }
 
-  let prompt = `당신은 새벽 기도회를 섬기는 목회자입니다. 아래 본문으로 새벽 기도회 전체 순서에 사용할 수 있는 완성된 말씀 자료를 A4 2장 분량(약 2,500~3,500자)으로 작성해 주세요.
+  let prompt = `당신은 새벽 기도회를 섬기는 목회자입니다. 아래 본문으로 새벽 기도회 전체 순서에 사용할 수 있는 완성된 말씀 자료를 A4 3~4장 분량(약 4,000~5,500자)으로 작성해 주세요.
 목회자가 새벽 기도회를 인도할 때 바로 사용할 수 있게 실용적으로 작성해 주세요.
 
 본문: ${passage}
@@ -515,7 +515,7 @@ ${sel('application')}
 
 [5. 기도 제목]
 ${sel('prayer_topics')}
-- 각 기도는 2~4문장, 성도들이 마음으로 따라할 수 있는 언어로
+- 각 기도는 4~6문장, 성도들이 마음으로 따라할 수 있는 언어로
 
 [6. 찬송 추천]
 ${sel('hymn')}
@@ -630,7 +630,7 @@ async function streamCompletion(prompt, onChunk) {
       max_tokens: 8000,
       stream: true,
       messages: [
-        { role: 'system', content: '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요. 단락 사이에 빈 줄을 두 줄 이상 넣지 마세요. 항목 사이에도 불필요한 공백 줄을 넣지 마세요. 찬송가를 추천할 때는 반드시 2006년 한국찬송가공회 발행 21세기찬송가(총 645장)를 기준으로 하세요. 번호와 제목을 스스로 교차 확인한 후 제시하되, 확신하지 못할 경우 번호 없이 제목만 제시하고 "번호는 직접 확인하세요"라고 안내하세요.' },
+        { role: 'system', content: '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요. 단락 사이에 빈 줄을 두 줄 이상 넣지 마세요. 항목 사이에도 불필요한 공백 줄을 넣지 마세요. 각 항목과 소제목에는 반드시 번호를 붙여(1. 2. 3. 형식) 내용이 한눈에 구조적으로 파악되도록 작성하세요. 찬송가를 추천할 때는 반드시 2006년 한국찬송가공회 발행 21세기찬송가(총 645장)를 기준으로 하세요. 번호와 제목을 스스로 교차 확인한 후 제시하되, 확신하지 못할 경우 번호 없이 제목만 제시하고 "번호는 직접 확인하세요"라고 안내하세요.' },
         { role: 'user', content: prompt },
       ],
     }),
