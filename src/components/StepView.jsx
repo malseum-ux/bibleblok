@@ -100,7 +100,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 14, onSaveItem, onItemUpdate, onGenerated }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobile = false, onSaveItem, onItemUpdate, onGenerated }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -129,6 +129,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const [dragOverId, setDragOverId] = useState(null)
   const [infoOpen, setInfoOpen] = useState(false)
   const [leftPct, setLeftPct] = useState(50)
+  const [mobilePanel, setMobilePanel] = useState('result')
   const draftTimer = useRef(null)
   const resultEditTimer = useRef(null)
   const splitContainerRef = useRef(null)
@@ -703,14 +704,36 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         </div>
       )}
 
+      {/* 모바일 설교탭: 결과/초안 전환 탭 */}
+      {isMobile && tab === 'sermon' && (
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-sidebar)' }}>
+          {[['result', 'AI 결과'], ['draft', '설교 초안']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setMobilePanel(key)}
+              style={{
+                flex: 1,
+                padding: '10px 0',
+                fontSize: 13,
+                fontWeight: 600,
+                background: mobilePanel === key ? 'var(--accent)' : 'transparent',
+                color: mobilePanel === key ? '#fff' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >{label}</button>
+          ))}
+        </div>
+      )}
+
       {/* 본문 영역 */}
       <div ref={splitContainerRef} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* 좌: AI 생성 내용 */}
         <div style={{
-          width: tab === 'sermon' ? `${leftPct}%` : '100%',
+          width: tab === 'sermon' && !isMobile ? `${leftPct}%` : '100%',
           flexShrink: 0,
-          display: 'flex',
+          display: isMobile && tab === 'sermon' && mobilePanel === 'draft' ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}>
@@ -1014,8 +1037,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
           )}
         </div>
 
-        {/* 드래그 핸들 (설교 탭만) */}
-        {tab === 'sermon' && (
+        {/* 드래그 핸들 (설교 탭, 데스크탑만) */}
+        {tab === 'sermon' && !isMobile && (
           <div
             onPointerDown={startSplitDrag}
             style={{
@@ -1031,8 +1054,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
         )}
 
         {/* 우: 설교문 초안 (설교 탭만) */}
-        {tab === 'sermon' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {tab === 'sermon' && (!isMobile || mobilePanel === 'draft') && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: isMobile ? '100%' : undefined }}>
             <div style={{
               height: 46,
               padding: '0 20px',

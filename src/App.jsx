@@ -24,7 +24,8 @@ export default function App() {
   const [folders, setFolders] = useState([])
   const [selected, setSelected] = useState(null)
   const [selectedFolder, setSelectedFolder] = useState(null)
-  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
+  const [sidebarVisible, setSidebarVisible] = useState(() => window.innerWidth >= 900)
   const [sidebarWidth, setSidebarWidth] = useState(240)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -39,6 +40,12 @@ export default function App() {
   useEffect(() => {
     applyTheme(settings.theme)
   }, [settings.theme])
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 900)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   useEffect(() => {
     loadSermons()
@@ -259,10 +266,14 @@ export default function App() {
         gap: 12,
         flexShrink: 0,
       }}>
-        <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
-          SermonBlok
-        </span>
-        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+        <button
+          onClick={() => setSidebarVisible(v => !v)}
+          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexShrink: 0 }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>SermonBlok</span>}
+        {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
           {[['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교']].map(([t, label]) => (
             <button
@@ -366,7 +377,7 @@ export default function App() {
         </button>
 
         {/* 글자 크기 조절 */}
-        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 32 }}>
+        {!isMobile && <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 32 }}>
           <button
             onClick={() => setFontSizes(prev => ({ ...prev, [tab]: Math.max(11, prev[tab] - 1) }))}
             style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1 }}
@@ -382,7 +393,7 @@ export default function App() {
           >
             ↑
           </button>
-        </div>
+        </div>}
 
         <button
           onClick={() => setSettingsOpen(true)}
@@ -418,7 +429,8 @@ export default function App() {
       )}
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {sidebarVisible && (
+        {/* 데스크탑 사이드바 */}
+        {!isMobile && sidebarVisible && (
           <Sidebar
             tab={tab}
             items={items}
@@ -439,49 +451,77 @@ export default function App() {
           />
         )}
 
-        <div
-          onPointerDown={(e) => {
-            if (e.button !== 0) return
-            const startX = e.clientX
-            const startW = sidebarWidth
-            let moved = false
-            const onMove = (me) => {
-              if (Math.abs(me.clientX - startX) > 4) moved = true
-              if (!moved) return
-              const newW = Math.min(Math.max(startW + (me.clientX - startX), 140), 520)
-              setSidebarWidth(newW)
-              if (!sidebarVisible) setSidebarVisible(true)
-            }
-            const onUp = () => {
-              document.removeEventListener('pointermove', onMove)
-              if (!moved) setSidebarVisible(v => !v)
-            }
-            document.addEventListener('pointermove', onMove)
-            document.addEventListener('pointerup', onUp, { once: true })
-          }}
-          title={sidebarVisible ? '사이드바 감추기 (드래그로 너비 조절)' : '사이드바 보이기'}
-          style={{
-            width: 12,
-            flexShrink: 0,
-            background: 'var(--bg-sidebar)',
-            borderRight: '1px solid var(--border)',
-            borderLeft: sidebarVisible ? 'none' : '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            paddingTop: '28vh',
-            cursor: sidebarVisible ? 'col-resize' : 'pointer',
-            userSelect: 'none',
-          }}
-        >
-          <span style={{
-            fontSize: 9,
-            color: 'var(--text-muted)',
-            userSelect: 'none',
-            lineHeight: 1,
-          }}>
-            {sidebarVisible ? '◀' : '▶'}
-          </span>
-        </div>
+        {/* 데스크탑 사이드바 드래그 핸들 */}
+        {!isMobile && (
+          <div
+            onPointerDown={(e) => {
+              if (e.button !== 0) return
+              const startX = e.clientX
+              const startW = sidebarWidth
+              let moved = false
+              const onMove = (me) => {
+                if (Math.abs(me.clientX - startX) > 4) moved = true
+                if (!moved) return
+                const newW = Math.min(Math.max(startW + (me.clientX - startX), 140), 520)
+                setSidebarWidth(newW)
+                if (!sidebarVisible) setSidebarVisible(true)
+              }
+              const onUp = () => {
+                document.removeEventListener('pointermove', onMove)
+                if (!moved) setSidebarVisible(v => !v)
+              }
+              document.addEventListener('pointermove', onMove)
+              document.addEventListener('pointerup', onUp, { once: true })
+            }}
+            title={sidebarVisible ? '사이드바 감추기 (드래그로 너비 조절)' : '사이드바 보이기'}
+            style={{
+              width: 12,
+              flexShrink: 0,
+              background: 'var(--bg-sidebar)',
+              borderRight: '1px solid var(--border)',
+              borderLeft: sidebarVisible ? 'none' : '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              paddingTop: '28vh',
+              cursor: sidebarVisible ? 'col-resize' : 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <span style={{ fontSize: 9, color: 'var(--text-muted)', userSelect: 'none', lineHeight: 1 }}>
+              {sidebarVisible ? '◀' : '▶'}
+            </span>
+          </div>
+        )}
+
+        {/* 모바일 사이드바 오버레이 */}
+        {isMobile && sidebarVisible && (
+          <>
+            <div
+              onClick={() => setSidebarVisible(false)}
+              style={{ position: 'fixed', inset: 0, top: 48, background: 'rgba(0,0,0,0.4)', zIndex: 49 }}
+            />
+            <div style={{ position: 'fixed', top: 48, left: 0, bottom: 0, width: 280, zIndex: 50, display: 'flex', flexDirection: 'column' }}>
+              <Sidebar
+                tab={tab}
+                items={items}
+                folders={folders}
+                selectedId={selected}
+                selectedFolderId={selectedFolder?.id}
+                onSelect={(sel) => { setSelected({ id: sel.id, step: 0 }); setSidebarVisible(false) }}
+                onDelete={handleDelete}
+                steps={steps}
+                onCreateFolder={handleCreateFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onMoveItem={handleMoveItem}
+                onMoveFolder={handleMoveFolder}
+                onFolderSelect={(folder) => { handleFolderSelect(folder); setSidebarVisible(false) }}
+                width={280}
+                searchItems={searchResults}
+                searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
+              />
+            </div>
+          </>
+        )}
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
           {!selected && (
@@ -506,6 +546,7 @@ export default function App() {
                 lang={lang}
                 bible={settings.bible}
                 fontSize={fontSizes[tab]}
+                isMobile={isMobile}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
                 onGenerated={(itemId) => saveItemToFs(itemId)}
