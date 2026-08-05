@@ -134,6 +134,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
   const splitContainerRef = useRef(null)
   const draftTextareaRef = useRef(null)
   const resultTextareaRef = useRef(null)
+  const resultDivRef = useRef(null)
   const lastSelectionRef = useRef('')
 
   const step = steps[currentStep] || steps[0]
@@ -552,6 +553,25 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     }, 800)
   }, [resultHistory.text, editing]) // eslint-disable-line
 
+  // 생성/수정 중 자동 스크롤
+  useEffect(() => {
+    if (loading && resultDivRef.current) {
+      resultDivRef.current.scrollTop = resultDivRef.current.scrollHeight
+    }
+  }, [content, loading])
+
+  useEffect(() => {
+    if (refining && resultTextareaRef.current) {
+      resultTextareaRef.current.scrollTop = resultTextareaRef.current.scrollHeight
+    }
+  }, [resultHistory.text, refining])
+
+  useEffect(() => {
+    if (refining && draftTextareaRef.current) {
+      draftTextareaRef.current.scrollTop = draftTextareaRef.current.scrollHeight
+    }
+  }, [draftHistory.text, refining])
+
   if (!step) return null
 
   const undoBtnStyle = (can) => ({
@@ -952,7 +972,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
               }}
             />
           ) : (
-            <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+            <div ref={resultDivRef} style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
               {error && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
                   {error}
