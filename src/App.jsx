@@ -70,7 +70,49 @@ export default function App() {
 
   useEffect(() => {
     if (!rootHandle) { setFsFiles([]); return }
-    listTabFiles(rootHandle, tab).then(setFsFiles)
+
+    async function syncLocalFiles() {
+      const files = await listTabFiles(rootHandle, tab)
+      setFsFiles(files)
+
+      const dbItems = tab === 'sermon' ? await getSermons()
+        : tab === 'worship' ? await getWorships()
+        : await getDawns()
+      const existingBaseNames = new Set(dbItems.map(i => buildFileBaseName(tab, i)))
+      const orphans = files.filter(f => f.type === 'json' && !existingBaseNames.has(f.name.replace(/\.json$/, '')))
+      if (orphans.length === 0) return
+
+      for (const file of orphans) {
+        const text = await readFileContent(file.handle)
+        if (!text) continue
+        const parsed = parseJsonFile(text)
+        if (!parsed) continue
+        const { item: itemData, steps } = parsed
+        let newId
+        if (tab === 'sermon') {
+          newId = await createSermon({ ...itemData, folderId: null })
+          for (const [idx, content] of Object.entries(steps)) {
+            if (content) await saveSermonStep(newId, Number(idx), content)
+          }
+        } else if (tab === 'worship') {
+          newId = await createWorship({ ...itemData, folderId: null })
+          for (const [idx, content] of Object.entries(steps)) {
+            if (content) await saveWorshipStep(newId, Number(idx), content)
+          }
+        } else {
+          newId = await createDawn({ ...itemData, folderId: null })
+          for (const [idx, content] of Object.entries(steps)) {
+            if (content) await saveDawnStep(newId, Number(idx), content)
+          }
+        }
+      }
+
+      if (tab === 'sermon') await loadSermons()
+      else if (tab === 'worship') await loadWorships()
+      else await loadDawns()
+    }
+
+    syncLocalFiles()
   }, [rootHandle, tab])
 
   async function loadSermons() {
