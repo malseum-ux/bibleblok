@@ -12,10 +12,10 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/anthropic/, ''),
         headers: { origin: 'https://api.anthropic.com' },
       },
-      '/api/openrouter': {
-        target: 'https://openrouter.ai',
+      '/api/deepseek': {
+        target: 'https://api.deepseek.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/openrouter/, ''),
+        rewrite: (path) => path.replace(/^\/api\/deepseek/, ''),
       },
     },
   },

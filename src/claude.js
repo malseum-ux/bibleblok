@@ -1,4 +1,4 @@
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || ''
+const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 
 export const SERMON_STEP_ITEMS = {
   narrative: [
@@ -618,7 +618,7 @@ export function stopCurrentGeneration() {
 async function streamCompletion(prompt, onChunk) {
   _currentAbortController = new AbortController()
   const signal = _currentAbortController.signal
-  const response = await fetch('/api/openrouter/api/v1/chat/completions', {
+  const response = await fetch('/api/deepseek/v1/chat/completions', {
     method: 'POST',
     signal,
     headers: {
@@ -626,7 +626,7 @@ async function streamCompletion(prompt, onChunk) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4-6',
+      model: 'deepseek-chat',
       max_tokens: 8000,
       stream: true,
       messages: [
