@@ -9,7 +9,7 @@ import {
   saveSermonStep, saveWorshipStep, saveDawnStep,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
-import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName } from './fileSystem'
+import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName, deleteFileFromDir } from './fileSystem'
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
@@ -72,9 +72,29 @@ export default function App() {
     if (!rootHandle) { setFsFiles([]); return }
 
     async function syncLocalFiles() {
+      // 1단계: 중복 항목 제거 (같은 날짜+제목/본문)
+      for (const t of ['sermon', 'worship', 'dawn']) {
+        const all = t === 'sermon' ? await getSermons()
+          : t === 'worship' ? await getWorships()
+          : await getDawns()
+        const seen = new Map()
+        for (const item of [...all].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
+          const key = `${item.date}_${item.title || ''}_${item.passage || ''}`
+          if (seen.has(key)) {
+            if (t === 'sermon') await deleteSermon(item.id)
+            else if (t === 'worship') await deleteWorship(item.id)
+            else await deleteDawn(item.id)
+          } else {
+            seen.set(key, true)
+          }
+        }
+      }
+
+      // 2단계: 현재 탭 파일 목록 업데이트 (사이드바 표시용)
       const currentFiles = await listTabFiles(rootHandle, tab)
       setFsFiles(currentFiles)
 
+      // 3단계: 세 탭 모두 orphan 파일 가져오기
       const imported = { sermon: false, worship: false, dawn: false }
 
       for (const t of ['sermon', 'worship', 'dawn']) {
@@ -111,24 +131,31 @@ export default function App() {
             }
           }
 
+          let newId
           if (t === 'sermon') {
-            const id = await createSermon({ ...itemData, folderId: null })
+            newId = await createSermon({ ...itemData, folderId: null })
             for (const [idx, content] of Object.entries(steps)) {
-              if (content) await saveSermonStep(id, Number(idx), content)
+              if (content) await saveSermonStep(newId, Number(idx), content)
             }
             imported.sermon = true
           } else if (t === 'worship') {
-            const id = await createWorship({ ...itemData, folderId: null })
+            newId = await createWorship({ ...itemData, folderId: null })
             for (const [idx, content] of Object.entries(steps)) {
-              if (content) await saveWorshipStep(id, Number(idx), content)
+              if (content) await saveWorshipStep(newId, Number(idx), content)
             }
             imported.worship = true
           } else {
-            const id = await createDawn({ ...itemData, folderId: null })
+            newId = await createDawn({ ...itemData, folderId: null })
             for (const [idx, content] of Object.entries(steps)) {
-              if (content) await saveDawnStep(id, Number(idx), content)
+              if (content) await saveDawnStep(newId, Number(idx), content)
             }
             imported.dawn = true
+          }
+
+          // .sbl 파일은 .json으로 변환 후 원본 삭제 (다음 sync에서 중복 방지)
+          if (file.type === 'sbl') {
+            await saveItemToDirectory(rootHandle, t, itemData, steps)
+            await deleteFileFromDir(rootHandle, t, file.name)
           }
         }
       }

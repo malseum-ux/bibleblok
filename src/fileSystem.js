@@ -183,6 +183,13 @@ export async function listTabFiles(root, tab) {
   }
 }
 
+export async function deleteFileFromDir(root, tab, fileName) {
+  try {
+    const tabDir = await root.getDirectoryHandle(TAB_DIRS[tab])
+    await tabDir.removeEntry(fileName)
+  } catch {}
+}
+
 export async function readFileContent(handle) {
   try {
     const file = await handle.getFile()
