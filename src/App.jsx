@@ -79,15 +79,39 @@ export default function App() {
         : tab === 'worship' ? await getWorships()
         : await getDawns()
       const existingBaseNames = new Set(dbItems.map(i => buildFileBaseName(tab, i)))
-      const orphans = files.filter(f => f.type === 'json' && !existingBaseNames.has(f.name.replace(/\.json$/, '')))
+      const orphans = files.filter(f => !existingBaseNames.has(f.name.replace(/\.(json|sbl)$/, '')))
       if (orphans.length === 0) return
 
       for (const file of orphans) {
         const text = await readFileContent(file.handle)
         if (!text) continue
-        const parsed = parseJsonFile(text)
-        if (!parsed) continue
-        const { item: itemData, steps } = parsed
+
+        let itemData, steps = {}
+
+        if (file.type === 'json') {
+          const parsed = parseJsonFile(text)
+          if (!parsed) continue
+          itemData = parsed.item
+          steps = parsed.steps
+        } else {
+          const meta = parseSblMeta(text)
+          if (!meta.date && !meta.title && !meta.passage) continue
+          const lines = text.split('\n')
+          const sepIdx = lines.findIndex(l => l.startsWith('━'))
+          const headerEnd = (lines.findIndex((l, i) => i > 0 && l === '') + 1) || 5
+          const bodyText = (sepIdx > -1 ? lines.slice(headerEnd, sepIdx) : lines.slice(headerEnd)).join('\n').trim()
+          const draftText = sepIdx > -1 ? lines.slice(sepIdx + 2).join('\n').trim() : ''
+          itemData = {
+            date: meta.date || null,
+            title: meta.title || null,
+            passage: meta.passage || null,
+            season: meta.season || null,
+            category: meta.category || null,
+            emphasis: null,
+            draft: draftText || bodyText || null,
+          }
+        }
+
         let newId
         if (tab === 'sermon') {
           newId = await createSermon({ ...itemData, folderId: null })
