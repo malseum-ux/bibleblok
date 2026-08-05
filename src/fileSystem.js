@@ -88,38 +88,61 @@ async function getOrCreateSubDir(parent, name) {
   return parent.getDirectoryHandle(sanitize(name), { create: true })
 }
 
-function buildFileName(tab, item) {
+export function buildFileBaseName(tab, item) {
   const date = (item.date || '').replace(/-/g, '').slice(2)
   const name = tab === 'worship'
     ? '예배인도'
     : sanitize(item.title || item.passage || '제목없음')
-  return `${date}_${name}.sbl`
+  return `${date}_${name}`
 }
 
-function formatContent(tab, item, steps) {
-  const lines = []
-  if (item.date)    lines.push(`날짜: ${item.date}`)
-  if (item.title)   lines.push(`제목: ${item.title}`)
-  if (item.passage) lines.push(`본문: ${item.passage}`)
-  if (item.season)  lines.push(`절기: ${item.season}`)
-  if (item.category) lines.push(`구분: ${item.category}`)
-  lines.push('')
+function buildFileName(tab, item) {
+  return `${buildFileBaseName(tab, item)}.json`
+}
 
-  const stepEntries = Object.entries(steps).sort((a, b) => Number(a[0]) - Number(b[0]))
-  for (const [, content] of stepEntries) {
-    if (content) {
-      lines.push(content)
-      lines.push('')
-    }
+function buildSblFileName(tab, item) {
+  return `${buildFileBaseName(tab, item)}.sbl`
+}
+
+function buildJsonContent(tab, item, steps) {
+  return JSON.stringify({
+    version: 1,
+    tab,
+    savedAt: new Date().toISOString(),
+    item: {
+      date: item.date || null,
+      title: item.title || null,
+      passage: item.passage || null,
+      season: item.season || null,
+      category: item.category || null,
+      emphasis: item.emphasis || null,
+      draft: item.draft || null,
+    },
+    steps,
+  }, null, 2)
+}
+
+export function parseJsonFile(text) {
+  try {
+    const data = JSON.parse(text)
+    if (data.version !== 1 || !data.item) return null
+    return { tab: data.tab, item: data.item, steps: data.steps || {} }
+  } catch {
+    return null
   }
-  if (item.draft?.trim()) {
-    lines.push('━'.repeat(30))
-    lines.push('[설교문 초안]')
-    lines.push('')
-    lines.push(item.draft)
-    lines.push('')
+}
+
+export function parseSblMeta(text) {
+  const lines = text.split('\n')
+  const meta = {}
+  for (const line of lines.slice(0, 10)) {
+    if (line.startsWith('날짜: ')) meta.date = line.slice(4).trim()
+    else if (line.startsWith('제목: ')) meta.title = line.slice(4).trim()
+    else if (line.startsWith('본문: ')) meta.passage = line.slice(4).trim()
+    else if (line.startsWith('절기: ')) meta.season = line.slice(4).trim()
+    else if (line.startsWith('구분: ')) meta.category = line.slice(4).trim()
   }
-  return lines.join('\n')
+  return meta
 }
 
 export async function saveItemToDirectory(root, tab, item, steps) {
@@ -130,7 +153,7 @@ export async function saveItemToDirectory(root, tab, item, steps) {
     const fileName = buildFileName(tab, item)
     const fh      = await tabDir.getFileHandle(fileName, { create: true })
     const writer  = await fh.createWritable()
-    await writer.write(formatContent(tab, item, steps))
+    await writer.write(buildJsonContent(tab, item, steps))
     await writer.close()
   } catch {}
 }
@@ -138,8 +161,8 @@ export async function saveItemToDirectory(root, tab, item, steps) {
 export async function deleteItemFromDirectory(root, tab, item) {
   try {
     const tabDir = await root.getDirectoryHandle(TAB_DIRS[tab])
-    const fileName = buildFileName(tab, item)
-    await tabDir.removeEntry(fileName)
+    try { await tabDir.removeEntry(buildFileName(tab, item)) } catch {}
+    try { await tabDir.removeEntry(buildSblFileName(tab, item)) } catch {}
   } catch {}
 }
 
@@ -150,8 +173,8 @@ export async function listTabFiles(root, tab) {
     const tabDir = await root.getDirectoryHandle(TAB_DIRS[tab])
     const files  = []
     for await (const [name, entry] of tabDir.entries()) {
-      if (entry.kind === 'file' && name.endsWith('.txt')) {
-        files.push({ name, handle: entry })
+      if (entry.kind === 'file' && (name.endsWith('.json') || name.endsWith('.sbl'))) {
+        files.push({ name, handle: entry, type: name.endsWith('.json') ? 'json' : 'sbl' })
       }
     }
     return files.sort((a, b) => b.name.localeCompare(a.name))

@@ -27,6 +27,8 @@ export default function Sidebar({
   width = 240,
   searchItems = null,
   searchItemsTab = null,
+  fsFiles = [],
+  onFsFileOpen,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -430,6 +432,50 @@ export default function Sidebar({
               {dropDisplay === null ? '루트로 이동' : '폴더로 드래그'}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 로컬 파일 섹션 */}
+      {!isSearching && fsFiles.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            로컬 파일
+          </div>
+          <div style={{ maxHeight: 200, overflowY: 'auto', paddingBottom: 4 }}>
+            {fsFiles.map(file => {
+              const baseName = file.name.replace(/\.(json|sbl)$/, '')
+              return (
+                <div
+                  key={file.name}
+                  onClick={() => onFsFileOpen?.(file)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '4px 8px 4px 10px',
+                    cursor: 'pointer',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ fontSize: 8, color: file.type === 'json' ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }}>
+                    {file.type === 'json' ? '●' : '○'}
+                  </span>
+                  <span style={{
+                    flex: 1,
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {baseName}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, opacity: 0.5 }}>
+                    {file.type === 'json' ? '불러오기' : '보기'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

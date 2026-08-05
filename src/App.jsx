@@ -6,9 +6,10 @@ import {
   createDawn, getDawns, updateDawn, deleteDawn,
   getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder,
   getSermonSteps, getWorshipSteps, getDawnSteps,
+  saveSermonStep, saveWorshipStep, saveDawnStep,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
-import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory } from './fileSystem'
+import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName } from './fileSystem'
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
@@ -34,6 +35,8 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14 })
   const [rootHandle, setRootHandle] = useState(null)
+  const [fsFiles, setFsFiles] = useState([])
+  const [sblViewer, setSblViewer] = useState(null)
 
   const lang = settings.lang
 
@@ -64,6 +67,11 @@ export default function App() {
     loadFolders()
     setSelectedFolder(null)
   }, [tab])
+
+  useEffect(() => {
+    if (!rootHandle) { setFsFiles([]); return }
+    listTabFiles(rootHandle, tab).then(setFsFiles)
+  }, [rootHandle, tab])
 
   async function loadSermons() {
     setSermons(await getSermons())
@@ -117,6 +125,59 @@ export default function App() {
   async function handlePickFolder() {
     const handle = await pickRootDirectory()
     if (handle) setRootHandle(handle)
+  }
+
+  async function handleFsFileOpen(file) {
+    const text = await readFileContent(file.handle)
+    if (!text) return
+
+    if (file.type === 'sbl') {
+      const meta = parseSblMeta(text)
+      const title = meta.title || meta.passage || file.name.replace(/\.sbl$/, '')
+      setSblViewer({ title, content: text })
+      return
+    }
+
+    const parsed = parseJsonFile(text)
+    if (!parsed) return
+
+    const { item: itemData, steps } = parsed
+
+    const currentItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
+    const existing = currentItems.find(i =>
+      i.date === itemData.date &&
+      ((itemData.title && i.title === itemData.title) || (itemData.passage && i.passage === itemData.passage))
+    )
+
+    if (existing) {
+      setSelected({ id: existing.id, step: 0 })
+      if (isMobile) setSidebarVisible(false)
+      return
+    }
+
+    let newId
+    if (tab === 'sermon') {
+      newId = await createSermon({ ...itemData, folderId: null })
+      for (const [idx, content] of Object.entries(steps)) {
+        if (content) await saveSermonStep(newId, Number(idx), content)
+      }
+      await loadSermons()
+    } else if (tab === 'worship') {
+      newId = await createWorship({ ...itemData, folderId: null })
+      for (const [idx, content] of Object.entries(steps)) {
+        if (content) await saveWorshipStep(newId, Number(idx), content)
+      }
+      await loadWorships()
+    } else {
+      newId = await createDawn({ ...itemData, folderId: null })
+      for (const [idx, content] of Object.entries(steps)) {
+        if (content) await saveDawnStep(newId, Number(idx), content)
+      }
+      await loadDawns()
+    }
+
+    setSelected({ id: newId, step: 0 })
+    if (isMobile) setSidebarVisible(false)
   }
 
   async function handleClearFolder() {
@@ -255,6 +316,7 @@ export default function App() {
   }
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <header style={{
         height: 48,
@@ -448,6 +510,8 @@ export default function App() {
             width={sidebarWidth}
             searchItems={searchResults}
             searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
+            fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
+            onFsFileOpen={handleFsFileOpen}
           />
         )}
 
@@ -518,6 +582,8 @@ export default function App() {
                 width={280}
                 searchItems={searchResults}
                 searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
+                fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
+                onFsFileOpen={handleFsFileOpen}
               />
             </div>
           </>
@@ -557,5 +623,27 @@ export default function App() {
 
       </div>
     </div>
+
+    {sblViewer && (
+
+      <div
+        onClick={() => setSblViewer(null)}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ background: 'var(--bg)', borderRadius: 8, width: '100%', maxWidth: 700, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}
+        >
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-heading)' }}>{sblViewer.title} (이전 형식 — 읽기 전용)</span>
+            <button onClick={() => setSblViewer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>×</button>
+          </div>
+          <pre style={{ flex: 1, overflow: 'auto', padding: 16, fontSize: 13, whiteSpace: 'pre-wrap', color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>
+            {sblViewer.content}
+          </pre>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
