@@ -354,10 +354,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onSave
     } catch (e) {
       if (e.name === 'AbortError') {
         // 사용자가 중지 — 에러 표시 없이 현재 내용 유지
-      } else if (e.message === 'API_KEY_MISSING') {
-        setError(lang === 'ko'
-          ? 'API 키가 설정되지 않았습니다. .env 파일에 VITE_OPENROUTER_API_KEY를 추가하세요.'
-          : 'API key not set. Add VITE_OPENROUTER_API_KEY to your .env file.')
       } else {
         setError(e.message)
       }

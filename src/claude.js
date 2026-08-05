@@ -1,4 +1,3 @@
-const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 
 export const SERMON_STEP_ITEMS = {
   narrative: [
@@ -413,7 +412,7 @@ ${buildItems(DAWN_STEP_ITEMS.hymn, selectedKeys)}
 }
 
 export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '', customText = '') {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   const prompt = SERMON_STEP_PROMPTS_WITH_EMPHASIS[stepKey]?.(passage, emphasis, lang, bible, selectedItems)
   let fullPrompt = seriesCtx
     ? prompt + `\n\n${seriesCtx}\n\n[강해설교 연속성 지침]\n- 위 이전 설교들의 본문 흐름과 신학적 주제를 반드시 파악하세요.\n- 이번 본문이 시리즈 전체에서 어떤 위치에 있는지 의식하며 작성하세요.\n- 이전 설교에서 다룬 내용을 반복하지 말고, 자연스럽게 그 위에 쌓아가세요.\n- 회중이 앞 설교의 흐름을 기억하며 이번 말씀을 들을 수 있도록 연결 고리를 살려 주세요.`
@@ -424,7 +423,7 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
 }
 
 export async function generateWorshipCombined(date, season, lectionary, lang, bible, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   // 단계별로 선택된 지시항목을 사용해 동적으로 프롬프트 구성
   const sel = (key) => {
     const items = WORSHIP_STEP_ITEMS[key] || []
@@ -481,7 +480,7 @@ ${sel('sending')}
 }
 
 export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   const sel = (key) => {
     const items = DAWN_STEP_ITEMS[key] || []
     if (items.length === 0) return ''
@@ -527,14 +526,14 @@ ${sel('hymn')}
 }
 
 export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk, selectedItems = null, userKeyword = '') {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   let prompt = WORSHIP_STEP_PROMPTS[stepKey]?.(date, season, lectionary, lang, bible, selectedItems)
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
 export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '') {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   const promptFn = DAWN_STEP_PROMPTS[stepKey]
   if (!promptFn) throw new Error('Unknown step key: ' + stepKey)
   const base = promptFn(passage, lang, bible, seriesCtx, selectedItems)
@@ -544,7 +543,7 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
 }
 
 export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, passage, title, onChunk) {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
   const sermonInfo = [
     passage ? `설교 본문: ${passage}` : '',
@@ -573,7 +572,7 @@ ${contextAfter.slice(0, 600)}
 }
 
 export async function refineDraft(draft, lang, bible, onChunk) {
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
+
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
   const prompt = lang === 'en'
     ? `You are a sermon writing expert.
@@ -618,11 +617,10 @@ export function stopCurrentGeneration() {
 async function streamCompletion(prompt, onChunk) {
   _currentAbortController = new AbortController()
   const signal = _currentAbortController.signal
-  const response = await fetch('/api/deepseek/v1/chat/completions', {
+  const response = await fetch('/api/generate', {
     method: 'POST',
     signal,
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
       'content-type': 'application/json',
     },
     body: JSON.stringify({
