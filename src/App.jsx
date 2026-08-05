@@ -72,68 +72,70 @@ export default function App() {
     if (!rootHandle) { setFsFiles([]); return }
 
     async function syncLocalFiles() {
-      const files = await listTabFiles(rootHandle, tab)
-      setFsFiles(files)
+      const currentFiles = await listTabFiles(rootHandle, tab)
+      setFsFiles(currentFiles)
 
-      const dbItems = tab === 'sermon' ? await getSermons()
-        : tab === 'worship' ? await getWorships()
-        : await getDawns()
-      const existingBaseNames = new Set(dbItems.map(i => buildFileBaseName(tab, i)))
-      const orphans = files.filter(f => !existingBaseNames.has(f.name.replace(/\.(json|sbl)$/, '')))
-      if (orphans.length === 0) return
+      const imported = { sermon: false, worship: false, dawn: false }
 
-      for (const file of orphans) {
-        const text = await readFileContent(file.handle)
-        if (!text) continue
+      for (const t of ['sermon', 'worship', 'dawn']) {
+        const files = t === tab ? currentFiles : await listTabFiles(rootHandle, t)
+        const dbItems = t === 'sermon' ? await getSermons()
+          : t === 'worship' ? await getWorships()
+          : await getDawns()
+        const existingBaseNames = new Set(dbItems.map(i => buildFileBaseName(t, i)))
+        const orphans = files.filter(f => !existingBaseNames.has(f.name.replace(/\.(json|sbl)$/, '')))
 
-        let itemData, steps = {}
+        for (const file of orphans) {
+          const text = await readFileContent(file.handle)
+          if (!text) continue
 
-        if (file.type === 'json') {
-          const parsed = parseJsonFile(text)
-          if (!parsed) continue
-          itemData = parsed.item
-          steps = parsed.steps
-        } else {
-          const meta = parseSblMeta(text)
-          if (!meta.date && !meta.title && !meta.passage) continue
-          const lines = text.split('\n')
-          const sepIdx = lines.findIndex(l => l.startsWith('━'))
-          const headerEnd = (lines.findIndex((l, i) => i > 0 && l === '') + 1) || 5
-          const bodyText = (sepIdx > -1 ? lines.slice(headerEnd, sepIdx) : lines.slice(headerEnd)).join('\n').trim()
-          const draftText = sepIdx > -1 ? lines.slice(sepIdx + 2).join('\n').trim() : ''
-          itemData = {
-            date: meta.date || null,
-            title: meta.title || null,
-            passage: meta.passage || null,
-            season: meta.season || null,
-            category: meta.category || null,
-            emphasis: null,
-            draft: draftText || bodyText || null,
+          let itemData, steps = {}
+          if (file.type === 'json') {
+            const parsed = parseJsonFile(text)
+            if (!parsed) continue
+            itemData = parsed.item
+            steps = parsed.steps
+          } else {
+            const meta = parseSblMeta(text)
+            if (!meta.date && !meta.title && !meta.passage) continue
+            const lines = text.split('\n')
+            const sepIdx = lines.findIndex(l => l.startsWith('━'))
+            const headerEnd = (lines.findIndex((l, i) => i > 0 && l === '') + 1) || 5
+            const bodyText = (sepIdx > -1 ? lines.slice(headerEnd, sepIdx) : lines.slice(headerEnd)).join('\n').trim()
+            const draftText = sepIdx > -1 ? lines.slice(sepIdx + 2).join('\n').trim() : ''
+            itemData = {
+              date: meta.date || null, title: meta.title || null,
+              passage: meta.passage || null, season: meta.season || null,
+              category: meta.category || null, emphasis: null,
+              draft: draftText || bodyText || null,
+            }
           }
-        }
 
-        let newId
-        if (tab === 'sermon') {
-          newId = await createSermon({ ...itemData, folderId: null })
-          for (const [idx, content] of Object.entries(steps)) {
-            if (content) await saveSermonStep(newId, Number(idx), content)
-          }
-        } else if (tab === 'worship') {
-          newId = await createWorship({ ...itemData, folderId: null })
-          for (const [idx, content] of Object.entries(steps)) {
-            if (content) await saveWorshipStep(newId, Number(idx), content)
-          }
-        } else {
-          newId = await createDawn({ ...itemData, folderId: null })
-          for (const [idx, content] of Object.entries(steps)) {
-            if (content) await saveDawnStep(newId, Number(idx), content)
+          if (t === 'sermon') {
+            const id = await createSermon({ ...itemData, folderId: null })
+            for (const [idx, content] of Object.entries(steps)) {
+              if (content) await saveSermonStep(id, Number(idx), content)
+            }
+            imported.sermon = true
+          } else if (t === 'worship') {
+            const id = await createWorship({ ...itemData, folderId: null })
+            for (const [idx, content] of Object.entries(steps)) {
+              if (content) await saveWorshipStep(id, Number(idx), content)
+            }
+            imported.worship = true
+          } else {
+            const id = await createDawn({ ...itemData, folderId: null })
+            for (const [idx, content] of Object.entries(steps)) {
+              if (content) await saveDawnStep(id, Number(idx), content)
+            }
+            imported.dawn = true
           }
         }
       }
 
-      if (tab === 'sermon') await loadSermons()
-      else if (tab === 'worship') await loadWorships()
-      else await loadDawns()
+      if (imported.sermon) await loadSermons()
+      if (imported.worship) await loadWorships()
+      if (imported.dawn) await loadDawns()
     }
 
     syncLocalFiles()
