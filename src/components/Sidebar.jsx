@@ -466,9 +466,6 @@ export default function Sidebar({
                   }}>
                     {baseName}
                   </span>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, opacity: 0.5 }}>
-                    {file.type === 'json' ? '불러오기' : '보기'}
-                  </span>
                 </div>
               )
             })}
