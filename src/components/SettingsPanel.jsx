@@ -26,18 +26,37 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [importStatus, setImportStatus] = useState(null)
+  const [exportStatus, setExportStatus] = useState(null)
   const fileInputRef = useRef(null)
 
   async function handleExport() {
     const data = await exportAllData()
     const json = JSON.stringify(data, null, 2)
+    const fileName = `sermonblok-backup-${new Date().toISOString().slice(0, 10)}.json`
+
+    if (rootHandle) {
+      try {
+        const fileHandle = await rootHandle.getFileHandle(fileName, { create: true })
+        const writable = await fileHandle.createWritable()
+        await writable.write(json)
+        await writable.close()
+        setExportStatus(`"${rootHandle.name}" 폴더에 저장됨`)
+        setTimeout(() => setExportStatus(null), 3000)
+        return
+      } catch {
+        // 폴더 저장 실패 시 다운로드로 fallback
+      }
+    }
+
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `sermonblok-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = fileName
     a.click()
     URL.revokeObjectURL(url)
+    setExportStatus('다운로드 폴더에 저장됨')
+    setTimeout(() => setExportStatus(null), 3000)
   }
 
   async function handleImport(e) {
@@ -193,6 +212,9 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                 {lang === 'ko' ? '불러오기 (백업 파일 복원)' : 'Import Backup'}
               </button>
               <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
+              {exportStatus && (
+                <div style={{ fontSize: 12, color: '#16a34a' }}>{exportStatus}</div>
+              )}
               {importStatus === 'reading' && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>불러오는 중...</div>
               )}
@@ -202,6 +224,9 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               {importStatus?.startsWith('error:') && (
                 <div style={{ fontSize: 12, color: '#dc2626' }}>{importStatus.slice(6)}</div>
               )}
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {rootHandle ? `로컬 폴더 설정됨 → "${rootHandle.name}"에 저장` : '로컬 폴더 미설정 → 다운로드 폴더에 저장'}
+              </div>
             </div>
           </div>
 
