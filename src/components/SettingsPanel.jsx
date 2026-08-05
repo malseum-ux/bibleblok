@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { exportAllData, importAllData } from '../db'
+import { supabase } from '../supabase'
 
 const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS }
 const TAB_LABELS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교' }
@@ -284,6 +285,26 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               }}
             >
               {rootHandle ? (lang === 'ko' ? '폴더 변경' : 'Change Folder') : (lang === 'ko' ? '폴더 선택' : 'Select Folder')}
+            </button>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '계정' : 'Account'}</div>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              style={{
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '8px 12px',
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              {lang === 'ko' ? '로그아웃' : 'Sign out'}
             </button>
           </div>
 

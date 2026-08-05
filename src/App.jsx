@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import AuthGate from './components/AuthGate'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
@@ -410,7 +411,7 @@ export default function App() {
     saveSettings(next)
   }
 
-  return (
+  const content = (
     <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <header style={{
@@ -741,4 +742,6 @@ export default function App() {
     )}
     </>
   )
+
+  return <AuthGate>{content}</AuthGate>
 }
