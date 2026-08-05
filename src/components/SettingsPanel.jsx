@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
+import { exportAllData, importAllData } from '../db'
 
 const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS }
 const TAB_LABELS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교' }
@@ -24,6 +25,37 @@ function getDefaultKeywords() {
 export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
+  const [importStatus, setImportStatus] = useState(null)
+  const fileInputRef = useRef(null)
+
+  async function handleExport() {
+    const data = await exportAllData()
+    const json = JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sermonblok-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportStatus('reading')
+    try {
+      const text = await file.text()
+      const json = JSON.parse(text)
+      if (!json.version || !json.data) throw new Error('잘못된 파일 형식입니다.')
+      await importAllData(json)
+      setImportStatus('done')
+      setTimeout(() => window.location.reload(), 1000)
+    } catch (err) {
+      setImportStatus('error:' + err.message)
+    }
+    e.target.value = ''
+  }
 
   function set(key, value) {
     onChange({ ...settings, [key]: value })
@@ -125,6 +157,54 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '데이터 백업' : 'Backup'}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={handleExport}
+                style={{
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                {lang === 'ko' ? '내보내기 (백업 파일 저장)' : 'Export Backup'}
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                {lang === 'ko' ? '불러오기 (백업 파일 복원)' : 'Import Backup'}
+              </button>
+              <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
+              {importStatus === 'reading' && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>불러오는 중...</div>
+              )}
+              {importStatus === 'done' && (
+                <div style={{ fontSize: 12, color: '#16a34a' }}>완료! 페이지를 새로고침합니다...</div>
+              )}
+              {importStatus?.startsWith('error:') && (
+                <div style={{ fontSize: 12, color: '#dc2626' }}>{importStatus.slice(6)}</div>
+              )}
+            </div>
+          </div>
+
           <div style={sectionStyle}>
             <div style={labelStyle}>{lang === 'ko' ? '테마' : 'Theme'}</div>
             <OptionGroup

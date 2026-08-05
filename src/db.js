@@ -237,6 +237,69 @@ export async function moveItemToFolder(tab, itemId, folderId) {
   return db.dawns.update(itemId, { folderId })
 }
 
+// 내보내기 / 불러오기
+export async function exportAllData() {
+  const [sermons, sermonSteps, worships, worshipSteps, dawns, dawnSteps, folders, customStepItems] =
+    await Promise.all([
+      db.sermons.toArray(),
+      db.sermonSteps.toArray(),
+      db.worships.toArray(),
+      db.worshipSteps.toArray(),
+      db.dawns.toArray(),
+      db.dawnSteps.toArray(),
+      db.folders.toArray(),
+      db.customStepItems.toArray(),
+    ])
+
+  const keywords = {}
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith('defaultKeyword_')) keywords[key] = localStorage.getItem(key)
+  }
+
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: { sermons, sermonSteps, worships, worshipSteps, dawns, dawnSteps, folders, customStepItems, keywords },
+  }
+}
+
+export async function importAllData(json) {
+  const { data } = json
+  await db.transaction('rw',
+    db.sermons, db.sermonSteps, db.worships, db.worshipSteps,
+    db.dawns, db.dawnSteps, db.folders, db.customStepItems,
+    async () => {
+      await db.sermons.clear()
+      await db.sermonSteps.clear()
+      await db.worships.clear()
+      await db.worshipSteps.clear()
+      await db.dawns.clear()
+      await db.dawnSteps.clear()
+      await db.folders.clear()
+      await db.customStepItems.clear()
+      if (data.sermons?.length) await db.sermons.bulkPut(data.sermons)
+      if (data.sermonSteps?.length) await db.sermonSteps.bulkPut(data.sermonSteps)
+      if (data.worships?.length) await db.worships.bulkPut(data.worships)
+      if (data.worshipSteps?.length) await db.worshipSteps.bulkPut(data.worshipSteps)
+      if (data.dawns?.length) await db.dawns.bulkPut(data.dawns)
+      if (data.dawnSteps?.length) await db.dawnSteps.bulkPut(data.dawnSteps)
+      if (data.folders?.length) await db.folders.bulkPut(data.folders)
+      if (data.customStepItems?.length) await db.customStepItems.bulkPut(data.customStepItems)
+    }
+  )
+
+  if (data.keywords) {
+    const toRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('defaultKeyword_')) toRemove.push(key)
+    }
+    toRemove.forEach(k => localStorage.removeItem(k))
+    Object.entries(data.keywords).forEach(([k, v]) => localStorage.setItem(k, v))
+  }
+}
+
 // 강해 시리즈 컨텍스트 조회
 // type: 'sermon' | 'dawn', stepIndex for core message: sermon=2, dawn=1
 export async function getSeriesContext(type, seriesName, currentId) {
