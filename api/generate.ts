@@ -37,7 +37,13 @@ export default async function handler(req: Request) {
     })
 
     if (!response.ok) {
-      const error = await response.json()
+      let error
+      try {
+        error = await response.json()
+      } catch {
+        const text = await response.text()
+        error = { error: { message: text || `HTTP ${response.status}` } }
+      }
       return new Response(JSON.stringify(error), {
         status: response.status,
         headers: { 'Content-Type': 'application/json' },

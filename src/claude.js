@@ -635,7 +635,8 @@ async function streamCompletion(prompt, onChunk) {
   })
 
   if (!response.ok) {
-    const err = await response.json()
+    let err
+    try { err = await response.json() } catch { err = { error: { message: await response.text() } } }
     throw new Error(err.error?.message || 'API error')
   }
 
