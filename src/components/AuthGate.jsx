@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
+const ADMIN_EMAIL = 'malseum@gmail.com'
+const TRIAL_DAYS = 30
+
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
+  const [access, setAccess] = useState(null)
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -11,12 +15,40 @@ export default function AuthGate({ children }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
+      if (data.session) checkAccess(data.session.user.email)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session) checkAccess(session.user.email)
+      else setAccess(null)
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  async function checkAccess(userEmail) {
+    if (userEmail === ADMIN_EMAIL) {
+      setAccess({ ok: true })
+      return
+    }
+    const { data, error: dbError } = await supabase
+      .from('allowed_users')
+      .select('created_at')
+      .eq('email', userEmail)
+      .single()
+
+    if (dbError || !data) {
+      setAccess({ ok: false, reason: 'not_invited' })
+      return
+    }
+
+    const expiresAt = new Date(data.created_at)
+    expiresAt.setDate(expiresAt.getDate() + TRIAL_DAYS)
+    if (new Date() > expiresAt) {
+      setAccess({ ok: false, reason: 'expired' })
+      return
+    }
+    setAccess({ ok: true })
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -37,7 +69,55 @@ export default function AuthGate({ children }) {
 
   if (session === undefined) return null
 
-  if (session) return children
+  if (session) {
+    if (access === null) return null
+
+    if (!access.ok) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--bg)',
+        }}>
+          <div style={{
+            width: 340,
+            padding: '40px 36px',
+            background: 'var(--bg-sidebar)',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 12 }}>
+              {access.reason === 'expired' ? '트라이얼 기간이 만료되었습니다' : '접근 권한이 없습니다'}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.8 }}>
+              {access.reason === 'expired'
+                ? '30일 트라이얼 기간이 지났습니다.\n관리자에게 문의해 주세요.'
+                : '초대된 계정이 아닙니다.\n관리자에게 문의해 주세요.'}
+            </div>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              style={{
+                padding: '9px 20px',
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 7,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return children
+  }
 
   return (
     <div style={{

@@ -24,7 +24,7 @@ export const SERMON_STEP_ITEMS = {
   ],
   research: [
     { key: 'literary', label: '문학적 관점', text: '- 문학적 관점 (장르, 문체, 수사법)' },
-    { key: 'historical', label: '역사적 관점', text: '- 역사적 관점 (시대적 배경, 고고학)' },
+    { key: 'historical', label: '역사적 관점', text: '- 역사적 관점 (역사가의 시각으로 본문의 사건과 의미를 해석 — 고고학적 사실 규명이 아닌 역사적 해석학)' },
     { key: 'sociological', label: '사회학적 관점', text: '- 사회학적 관점 (당시 사회 구조, 문화)' },
     { key: 'psychological', label: '심리학적 관점', text: '- 심리학적 관점 (인물의 내면, 동기)' },
     { key: 'philosophical', label: '철학적 관점', text: '- 철학적 관점 (세계관, 윤리)' },
@@ -643,15 +643,18 @@ async function streamCompletion(prompt, onChunk) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let fullText = ''
+  let buffer = ''
 
   try {
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      const chunk = decoder.decode(value)
-      const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop()
       for (const line of lines) {
-        const data = line.slice(6)
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6).trim()
         if (data === '[DONE]') continue
         try {
           const json = JSON.parse(data)
@@ -660,6 +663,17 @@ async function streamCompletion(prompt, onChunk) {
             fullText += text
             onChunk?.(fullText)
           }
+        } catch {}
+      }
+    }
+    buffer += decoder.decode()
+    if (buffer.startsWith('data: ')) {
+      const data = buffer.slice(6).trim()
+      if (data && data !== '[DONE]') {
+        try {
+          const json = JSON.parse(data)
+          const text = json.choices?.[0]?.delta?.content || ''
+          if (text) { fullText += text; onChunk?.(fullText) }
         } catch {}
       }
     }

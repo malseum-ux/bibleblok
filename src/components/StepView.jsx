@@ -184,12 +184,12 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
     setNewCustomLabel('')
   }, [tab, step?.key])
 
-  // 다른 항목으로 이동하면 단계별 선택 초기화
+  // 다른 항목/단계로 이동하면 단계별 선택 및 편집 초기화
   useEffect(() => {
     setStepSelectedItems({})
     setStepSelectedCustomKeys({})
     setEditing(false)
-  }, [item?.id, tab])
+  }, [item?.id, tab, currentStep])
 
   // 탭/단계/항목 변경 시 해당 기본 키워드 로드
   useEffect(() => {
