@@ -52,33 +52,40 @@ export const SERMON_STEP_ITEMS = {
 
 export const WORSHIP_STEP_ITEMS = {
   call_verse: [
-    { key: 'verse', label: '추천 구절', text: '- 추천 구절 1~2개 (장절 + 본문 전체)' },
-    { key: 'reason', label: '선택 이유', text: '- 선택 이유 (2~3줄)' },
+    { key: 'verse', label: '추천 구절', text: '- 예배의 부름으로 적합한 구절 1~2개 추천 (장절 + 본문 전체)' },
+    { key: 'lectionary', label: '성경정과 참조', text: '- 해당 주일의 성서정과 본문을 참조하여 구절 선택' },
+    { key: 'calendar', label: '교회력 참조', text: '- 현재 교회력 절기(대강절/성탄절/주현절/사순절/부활절/성령강림절 등)에 맞게 선택' },
+    { key: 'season', label: '계절 참조', text: '- 자연 계절(봄/여름/가을/겨울)의 분위기를 반영하여 선택' },
   ],
-  call_prayer: [],
+  call_prayer: [
+    { key: 'lectionary', label: '성경정과 참조', text: '- 해당 주일의 성서정과 본문을 기도문에 반영' },
+    { key: 'calendar', label: '교회력 참조', text: '- 현재 교회력 절기에 맞는 기도문 작성' },
+    { key: 'season', label: '계절 참조', text: '- 자연 계절 분위기를 기도문에 담아 작성' },
+  ],
   confession: [],
-  forgiveness: [
-    { key: 'verse', label: '용서/은혜 구절', text: '- 하나님의 용서와 은혜를 선포하는 구절 1~2개 (장절 + 본문 전체)' },
-    { key: 'reason', label: '선택 이유', text: '- 선택 이유 (2~3줄)' },
-    { key: 'manner', label: '선포 방식', text: '- 선포 방식 제안 (1~2줄)' },
-  ],
+  forgiveness: [],
   worship_prayer: [],
   offering: [],
   responsive_reading: [
-    { key: 'number', label: '교독문 번호 제안', text: '- 찬송가공회 찬송가 수록 교독문 번호와 제목 제안' },
-    { key: 'full', label: '교독문 전문', text: '- 해당 교독문 전문 (인도자/회중 구분하여 작성)' },
+    { key: 'lectionary', label: '성경정과 참조', text: '- 해당 주일의 성서정과 본문과 연결되는 교독문 선택' },
+    { key: 'calendar', label: '교회력 참조', text: '- 현재 교회력 절기에 맞는 교독문 선택' },
+    { key: 'full', label: '교독문 전문', text: '- 선택한 교독문 전문 (인도자/회중 구분하여 작성)' },
   ],
-  hymns: [
-    { key: 'entrance', label: '입례송', text: '- 입례송: 찬송가 번호/제목 + 이유 한 줄' },
-    { key: 'pre_sermon', label: '말씀 전', text: '- 말씀 전: 찬송가 번호/제목 + 이유 한 줄' },
-    { key: 'response', label: '응답송', text: '- 응답송: 찬송가 번호/제목 + 이유 한 줄' },
-    { key: 'offering', label: '봉헌송', text: '- 봉헌송: 찬송가 번호/제목 + 이유 한 줄' },
-    { key: 'sending', label: '파송송', text: '- 파송송: 찬송가 번호/제목 + 이유 한 줄' },
-    { key: 'ccm', label: 'CCM 추천', text: '- CCM 1~2곡 추가 추천 (제목, 아티스트)' },
+  opening_hymns: [
+    { key: 'hymnal', label: '21세기찬송가', text: '- 21세기찬송가에서 예배를 여는 곡 1~2곡 추천 (번호, 제목, 선택 이유)' },
+    { key: 'ccm', label: 'CCM', text: '- 예배를 여는 CCM 1~2곡 추천 (제목, 아티스트, 선택 이유)' },
+  ],
+  pre_sermon_hymns: [
+    { key: 'hymnal', label: '21세기찬송가', text: '- 21세기찬송가에서 설교 전 곡 1~2곡 추천 (번호, 제목, 선택 이유)' },
+    { key: 'ccm', label: 'CCM', text: '- 설교 전 CCM 1~2곡 추천 (제목, 아티스트, 선택 이유)' },
+  ],
+  post_sermon_hymns: [
+    { key: 'hymnal', label: '21세기찬송가', text: '- 21세기찬송가에서 설교 후 응답/결단 곡 1~2곡 추천 (번호, 제목, 선택 이유)' },
+    { key: 'ccm', label: 'CCM', text: '- 설교 후 응답/결단을 위한 CCM 1~2곡 추천 (제목, 아티스트, 선택 이유)' },
   ],
   benediction: [],
   sending: [
-    { key: 'verse', label: '추천 구절', text: '- 추천 성경구절 1개 (장절 + 본문)' },
+    { key: 'verse', label: '추천 구절', text: '- 파송에 어울리는 성경구절 1개 추천 (장절 + 본문)' },
     { key: 'declaration', label: '파송 선언문', text: '- 세상으로 나아가는 파송 선언문 (3~5줄)' },
   ],
 }
@@ -311,15 +318,35 @@ ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 반드시 찬송가공회(한국찬송가공회)에서 발행한 찬송가 뒤에 수록된 교독문만을 참고하세요.
 ${buildItems(WORSHIP_STEP_ITEMS.responsive_reading, selectedKeys)}
 `,
-  hymns: (date, season, lectionary, lang, bible, selectedKeys = null) => `
+  opening_hymns: (date, season, lectionary, lang, bible, selectedKeys = null) => `
 예배 인도자를 위한 실용적인 제안입니다. 간결하게 답해 주세요.
 
 날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
-[예배 찬송 추천]
-예배 순서별로 추천해 주세요:
-${buildItems(WORSHIP_STEP_ITEMS.hymns, selectedKeys)}
+[예배를 여는 찬양]
+예배를 시작하며 회중의 마음을 하나님께 향하게 하는 찬양을 추천해 주세요.
+${buildItems(WORSHIP_STEP_ITEMS.opening_hymns, selectedKeys)}
+`,
+  pre_sermon_hymns: (date, season, lectionary, lang, bible, selectedKeys = null) => `
+예배 인도자를 위한 실용적인 제안입니다. 간결하게 답해 주세요.
+
+날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
+번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
+
+[설교전찬양]
+설교를 앞두고 회중이 말씀을 받을 준비를 하도록 돕는 찬양을 추천해 주세요.
+${buildItems(WORSHIP_STEP_ITEMS.pre_sermon_hymns, selectedKeys)}
+`,
+  post_sermon_hymns: (date, season, lectionary, lang, bible, selectedKeys = null) => `
+예배 인도자를 위한 실용적인 제안입니다. 간결하게 답해 주세요.
+
+날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
+번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
+
+[설교후찬양]
+설교 후 회중이 말씀에 응답하고 결단하도록 돕는 찬양을 추천해 주세요.
+${buildItems(WORSHIP_STEP_ITEMS.post_sermon_hymns, selectedKeys)}
 `,
   benediction: (date, season, lectionary, lang, bible) => `
 예배 인도자를 위한 실용적인 제안입니다. 바로 사용할 수 있게 작성해 주세요.
@@ -447,31 +474,40 @@ ${sel('call_verse')}
 [2. 예배의 부름 기도문]
 - 절기 분위기를 담아 회중을 예배로 부르는 기도문 (8~12줄)
 
-[3. 참회의 기도문]
+[3. 예배를 여는 찬양]
+- 예배를 시작하며 회중의 마음을 하나님께 향하게 하는 찬양 추천
+${sel('opening_hymns')}
+
+[4. 참회의 기도문]
 - 해당 절기에 맞는 참회의 기도문 (8~12줄)
 - 말과 생각과 행동, 마땅히 해야 할 일을 하지 않은 태만까지 구체적인 죄의 영역을 짚되, 누구나 공감할 수 있는 일반적인 언어로 작성
 
-[4. 용서의 선언]
+[5. 용서의 선언]
 ${sel('forgiveness')}
 
-[5. 예배를 위한 기도문]
-- 찬양 → 감사 → 회개 → 중보(국가/사회/교회/예배) → 간구(가정/성도의 필요) 순서로 구성 (45~60줄)
-
-[6. 봉헌기도문]
-- 헌금의 감사와 절기 정신을 담은 봉헌기도문 (8~12줄)
-
-[7. 교독문]
+[6. 교독문]
 반드시 찬송가공회(한국찬송가공회) 찬송가 뒤에 수록된 교독문만을 참고하세요.
 ${sel('responsive_reading')}
 
-[8. 예배 찬송 추천]
-${sel('hymns')}
+[7. 설교전찬양]
+- 설교를 앞두고 회중이 말씀을 받을 준비를 하도록 돕는 찬양 추천
+${sel('pre_sermon_hymns')}
 
-[9. 축도]
-- "주 예수 그리스도의 은혜와, ~~~하나님의 사랑과, ~~~성령의 위로(교통)하심이 ~~~ 성도 위에 함께 하시기를 축원하노라" 형식으로 작성. 삼위 각각의 수식어를 절기와 말씀에 맞게 채울 것. (8~12줄)
+[8. 예배를 위한 기도문]
+- 찬양 → 감사 → 회개 → 중보(국가/사회/교회/예배) → 간구(가정/성도의 필요) 순서로 구성 (45~60줄)
 
-[10. 파송의 말씀]
+[9. 봉헌기도문]
+- 헌금의 감사와 절기 정신을 담은 봉헌기도문 (8~12줄)
+
+[10. 설교후찬양]
+- 설교 후 회중이 말씀에 응답하고 결단하도록 돕는 찬양 추천
+${sel('post_sermon_hymns')}
+
+[11. 파송의 말씀]
 ${sel('sending')}
+
+[12. 축도]
+- "주 예수 그리스도의 은혜와, ~~~하나님의 사랑과, ~~~성령의 위로(교통)하심이 ~~~ 성도 위에 함께 하시기를 축원하노라" 형식으로 작성. 삼위 각각의 수식어를 절기와 말씀에 맞게 채울 것. (8~12줄)
 `
   const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
   if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`

@@ -12,14 +12,16 @@ export const SERMON_STEPS = [
 export const WORSHIP_STEPS = [
   { index: 0, key: 'call_verse', label: { ko: '예배의 부름 - 성경구절', en: 'Call to Worship (Scripture)' } },
   { index: 1, key: 'call_prayer', label: { ko: '예배의 부름 - 기도문', en: 'Call to Worship (Prayer)' } },
-  { index: 2, key: 'confession', label: { ko: '참회의 기도문', en: 'Prayer of Confession' } },
-  { index: 3, key: 'forgiveness', label: { ko: '용서의 선언 - 성경구절', en: 'Assurance of Pardon' } },
-  { index: 4, key: 'worship_prayer', label: { ko: '예배를 위한 기도문', en: 'Prayer for Worship' } },
-  { index: 5, key: 'offering', label: { ko: '봉헌기도문', en: 'Offertory Prayer' } },
-  { index: 6, key: 'responsive_reading', label: { ko: '교독문', en: 'Responsive Reading' } },
-  { index: 7, key: 'hymns', label: { ko: '예배를 위한 찬송', en: 'Suggested Hymns' } },
-  { index: 8, key: 'benediction', label: { ko: '축도', en: 'Benediction' } },
-  { index: 9, key: 'sending', label: { ko: '파송의 말씀', en: 'Sending Word' } },
+  { index: 2, key: 'opening_hymns', label: { ko: '예배를 여는 찬양', en: 'Opening Hymns' } },
+  { index: 3, key: 'confession', label: { ko: '참회의 기도문', en: 'Prayer of Confession' } },
+  { index: 4, key: 'forgiveness', label: { ko: '용서의 선언 - 성경구절', en: 'Assurance of Pardon' } },
+  { index: 5, key: 'responsive_reading', label: { ko: '교독문', en: 'Responsive Reading' } },
+  { index: 6, key: 'pre_sermon_hymns', label: { ko: '설교전찬양', en: 'Pre-Sermon Hymns' } },
+  { index: 7, key: 'worship_prayer', label: { ko: '예배를 위한 기도문', en: 'Prayer for Worship' } },
+  { index: 8, key: 'offering', label: { ko: '봉헌기도문', en: 'Offertory Prayer' } },
+  { index: 9, key: 'post_sermon_hymns', label: { ko: '설교후찬양', en: 'Post-Sermon Hymns' } },
+  { index: 10, key: 'sending', label: { ko: '파송의 말씀', en: 'Sending Word' } },
+  { index: 11, key: 'benediction', label: { ko: '축도', en: 'Benediction' } },
 ]
 
 export const LANGUAGES = [
