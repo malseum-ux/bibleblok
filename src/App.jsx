@@ -5,7 +5,7 @@ import {
   createSermon, getSermons, updateSermon, deleteSermon,
   createWorship, getWorships, updateWorship, deleteWorship,
   createDawn, getDawns, updateDawn, deleteDawn,
-  getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder,
+  getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder, renameFolder,
   getSermonSteps, getWorshipSteps, getDawnSteps,
   saveSermonStep, saveWorshipStep, saveDawnStep,
 } from './db'
@@ -210,6 +210,11 @@ export default function App() {
     if (newParentId === folderId) return
     if (isFolderDescendant(folderId, newParentId)) return
     await moveFolder(folderId, newParentId)
+    await loadFolders()
+  }
+
+  async function handleRenameFolder(folderId, name) {
+    await renameFolder(folderId, name)
     await loadFolders()
   }
 
@@ -603,6 +608,7 @@ export default function App() {
             onMoveItem={handleMoveItem}
             onMoveFolder={handleMoveFolder}
             onFolderSelect={handleFolderSelect}
+            onRenameFolder={handleRenameFolder}
             width={sidebarWidth}
             searchItems={searchResults}
             searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
@@ -675,6 +681,7 @@ export default function App() {
                 onMoveItem={handleMoveItem}
                 onMoveFolder={handleMoveFolder}
                 onFolderSelect={(folder) => { handleFolderSelect(folder); setSidebarVisible(false) }}
+                onRenameFolder={handleRenameFolder}
                 width={280}
                 searchItems={searchResults}
                 searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}

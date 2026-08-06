@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 function fmtDate(d) {
@@ -23,7 +23,7 @@ function flattenTree(nodes, depth = 0) {
 export default function Sidebar({
   tab, items, folders, selectedId, selectedFolderId,
   onSelect, onDelete, steps,
-  onCreateFolder, onDeleteFolder, onMoveItem, onMoveFolder, onFolderSelect,
+  onCreateFolder, onDeleteFolder, onMoveItem, onMoveFolder, onFolderSelect, onRenameFolder,
   width = 240,
   searchItems = null,
   searchItemsTab = null,
@@ -34,6 +34,33 @@ export default function Sidebar({
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [movingItemId, setMovingItemId] = useState(null)
+  const [editingFolderId, setEditingFolderId] = useState(null)
+  const [editingName, setEditingName] = useState('')
+  const [sortMode, setSortMode] = useState('date-desc') // date-desc | date-asc | name-asc
+  const editInputRef = useRef(null)
+
+  useEffect(() => {
+    if (editingFolderId !== null) editInputRef.current?.focus()
+  }, [editingFolderId])
+
+  function commitRename() {
+    if (editingName.trim() && onRenameFolder) onRenameFolder(editingFolderId, editingName.trim())
+    setEditingFolderId(null)
+  }
+
+  function sortItems(list) {
+    return [...list].sort((a, b) => {
+      if (sortMode === 'date-desc') return (b.date || '') > (a.date || '') ? 1 : -1
+      if (sortMode === 'date-asc') return (a.date || '') > (b.date || '') ? 1 : -1
+      return getLabel(a).localeCompare(getLabel(b), 'ko')
+    })
+  }
+
+  function cycleSortMode() {
+    setSortMode(m => m === 'date-desc' ? 'date-asc' : m === 'date-asc' ? 'name-asc' : 'date-desc')
+  }
+
+  const sortLabel = sortMode === 'date-desc' ? '날짜↓' : sortMode === 'date-asc' ? '날짜↑' : '이름'
 
   // 드래그 상태 — ref로 최신값 보장, state는 UI 렌더링용
   const dragRef = useRef({ active: false, timer: null, type: null, id: null, label: null, dropTarget: undefined })
@@ -275,17 +302,44 @@ export default function Sidebar({
             flexShrink: 0,
             opacity: hasContent ? 0.7 : 0.2,
           }}>▶</span>
-          <span style={{
-            flex: 1,
-            fontSize: 13,
-            fontWeight: 500,
-            color: isFolderSelected || isDropTarget ? 'var(--accent)' : 'var(--text-heading)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {node.name}
-          </span>
+          {editingFolderId === node.id ? (
+            <input
+              ref={editInputRef}
+              value={editingName}
+              onChange={e => setEditingName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingFolderId(null) }}
+              onBlur={commitRename}
+              onClick={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+              style={{
+                flex: 1,
+                fontSize: 13,
+                fontWeight: 500,
+                background: 'var(--bg)',
+                border: '1px solid var(--accent)',
+                borderRadius: 3,
+                color: 'var(--text)',
+                padding: '1px 4px',
+                outline: 'none',
+                minWidth: 0,
+              }}
+            />
+          ) : (
+            <span
+              onDoubleClick={e => { e.stopPropagation(); setEditingFolderId(node.id); setEditingName(node.name) }}
+              style={{
+                flex: 1,
+                fontSize: 13,
+                fontWeight: 500,
+                color: isFolderSelected || isDropTarget ? 'var(--accent)' : 'var(--text-heading)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {node.name}
+            </span>
+          )}
           {folderFiles.length > 0 && (
             <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, opacity: 0.6 }}>
               {folderFiles.length}
@@ -300,7 +354,7 @@ export default function Sidebar({
         {isOpen && (
           <div>
             {node.children.map(child => renderFolder(child, depth + 1))}
-            {folderFiles.map(item => renderFileItem(item, depth + 1))}
+            {sortItems(folderFiles).map(item => renderFileItem(item, depth + 1))}
             {!hasContent && (
               <div style={{
                 padding: '3px 8px',
@@ -338,6 +392,13 @@ export default function Sidebar({
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>
           {tabLabel}
         </span>
+        <button
+          onClick={cycleSortMode}
+          title="정렬 방식 변경"
+          style={{ ...btnStyle, opacity: 0.7, fontSize: 10, padding: '0 4px', letterSpacing: '-0.03em' }}
+        >
+          {sortLabel}
+        </button>
         <button
           onClick={() => setCreatingFolder(true)}
           title={selectedFolderName ? `"${selectedFolderName}" 안에 하위폴더 생성` : '새 폴더'}
@@ -415,7 +476,7 @@ export default function Sidebar({
             </div>
           )}
 
-          {rootItems.map(item => renderFileItem(item, 0))}
+          {sortItems(rootItems).map(item => renderFileItem(item, 0))}
 
           {dragDisplay && (
             <div style={{

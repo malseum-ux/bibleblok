@@ -231,6 +231,10 @@ export async function moveFolder(folderId, newParentId) {
   return db.folders.update(folderId, { parentId: newParentId ?? null })
 }
 
+export async function renameFolder(folderId, name) {
+  return db.folders.update(folderId, { name })
+}
+
 export async function moveItemToFolder(tab, itemId, folderId) {
   if (tab === 'sermon') return db.sermons.update(itemId, { folderId })
   if (tab === 'worship') return db.worships.update(itemId, { folderId })
