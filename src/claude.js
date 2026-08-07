@@ -444,6 +444,7 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
   let fullPrompt = seriesCtx
     ? prompt + `\n\n${seriesCtx}\n\n[강해설교 연속성 지침]\n- 위 이전 설교들의 본문 흐름과 신학적 주제를 반드시 파악하세요.\n- 이번 본문이 시리즈 전체에서 어떤 위치에 있는지 의식하며 작성하세요.\n- 이전 설교에서 다룬 내용을 반복하지 말고, 자연스럽게 그 위에 쌓아가세요.\n- 회중이 앞 설교의 흐름을 기억하며 이번 말씀을 들을 수 있도록 연결 고리를 살려 주세요.`
     : prompt
+  fullPrompt += `\n\n[문체 지침]\n모든 내용은 "~이다", "~한다" 형식의 평서체(이다체)로 작성하세요. "~입니다", "~합니다" 등의 존댓말은 사용하지 마세요.\n\n[중복 지양 지침]\n이 결과는 설교 준비의 여러 단계 중 하나입니다. 본문 소개나 배경 설명을 서론으로 반복하지 마세요. 이 단계 고유의 내용에 바로 집중하여 작성하세요.`
   if (customText) fullPrompt += `\n${customText}`
   if (userKeyword) fullPrompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(fullPrompt, onChunk)
