@@ -31,10 +31,10 @@ export const SERMON_STEP_ITEMS = {
     { key: 'psychological', label: '심리학적 관점', text: '- 심리학적 관점: 심리학자의 틀로 본문 인물의 내면 동기, 감정, 행동 패턴을 해석' },
   ],
   illustration: [
-    { key: 'historical', label: '역사/문화 예화', text: '- 본문의 핵심 메시지를 잘 담은 역사적/문화적 예화 1-2개' },
-    { key: 'modern', label: '현대 예화', text: '- 현대 생활에서 공감할 수 있는 예화 1-2개' },
-    { key: 'connection', label: '본문 연결 설명', text: '- 각 예화가 본문과 어떻게 연결되는지 설명' },
-    { key: 'placement', label: '위치와 방법 제안', text: '- 설교에서 예화를 사용하는 위치와 방법 제안' },
+    { key: 'biblical', label: '성경 예화', text: '- 성경 예화: 본문과 연결되는 구약 예화 2개, 신약 예화 2개 (각 예화마다 본문과 연결되는 이유 설명)' },
+    { key: 'historical', label: '역사적 사건', text: '- 역사적 사건: 본문과 연결되는 국내 역사적 사건 2개, 국외 역사적 사건 2개 (각 사건마다 본문과 연결되는 이유 설명)' },
+    { key: 'literary', label: '문학 예화', text: '- 문학 예화: 본문과 연결되는 국내 문학 작품 예화 2개, 국외 문학 작품 예화 2개 (각 예화마다 본문과 연결되는 이유 설명)' },
+    { key: 'modern', label: '현대 언론 예화', text: '- 현대 언론 예화: 레거시 언론에 보도된 사건사고에서 볼 수 있는 현대인의 삶 예화 2개 (각 예화마다 본문과 연결되는 이유 설명)' },
   ],
   hymns: [
     { key: 'before_hymn', label: '설교 전 찬송가', text: '- 설교 전 한국 찬송가 1곡 (번호, 제목, 선택 이유)' },
@@ -44,10 +44,10 @@ export const SERMON_STEP_ITEMS = {
     { key: 'explanation', label: '연결 설명', text: '- 각 곡이 본문 메시지와 어떻게 연결되는지, 예배 흐름에서 어떤 역할을 하는지 설명' },
   ],
   application: [
-    { key: 'personal', label: '개인 적용', text: '- 개인 신앙 생활에의 적용' },
-    { key: 'community', label: '공동체 적용', text: '- 공동체(교회)에의 적용' },
-    { key: 'social', label: '사회 적용', text: '- 사회와 세상을 향한 적용' },
-    { key: 'practical', label: '구체적 실천', text: '- 구체적이고 실천 가능한 적용점' },
+    { key: 'personal', label: '개인 적용', text: '- 개인 적용: 지금까지의 해설(원어, 역사적 배경, 신학적 의미, 교훈)을 바탕으로 개인 신앙 생활에 구체적으로 어떻게 적용할 수 있는지 제시' },
+    { key: 'community', label: '공동체 적용', text: '- 공동체 적용: 지금까지의 해설을 바탕으로 교회 공동체가 함께 실천하거나 변화해야 할 내용을 구체적으로 제시' },
+    { key: 'social', label: '사회 적용', text: '- 사회 적용: 지금까지의 해설을 바탕으로 사회와 세상을 향해 이 본문이 요구하는 실천을 구체적으로 제시' },
+    { key: 'practical', label: '구체적 실천', text: '- 구체적 실천: 지금까지의 해설에서 도출한 이번 주 바로 실천할 수 있는 구체적 행동 3~5가지 제시' },
   ],
 }
 
