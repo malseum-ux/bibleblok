@@ -13,14 +13,15 @@ export const SERMON_STEP_ITEMS = {
     { key: 'meaning', label: '신학적 함의', text: '- 어근과 의미의 신학적 함의' },
   ],
   message: [
-    { key: 'original_audience', label: '최초 청중 메시지', text: '- 본문이 최초 청중에게 전달하려 한 메시지' },
-    { key: 'today', label: '오늘날 메시지', text: '- 오늘날 교회와 신자에게 전하는 메시지' },
-    { key: 'christology', label: '기독론적 관점', text: '- 기독론적 관점에서의 메시지' },
+    { key: 'christology', label: '기독론적 관점', text: '- 기독론적 관점: 이 본문이 그리스도를 어떻게 가리키는지, 대표적인 신학자들(칼빈, 루터, 바르트, 라이트 등)과 설교가들이 이 본문을 기독론적으로 어떻게 해석해 왔는지 구체적으로 설명' },
+    { key: 'original_audience', label: '최초 청중 메시지', text: '- 최초 청중 메시지: 본문이 원래 청중에게 전달하려 한 메시지' },
+    { key: 'today', label: '오늘날 메시지', text: '- 오늘날 메시지: 오늘날 교회와 신자에게 전하는 메시지' },
   ],
   lesson: [
     { key: 'god', label: '하나님 성품', text: '- 하나님의 성품과 사역에 대한 교훈' },
+    { key: 'jesus', label: '예수님의 실천적 모범', text: '- 예수님이 이 본문에서 보여주시는 실천적 모범' },
     { key: 'human', label: '인간 본성', text: '- 인간의 본성과 반응에 대한 교훈' },
-    { key: 'faith', label: '신앙 생활', text: '- 신앙 생활에 대한 실천적 교훈' },
+    { key: 'lessons', label: '본문의 교훈', text: '- 본문에서 도출할 수 있는 핵심 교훈 5가지 (각 교훈을 간결하게 제목으로 제시하고 설명)' },
   ],
   research: [
     { key: 'literary', label: '문학적 관점', text: '- 문학적 관점: 문학 비평가의 틀로 본문의 장르, 문체, 서사 구조, 수사법이 본문 의미에 어떻게 기여하는지 해석' },
