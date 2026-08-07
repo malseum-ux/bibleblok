@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext, useContext } from 'react'
 import { supabase } from '../supabase'
 
 const ADMIN_EMAIL = 'malseum@gmail.com'
 const TRIAL_DAYS = 30
+
+export const UserEmailContext = createContext(null)
+export function useUserEmail() { return useContext(UserEmailContext) }
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
@@ -116,7 +119,11 @@ export default function AuthGate({ children }) {
       )
     }
 
-    return children
+    return (
+      <UserEmailContext.Provider value={session.user.email}>
+        {children}
+      </UserEmailContext.Provider>
+    )
   }
 
   return (

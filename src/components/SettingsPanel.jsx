@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { exportAllData, importAllData } from '../db'
 import { supabase } from '../supabase'
+import { useUserEmail } from './AuthGate'
 
 const ADMIN_EMAIL = 'malseum@gmail.com'
 const TRIAL_DAYS = 30
@@ -32,19 +33,15 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
   const fileInputRef = useRef(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const userEmail = useUserEmail()
+  const isAdmin = userEmail === ADMIN_EMAIL
   const [trialUsers, setTrialUsers] = useState([])
   const [newUserEmail, setNewUserEmail] = useState('')
   const [addStatus, setAddStatus] = useState(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user?.email === ADMIN_EMAIL) {
-        setIsAdmin(true)
-        fetchTrialUsers()
-      }
-    })
-  }, [])
+    if (isAdmin) fetchTrialUsers()
+  }, [isAdmin])
 
   async function fetchTrialUsers() {
     const { data } = await supabase
