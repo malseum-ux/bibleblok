@@ -38,8 +38,8 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
   const [addStatus, setAddStatus] = useState(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email === ADMIN_EMAIL) {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user?.email === ADMIN_EMAIL) {
         setIsAdmin(true)
         fetchTrialUsers()
       }
