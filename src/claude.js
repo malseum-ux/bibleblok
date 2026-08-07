@@ -23,11 +23,11 @@ export const SERMON_STEP_ITEMS = {
     { key: 'faith', label: '신앙 생활', text: '- 신앙 생활에 대한 실천적 교훈' },
   ],
   research: [
-    { key: 'literary', label: '문학적 관점', text: '- 문학적 관점 (장르, 문체, 수사법)' },
-    { key: 'historical', label: '역사적 관점', text: '- 역사적 관점 (역사가의 시각으로 본문의 사건과 의미를 해석 — 고고학적 사실 규명이 아닌 역사적 해석학)' },
-    { key: 'sociological', label: '사회학적 관점', text: '- 사회학적 관점 (당시 사회 구조, 문화)' },
-    { key: 'psychological', label: '심리학적 관점', text: '- 심리학적 관점 (인물의 내면, 동기)' },
-    { key: 'philosophical', label: '철학적 관점', text: '- 철학적 관점 (세계관, 윤리)' },
+    { key: 'literary', label: '문학적 관점', text: '- 문학적 관점: 문학 비평가의 틀로 본문의 장르, 문체, 서사 구조, 수사법이 본문 의미에 어떻게 기여하는지 해석' },
+    { key: 'historical', label: '역사적 관점', text: '- 역사적 관점: 역사가의 해석학적 틀로 본문의 사건과 의미를 해석 (고고학적 사실 규명이 아닌 역사적 해석학)' },
+    { key: 'philosophical', label: '철학적 관점', text: '- 철학적 관점: 철학자의 틀로 본문이 담고 있는 세계관, 존재론, 윤리적 함의를 해석' },
+    { key: 'sociological', label: '사회학적 관점', text: '- 사회학적 관점: 사회학자의 틀로 당시 사회 구조, 권력 관계, 문화적 맥락이 본문 의미에 미치는 영향을 해석' },
+    { key: 'psychological', label: '심리학적 관점', text: '- 심리학적 관점: 심리학자의 틀로 본문 인물의 내면 동기, 감정, 행동 패턴을 해석' },
   ],
   illustration: [
     { key: 'historical', label: '역사/문화 예화', text: '- 본문의 핵심 메시지를 잘 담은 역사적/문화적 예화 1-2개' },
@@ -173,6 +173,8 @@ ${buildItems(SERMON_STEP_ITEMS.lesson, selectedKeys)}
   research: (passage, lang, bible, selectedKeys = null) => `
 이 본문을 다양한 학문적 관점으로 확장 연구해 주세요.
 A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
+
+각 관점은 해당 분야 전문가(문학 비평가, 역사가, 철학자, 사회학자, 심리학자)가 실제로 사용하는 분석 틀과 개념을 활용하여, 그 관점에서 본문이 어떤 의미를 갖는지 해석하세요. 단순한 배경 나열이 아니라 전문가적 해석이어야 합니다.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
