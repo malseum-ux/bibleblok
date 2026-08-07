@@ -23,6 +23,12 @@ export const SERMON_STEP_ITEMS = {
     { key: 'human', label: '인간 본성', text: '- 인간의 본성과 반응에 대한 교훈' },
     { key: 'lessons', label: '본문의 교훈', text: '- 본문에서 도출할 수 있는 핵심 교훈 5가지 (각 교훈을 간결하게 제목으로 제시하고 설명)' },
   ],
+  text_study: [
+    { key: 'main_theme', label: '주요 신학적 주제', text: '- 본문의 주요 신학적 주제' },
+    { key: 'history', label: '신학적 해석 역사', text: '- 신학적 해석 역사: 교부, 중세, 개혁신학, 근대 주요 신학자들이 이 본문을 어떻게 해석해 왔는지 구체적으로 설명' },
+    { key: 'modern', label: '현대 신학자 해석', text: '- 현대 주요 신학자들의 해석: 대표적인 현대 신학자들이 이 본문을 어떻게 해석하는지 구체적으로 설명' },
+    { key: 'rabbi', label: '정통 랍비 해석', text: '- 정통 랍비 해석: 유대교 정통 랍비 전통에서 이 본문(또는 해당 구약 본문)을 어떻게 해석해 왔는지 설명' },
+  ],
   research: [
     { key: 'literary', label: '문학적 관점', text: '- 문학적 관점: 문학 비평가의 틀로 본문의 장르, 문체, 서사 구조, 수사법이 본문 의미에 어떻게 기여하는지 해석' },
     { key: 'historical', label: '역사적 관점', text: '- 역사적 관점: 역사가의 해석학적 틀로 본문의 사건과 의미를 해석 (고고학적 사실 규명이 아닌 역사적 해석학)' },
@@ -140,6 +146,17 @@ A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세�
 다음을 포함하세요:
 ${buildItems(SERMON_STEP_ITEMS.narrative, selectedKeys)}
 `,
+  text_study: (passage, lang, bible, selectedKeys = null) => `
+당신은 성경 신학 전문가입니다. 다음 본문을 신학적으로 깊이 연구해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+다음을 포함하세요:
+${buildItems(SERMON_STEP_ITEMS.text_study, selectedKeys)}
+`,
   original: (passage, lang, bible, selectedKeys = null) => `
 당신은 성경 원어 전문가입니다. 다음 본문을 원어로 해설해 주세요.
 A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
@@ -220,6 +237,9 @@ ${buildItems(SERMON_STEP_ITEMS.application, selectedKeys)}
 const SERMON_STEP_PROMPTS_WITH_EMPHASIS = {
   narrative: (passage, emphasis, lang, bible, selectedKeys) =>
     SERMON_STEP_PROMPTS.narrative(passage, lang, bible, selectedKeys) +
+    (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
+  text_study: (passage, emphasis, lang, bible, selectedKeys) =>
+    SERMON_STEP_PROMPTS.text_study(passage, lang, bible, selectedKeys) +
     (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
   original: (passage, emphasis, lang, bible, selectedKeys) =>
     SERMON_STEP_PROMPTS.original(passage, lang, bible, selectedKeys) +

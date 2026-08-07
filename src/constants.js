@@ -1,12 +1,13 @@
 export const SERMON_STEPS = [
   { index: 0, key: 'narrative', label: { ko: '서사적 해설', en: 'Narrative Commentary' } },
-  { index: 1, key: 'original', label: { ko: '원어 해설', en: 'Original Language' } },
-  { index: 2, key: 'research', label: { ko: '확장 연구', en: 'Extended Research' } },
-  { index: 3, key: 'message', label: { ko: '본문 메시지', en: 'Message' } },
-  { index: 4, key: 'lesson', label: { ko: '교훈', en: 'Lessons' } },
-  { index: 5, key: 'application', label: { ko: '적용', en: 'Application' } },
-  { index: 6, key: 'illustration', label: { ko: '예화', en: 'Illustrations' } },
-  { index: 7, key: 'hymns', label: { ko: '찬송 선별', en: 'Hymns & CCM' } },
+  { index: 1, key: 'text_study', label: { ko: '본문연구', en: 'Textual Study' } },
+  { index: 2, key: 'original', label: { ko: '원어 해설', en: 'Original Language' } },
+  { index: 3, key: 'research', label: { ko: '확장 연구', en: 'Extended Research' } },
+  { index: 4, key: 'message', label: { ko: '본문 메시지', en: 'Message' } },
+  { index: 5, key: 'lesson', label: { ko: '교훈', en: 'Lessons' } },
+  { index: 6, key: 'application', label: { ko: '적용', en: 'Application' } },
+  { index: 7, key: 'illustration', label: { ko: '예화', en: 'Illustrations' } },
+  { index: 8, key: 'hymns', label: { ko: '찬송 선별', en: 'Hymns & CCM' } },
 ]
 
 export const WORSHIP_STEPS = [
