@@ -225,7 +225,6 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>debug: {userEmail || '(없음)'}</div>
           {isAdmin && (
             <div style={sectionStyle}>
               <div style={labelStyle}>사용자 관리</div>
