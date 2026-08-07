@@ -119,6 +119,7 @@ export default function AuthGate({ children }) {
       )
     }
 
+    console.log('[AuthGate] session.user.email:', session.user.email)
     return (
       <UserEmailContext.Provider value={session.user.email}>
         {children}
