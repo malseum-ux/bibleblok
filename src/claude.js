@@ -310,6 +310,14 @@ ${buildItems(WORSHIP_STEP_ITEMS.call_verse, selectedKeys)}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 [용서의 선언 성경구절]
+위 날짜·절기·성서정과와 어울리는 하나님의 용서와 사죄를 선언하는 성경구절을 3~5개 제시해 주세요.
+각 구절마다 다음 형식으로 작성하세요:
+
+구절 참조 (예: 요한일서 1:9)
+구절 전문 (${bible || '개역개정성경'} 기준)
+→ 이 구절이 용서의 선언으로 적합한 이유 한 줄
+
+구약과 신약을 골고루 포함하고, 예배 중 회중 앞에서 낭독하기에 적합한 구절로 선별하세요.
 ${buildItems(WORSHIP_STEP_ITEMS.forgiveness, selectedKeys)}
 `,
   worship_prayer: (date, season, lectionary, lang, bible) => `
