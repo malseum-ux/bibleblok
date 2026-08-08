@@ -8,6 +8,7 @@ export const SERMON_STEP_ITEMS = {
   ],
   original: [
     { key: 'source', label: '원어 텍스트 기반', text: '- 구약이면 BHS(히브리어), 신약이면 NA28(헬라어)와 LXX 기반' },
+    { key: 'parsing', label: '주요구절 파싱', text: '- 본문 주요 구절의 문법적 파싱 (동사의 시제·법·태·인칭·수, 명사의 격·수·성 등 원어 문법 구조 분석)' },
     { key: 'words', label: '주요 단어 분석', text: '- 주요 단어와 문구의 원어 분석' },
     { key: 'usage', label: '신구약 용례', text: '- 신구약 성경에서의 용례 비교' },
     { key: 'meaning', label: '신학적 함의', text: '- 어근과 의미의 신학적 함의' },
