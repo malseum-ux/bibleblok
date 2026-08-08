@@ -38,7 +38,6 @@ export default function App() {
   const [rootHandle, setRootHandle] = useState(null)
   const [fsFiles, setFsFiles] = useState([])
   const [sblViewer, setSblViewer] = useState(null)
-  const fileImportRef = useRef(null)
 
   const lang = settings.lang
 
@@ -681,7 +680,7 @@ export default function App() {
             searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
             fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
             onFsFileOpen={handleFsFileOpen}
-            onImport={!isFileSystemSupported() ? () => fileImportRef.current?.click() : null}
+            onImport={!isFileSystemSupported() ? handleFileImport : null}
           />
         )}
 
@@ -755,7 +754,7 @@ export default function App() {
                 searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
                 fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
                 onFsFileOpen={handleFsFileOpen}
-                onImport={!isFileSystemSupported() ? () => fileImportRef.current?.click() : null}
+                onImport={!isFileSystemSupported() ? handleFileImport : null}
               />
             </div>
           </>
@@ -796,14 +795,6 @@ export default function App() {
 
       </div>
     </div>
-
-    <input
-      ref={fileImportRef}
-      type="file"
-      accept=".json"
-      style={{ display: 'none' }}
-      onChange={handleFileImport}
-    />
 
     {sblViewer && (
 

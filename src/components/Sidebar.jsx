@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { createPortal } from 'react-dom'
 
 function fmtDate(d) {
@@ -401,13 +401,22 @@ export default function Sidebar({
           {sortLabel}
         </button>
         {onImport && (
-          <button
-            onClick={onImport}
-            title="파일 가져오기 (.json)"
-            style={{ ...btnStyle, opacity: 0.7, fontSize: 10, padding: '0 4px', letterSpacing: '-0.02em' }}
-          >
-            가져오기
-          </button>
+          <>
+            <label
+              htmlFor="sidebar-file-import"
+              title="파일 가져오기 (.json)"
+              style={{ ...btnStyle, opacity: 0.7, fontSize: 10, padding: '0 4px', letterSpacing: '-0.02em', cursor: 'pointer' }}
+            >
+              가져오기
+            </label>
+            <input
+              id="sidebar-file-import"
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={onImport}
+            />
+          </>
         )}
         <button
           onClick={() => setCreatingFolder(true)}
