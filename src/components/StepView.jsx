@@ -595,7 +595,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
         alignItems: 'center',
       }}>
         {/* 단계 탭 - 가로 스크롤 */}
-        <div style={{
+        <div className="no-scrollbar" style={{
           display: 'flex',
           overflowX: 'auto',
           flex: 1,
