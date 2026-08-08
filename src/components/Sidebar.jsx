@@ -29,6 +29,7 @@ export default function Sidebar({
   searchItemsTab = null,
   fsFiles = [],
   onFsFileOpen,
+  onImport,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -399,6 +400,15 @@ export default function Sidebar({
         >
           {sortLabel}
         </button>
+        {onImport && (
+          <button
+            onClick={onImport}
+            title="파일 가져오기 (.json)"
+            style={{ ...btnStyle, opacity: 0.7, fontSize: 10, padding: '0 4px', letterSpacing: '-0.02em' }}
+          >
+            가져오기
+          </button>
+        )}
         <button
           onClick={() => setCreatingFolder(true)}
           title={selectedFolderName ? `"${selectedFolderName}" 안에 하위폴더 생성` : '새 폴더'}

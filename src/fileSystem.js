@@ -104,7 +104,7 @@ function buildSblFileName(tab, item) {
   return `${buildFileBaseName(tab, item)}.sbl`
 }
 
-function buildJsonContent(tab, item, steps) {
+export function buildJsonContent(tab, item, steps) {
   return JSON.stringify({
     version: 1,
     tab,

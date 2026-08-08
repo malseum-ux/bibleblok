@@ -10,7 +10,7 @@ import {
   saveSermonStep, saveWorshipStep, saveDawnStep,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
-import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName, deleteFileFromDir } from './fileSystem'
+import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName, buildJsonContent, deleteFileFromDir } from './fileSystem'
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
@@ -38,6 +38,7 @@ export default function App() {
   const [rootHandle, setRootHandle] = useState(null)
   const [fsFiles, setFsFiles] = useState([])
   const [sblViewer, setSblViewer] = useState(null)
+  const fileImportRef = useRef(null)
 
   const lang = settings.lang
 
@@ -279,6 +280,72 @@ export default function App() {
 
     setSelected({ id: newId, step: 0 })
     if (isMobile) setSidebarVisible(false)
+  }
+
+  async function handleFileImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const text = await file.text()
+    const parsed = parseJsonFile(text)
+    if (!parsed) { alert('올바르지 않은 파일입니다.'); return }
+    const { tab: fileTab, item: itemData, steps } = parsed
+    const targetTab = fileTab || tab
+    const allItems = targetTab === 'sermon' ? sermons : targetTab === 'worship' ? worships : dawns
+    const existing = allItems.find(i =>
+      i.date === itemData.date &&
+      ((itemData.title && i.title === itemData.title) || (itemData.passage && i.passage === itemData.passage))
+    )
+    if (existing) {
+      if (targetTab !== tab) switchTab(targetTab)
+      setSelected({ id: existing.id, step: 0 })
+      if (isMobile) setSidebarVisible(false)
+      return
+    }
+    let newId
+    if (targetTab === 'sermon') {
+      newId = await createSermon({ ...itemData, folderId: null })
+      for (const [idx, content] of Object.entries(steps)) {
+        if (content) await saveSermonStep(newId, Number(idx), content)
+      }
+      await loadSermons()
+    } else if (targetTab === 'worship') {
+      newId = await createWorship({ ...itemData, folderId: null })
+      for (const [idx, content] of Object.entries(steps)) {
+        if (content) await saveWorshipStep(newId, Number(idx), content)
+      }
+      await loadWorships()
+    } else {
+      newId = await createDawn({ ...itemData, folderId: null })
+      for (const [idx, content] of Object.entries(steps)) {
+        if (content) await saveDawnStep(newId, Number(idx), content)
+      }
+      await loadDawns()
+    }
+    if (targetTab !== tab) switchTab(targetTab)
+    setSelected({ id: newId, step: 0 })
+    if (isMobile) setSidebarVisible(false)
+  }
+
+  async function handleExportItem(itemId) {
+    const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
+    const item = allItems.find(i => i.id === itemId)
+    if (!item) return
+    const steps = tab === 'sermon'
+      ? await getSermonSteps(itemId)
+      : tab === 'worship'
+      ? await getWorshipSteps(itemId)
+      : await getDawnSteps(itemId)
+    const stepsMap = {}
+    steps.forEach(s => { stepsMap[s.stepIndex] = s.content })
+    const jsonContent = buildJsonContent(tab, item, stepsMap)
+    const blob = new Blob([jsonContent], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${buildFileBaseName(tab, item)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function handleClearFolder() {
@@ -614,6 +681,7 @@ export default function App() {
             searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
             fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
             onFsFileOpen={handleFsFileOpen}
+            onImport={!isFileSystemSupported() ? () => fileImportRef.current?.click() : null}
           />
         )}
 
@@ -687,6 +755,7 @@ export default function App() {
                 searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
                 fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
                 onFsFileOpen={handleFsFileOpen}
+                onImport={!isFileSystemSupported() ? () => fileImportRef.current?.click() : null}
               />
             </div>
           </>
@@ -719,6 +788,7 @@ export default function App() {
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
                 onGenerated={(itemId) => saveItemToFs(itemId)}
+                onExport={() => handleExportItem(selected.id)}
               />
             </div>
           )}
@@ -726,6 +796,14 @@ export default function App() {
 
       </div>
     </div>
+
+    <input
+      ref={fileImportRef}
+      type="file"
+      accept=".json"
+      style={{ display: 'none' }}
+      onChange={handleFileImport}
+    />
 
     {sblViewer && (
 

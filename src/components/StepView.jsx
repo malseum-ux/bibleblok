@@ -100,7 +100,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobile = false, onSaveItem, onItemUpdate, onGenerated }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -689,6 +689,23 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
             }}
           >
             {manualSaved ? '저장됨' : '저장'}
+          </button>
+          <button
+            onClick={onExport}
+            title="이 항목을 .json 파일로 내보내기 (에어드롭·공유용)"
+            style={{
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              padding: '4px 10px',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            내보내기
           </button>
         </div>
       </div>
