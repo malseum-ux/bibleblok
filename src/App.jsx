@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import AuthGate from './components/AuthGate'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import AuthGate, { useSession } from './components/AuthGate'
+import { driveSave, driveLoad } from './googleDrive'
+import { exportAllData, importAllData } from './db'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
@@ -16,7 +18,14 @@ import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
 import SettingsPanel from './components/SettingsPanel'
 
-export default function App() {
+function AppInner() {
+  const session = useSession()
+  const driveToken = session?.provider_token ?? null
+  const [driveSyncing, setDriveSyncing] = useState(false)
+  const [driveLastSync, setDriveLastSync] = useState(null)
+  const driveReady = useRef(false)
+  const driveSaveTimer = useRef(null)
+
   const [tab, setTab] = useState('sermon')
   const [settings, setSettings] = useState(getSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -51,10 +60,41 @@ export default function App() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  // Drive에서 초기 데이터 불러오기
   useEffect(() => {
-    loadSermons()
-    loadWorships()
-    loadDawns()
+    if (!driveToken) {
+      loadSermons()
+      loadWorships()
+      loadDawns()
+      driveReady.current = true
+      return
+    }
+    ;(async () => {
+      const result = await driveLoad(driveToken)
+      if (result) {
+        await importAllData(result.data)
+      }
+      await loadSermons()
+      await loadWorships()
+      await loadDawns()
+      driveReady.current = true
+    })()
+  }, [driveToken])
+
+  // 데이터 변경 시 Drive 자동 저장 (debounce 2초)
+  useEffect(() => {
+    if (!driveToken || !driveReady.current) return
+    if (driveSaveTimer.current) clearTimeout(driveSaveTimer.current)
+    driveSaveTimer.current = setTimeout(async () => {
+      setDriveSyncing(true)
+      const data = await exportAllData()
+      const ok = await driveSave(driveToken, data)
+      if (ok) setDriveLastSync(Date.now())
+      setDriveSyncing(false)
+    }, 2000)
+  }, [sermons, worships, dawns, driveToken])
+
+  useEffect(() => {
     if (isFileSystemSupported()) {
       loadRootHandle().then(async handle => {
         if (!handle) return
@@ -654,6 +694,9 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           rootHandle={rootHandle}
           onPickFolder={handlePickFolder}
+          driveToken={driveToken}
+          driveSyncing={driveSyncing}
+          driveLastSync={driveLastSync}
         />
       )}
 
@@ -819,5 +862,9 @@ export default function App() {
     </>
   )
 
-  return <AuthGate>{content}</AuthGate>
+  return content
+}
+
+export default function App() {
+  return <AuthGate><AppInner /></AuthGate>
 }

@@ -5,7 +5,9 @@ const ADMIN_EMAIL = 'malseum@gmail.com'
 const TRIAL_DAYS = 30
 
 export const UserEmailContext = createContext(null)
+export const SessionContext = createContext(null)
 export function useUserEmail() { return useContext(UserEmailContext) }
+export function useSession() { return useContext(SessionContext) }
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
@@ -13,6 +15,7 @@ export default function AuthGate({ children }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -70,6 +73,23 @@ export default function AuthGate({ children }) {
     }
   }
 
+  async function handleGoogleLogin() {
+    setGoogleLoading(true)
+    setError(null)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        scopes: 'https://www.googleapis.com/auth/drive.appdata',
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    })
+    if (error) {
+      setError(error.message)
+      setGoogleLoading(false)
+    }
+  }
+
   if (session === undefined) return null
 
   if (session) {
@@ -120,9 +140,11 @@ export default function AuthGate({ children }) {
     }
 
     return (
-      <UserEmailContext.Provider value={session.user.email}>
-        {children}
-      </UserEmailContext.Provider>
+      <SessionContext.Provider value={session}>
+        <UserEmailContext.Provider value={session.user.email}>
+          {children}
+        </UserEmailContext.Provider>
+      </SessionContext.Provider>
     )
   }
 
@@ -146,8 +168,34 @@ export default function AuthGate({ children }) {
             말씀블록
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            이메일로 로그인 링크를 받습니다
+            로그인하여 여러 기기에서 사용하세요
           </div>
+        </div>
+
+        <button
+          onClick={handleGoogleLogin}
+          disabled={googleLoading}
+          style={{
+            width: '100%',
+            padding: '10px',
+            background: 'var(--bg-sidebar)',
+            color: 'var(--text)',
+            border: '1px solid var(--border)',
+            borderRadius: 7,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: googleLoading ? 'not-allowed' : 'pointer',
+            opacity: googleLoading ? 0.7 : 1,
+            marginBottom: 16,
+          }}
+        >
+          {googleLoading ? '연결 중...' : 'Google로 로그인'}
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>또는</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
         {sent ? (
@@ -205,7 +253,7 @@ export default function AuthGate({ children }) {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? '전송 중...' : '로그인 링크 받기'}
+              {loading ? '전송 중...' : '이메일 로그인 링크 받기'}
             </button>
           </form>
         )}

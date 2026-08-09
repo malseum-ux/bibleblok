@@ -27,7 +27,7 @@ function getDefaultKeywords() {
   return result
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder }) {
+export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [importStatus, setImportStatus] = useState(null)
@@ -423,6 +423,31 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
             >
               {rootHandle ? (lang === 'ko' ? '폴더 변경' : 'Change Folder') : (lang === 'ko' ? '폴더 선택' : 'Select Folder')}
             </button>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '동기화' : 'Sync'}</div>
+            <div style={{
+              padding: '8px 12px',
+              border: `1px solid ${driveToken ? '#534AB7' : 'var(--border)'}`,
+              borderRadius: 6,
+              background: driveToken ? '#534AB722' : 'var(--bg)',
+              fontSize: 13,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{ color: driveToken ? '#534AB7' : 'var(--text-muted)', fontWeight: 600 }}>
+                {driveToken
+                  ? (driveSyncing ? '동기화 중...' : 'Google Drive 연동됨')
+                  : 'Google 로그인 시 자동 동기화'}
+              </span>
+              {driveToken && driveLastSync && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {new Date(driveLastSync).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
           </div>
 
           <div style={sectionStyle}>
