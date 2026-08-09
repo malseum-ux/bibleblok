@@ -3,6 +3,9 @@ import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_ST
 import { exportAllData, importAllData } from '../db'
 import { supabase } from '../supabase'
 import { useUserEmail } from './AuthGate'
+import { dropboxLoginUrl, dropboxConfigured } from '../dropbox'
+import { onedriveLoginUrl, onedriveConfigured } from '../onedrive'
+import { icloudSignIn, icloudSignOut, icloudConfigured } from '../icloud'
 
 const ADMIN_EMAIL = 'malseum@gmail.com'
 const TRIAL_DAYS = 30
@@ -27,7 +30,7 @@ function getDefaultKeywords() {
   return result
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync }) {
+export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [importStatus, setImportStatus] = useState(null)
@@ -426,27 +429,89 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
           </div>
 
           <div style={sectionStyle}>
-            <div style={labelStyle}>{lang === 'ko' ? '동기화' : 'Sync'}</div>
-            <div style={{
-              padding: '8px 12px',
-              border: `1px solid ${driveToken ? '#534AB7' : 'var(--border)'}`,
-              borderRadius: 6,
-              background: driveToken ? '#534AB722' : 'var(--bg)',
-              fontSize: 13,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <span style={{ color: driveToken ? '#534AB7' : 'var(--text-muted)', fontWeight: 600 }}>
-                {driveToken
-                  ? (driveSyncing ? '동기화 중...' : 'Google Drive 연동됨')
-                  : 'Google 로그인 시 자동 동기화'}
-              </span>
-              {driveToken && driveLastSync && (
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {new Date(driveLastSync).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              )}
+            <div style={labelStyle}>{lang === 'ko' ? '클라우드 동기화' : 'Cloud Sync'}</div>
+            {driveSyncing && (
+              <div style={{ fontSize: 11, color: 'var(--accent)', marginBottom: 8 }}>
+                동기화 중...{driveLastSync ? ` (마지막: ${new Date(driveLastSync).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                {
+                  id: 'google',
+                  label: 'Google Drive',
+                  connected: !!driveToken,
+                  configured: true,
+                  onConnect: null,
+                  onDisconnect: null,
+                  note: driveToken ? null : 'Google 로그인 시 자동 연동',
+                },
+                {
+                  id: 'dropbox',
+                  label: 'Dropbox',
+                  connected: !!dropboxTokens,
+                  configured: dropboxConfigured(),
+                  onConnect: async () => { window.location.href = await dropboxLoginUrl() },
+                  onDisconnect: onDropboxDisconnect,
+                  note: dropboxConfigured() ? null : '앱 등록 필요',
+                },
+                {
+                  id: 'onedrive',
+                  label: 'OneDrive',
+                  connected: !!onedriveTokens,
+                  configured: onedriveConfigured(),
+                  onConnect: async () => { window.location.href = await onedriveLoginUrl() },
+                  onDisconnect: onOnedriveDisconnect,
+                  note: onedriveConfigured() ? null : '앱 등록 필요',
+                },
+                {
+                  id: 'icloud',
+                  label: 'iCloud',
+                  connected: icloudReady,
+                  configured: icloudConfigured(),
+                  onConnect: () => icloudSignIn(),
+                  onDisconnect: async () => { await icloudSignOut(); onIcloudDisconnect?.() },
+                  note: icloudConfigured() ? null : 'Apple Developer 설정 필요',
+                },
+              ].map(({ id, label, connected, configured, onConnect, onDisconnect, note }) => (
+                <div key={id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  border: `1px solid ${connected ? '#534AB7' : 'var(--border)'}`,
+                  borderRadius: 6,
+                  background: connected ? '#534AB722' : 'var(--bg)',
+                }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: connected ? '#534AB7' : 'var(--text)' }}>
+                      {label}
+                    </span>
+                    {note && (
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{note}</div>
+                    )}
+                  </div>
+                  {connected ? (
+                    onDisconnect && (
+                      <button
+                        onClick={onDisconnect}
+                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer' }}
+                      >
+                        해제
+                      </button>
+                    )
+                  ) : (
+                    configured && onConnect && (
+                      <button
+                        onClick={onConnect}
+                        style={{ background: 'var(--accent)', border: 'none', borderRadius: 4, padding: '3px 8px', fontSize: 11, color: '#fff', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        연동
+                      </button>
+                    )
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 

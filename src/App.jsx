@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AuthGate, { useSession } from './components/AuthGate'
 import { driveSave, driveLoad } from './googleDrive'
+import { dropboxExchangeCode, dropboxSave, dropboxLoad, dropboxConfigured } from './dropbox'
+import { onedriveExchangeCode, onedriveSave, onedriveLoad, onedriveConfigured } from './onedrive'
+import { icloudSave, icloudLoad, icloudConfigured, icloudSetupAuth } from './icloud'
 import { exportAllData, importAllData } from './db'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
@@ -18,6 +21,10 @@ import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
 import SettingsPanel from './components/SettingsPanel'
 
+function loadTokens(key) {
+  try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
+}
+
 function AppInner() {
   const session = useSession()
   const driveToken = session?.provider_token ?? null
@@ -25,6 +32,10 @@ function AppInner() {
   const [driveLastSync, setDriveLastSync] = useState(null)
   const driveReady = useRef(false)
   const driveSaveTimer = useRef(null)
+
+  const [dropboxTokens, setDropboxTokens] = useState(() => loadTokens('dropbox_tokens'))
+  const [onedriveTokens, setOnedriveTokens] = useState(() => loadTokens('onedrive_tokens'))
+  const [icloudReady, setIcloudReady] = useState(false)
 
   const [tab, setTab] = useState('sermon')
   const [settings, setSettings] = useState(getSettings)
@@ -60,39 +71,90 @@ function AppInner() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  // Dropbox/OneDrive OAuth 콜백 처리
+  useEffect(() => {
+    const code = sessionStorage.getItem('oauth_pending_code')
+    const state = sessionStorage.getItem('oauth_pending_state')
+    if (!code || !state) return
+    sessionStorage.removeItem('oauth_pending_code')
+    sessionStorage.removeItem('oauth_pending_state')
+
+    if (state === 'dropbox') {
+      dropboxExchangeCode(code).then(tokens => {
+        if (!tokens) return
+        localStorage.setItem('dropbox_tokens', JSON.stringify(tokens))
+        setDropboxTokens(tokens)
+      })
+    } else if (state === 'onedrive') {
+      onedriveExchangeCode(code).then(tokens => {
+        if (!tokens) return
+        localStorage.setItem('onedrive_tokens', JSON.stringify(tokens))
+        setOnedriveTokens(tokens)
+      })
+    }
+  }, [])
+
+  // iCloud 초기화
+  useEffect(() => {
+    if (!icloudConfigured()) return
+    icloudSetupAuth(
+      () => setIcloudReady(true),
+      () => setIcloudReady(false)
+    ).then(signedIn => setIcloudReady(signedIn))
+  }, [])
+
   // Drive에서 초기 데이터 불러오기
   useEffect(() => {
-    if (!driveToken) {
-      loadSermons()
-      loadWorships()
-      loadDawns()
-      driveReady.current = true
-      return
-    }
     ;(async () => {
-      const result = await driveLoad(driveToken)
-      if (result) {
-        await importAllData(result.data)
+      // 연결된 클라우드 중 가장 최근 데이터 사용
+      const candidates = []
+      if (driveToken) {
+        const r = await driveLoad(driveToken)
+        if (r) candidates.push(r)
+      }
+      if (dropboxTokens) {
+        const r = await dropboxLoad(dropboxTokens)
+        if (r) candidates.push(r)
+      }
+      if (onedriveTokens) {
+        const r = await onedriveLoad(onedriveTokens)
+        if (r) candidates.push(r)
+      }
+      if (icloudReady) {
+        const r = await icloudLoad()
+        if (r) candidates.push(r)
+      }
+      if (candidates.length > 0) {
+        const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
+        await importAllData(latest.data)
       }
       await loadSermons()
       await loadWorships()
       await loadDawns()
       driveReady.current = true
     })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driveToken])
 
-  // 데이터 변경 시 Drive 자동 저장 (debounce 2초)
+  // 데이터 변경 시 연결된 모든 클라우드에 자동 저장 (debounce 2초)
   useEffect(() => {
-    if (!driveToken || !driveReady.current) return
+    if (!driveReady.current) return
+    const hasCloud = driveToken || dropboxTokens || onedriveTokens || icloudReady
+    if (!hasCloud) return
     if (driveSaveTimer.current) clearTimeout(driveSaveTimer.current)
     driveSaveTimer.current = setTimeout(async () => {
       setDriveSyncing(true)
       const data = await exportAllData()
-      const ok = await driveSave(driveToken, data)
-      if (ok) setDriveLastSync(Date.now())
+      const results = await Promise.all([
+        driveToken ? driveSave(driveToken, data) : Promise.resolve(false),
+        dropboxTokens ? dropboxSave(dropboxTokens, data) : Promise.resolve(false),
+        onedriveTokens ? onedriveSave(onedriveTokens, data) : Promise.resolve(false),
+        icloudReady ? icloudSave(data) : Promise.resolve(false),
+      ])
+      if (results.some(Boolean)) setDriveLastSync(Date.now())
       setDriveSyncing(false)
     }, 2000)
-  }, [sermons, worships, dawns, driveToken])
+  }, [sermons, worships, dawns, driveToken, dropboxTokens, onedriveTokens, icloudReady])
 
   useEffect(() => {
     if (isFileSystemSupported()) {
@@ -697,6 +759,18 @@ function AppInner() {
           driveToken={driveToken}
           driveSyncing={driveSyncing}
           driveLastSync={driveLastSync}
+          dropboxTokens={dropboxTokens}
+          onedriveTokens={onedriveTokens}
+          icloudReady={icloudReady}
+          onDropboxDisconnect={() => {
+            localStorage.removeItem('dropbox_tokens')
+            setDropboxTokens(null)
+          }}
+          onOnedriveDisconnect={() => {
+            localStorage.removeItem('onedrive_tokens')
+            setOnedriveTokens(null)
+          }}
+          onIcloudDisconnect={() => setIcloudReady(false)}
         />
       )}
 
