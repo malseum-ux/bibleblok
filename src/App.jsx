@@ -31,6 +31,7 @@ function AppInner() {
   const [driveSyncing, setDriveSyncing] = useState(false)
   const [driveLastSync, setDriveLastSync] = useState(null)
   const [driveAuthError, setDriveAuthError] = useState(false)
+  const [cloudSyncKey, setCloudSyncKey] = useState(0)
   const driveReady = useRef(false)
   const driveSaveTimer = useRef(null)
 
@@ -143,10 +144,11 @@ function AppInner() {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
         try {
           await importAllData(latest.data)
-          // 클라우드 데이터로 화면 갱신
+          // 클라우드 데이터로 화면 갱신 + StepView 강제 리로드
           await loadSermons()
           await loadWorships()
           await loadDawns()
+          setCloudSyncKey(v => v + 1)
         } catch (e) {
           console.error('importAllData failed:', e)
         }
@@ -955,7 +957,7 @@ function AppInner() {
           {selected?.id && selectedItem && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <StepView
-                key={selected.id}
+                key={`${selected.id}-${cloudSyncKey}`}
                 tab={tab}
                 item={selectedItem}
                 lang={lang}
