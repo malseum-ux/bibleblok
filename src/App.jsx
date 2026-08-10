@@ -608,6 +608,18 @@ function AppInner() {
     const r = await driveLoad(driveToken)
     if (r?.error === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
     if (!r) return { error: 'NO_FILE' }
+
+    const dd = r.data?.data
+    const counts = {
+      sermons: dd?.sermons?.length || 0,
+      dawns: dd?.dawns?.length || 0,
+      steps: (dd?.sermonSteps?.length || 0) + (dd?.dawnSteps?.length || 0) + (dd?.worshipSteps?.length || 0),
+    }
+
+    if (counts.sermons === 0 && counts.dawns === 0) {
+      return { error: 'EMPTY_FILE' }
+    }
+
     try {
       await importAllData(r.data)
     } catch (e) {
@@ -616,7 +628,7 @@ function AppInner() {
     await loadSermons()
     await loadWorships()
     await loadDawns()
-    return { success: true }
+    return { success: true, counts }
   }
 
   function handleSettingsChange(next) {

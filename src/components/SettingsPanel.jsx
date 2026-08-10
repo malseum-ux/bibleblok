@@ -474,10 +474,11 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   lineHeight: 1.6,
                   color: driveLoadStatus.success ? '#16a34a' : '#dc2626',
                 }}>
-                  {driveLoadStatus.success && '불러오기 완료! 목록이 새로고침되었습니다.'}
+                  {driveLoadStatus.success && `불러오기 완료! 설교 ${driveLoadStatus.counts.sermons}개, 새벽설교 ${driveLoadStatus.counts.dawns}개, 단계내용 ${driveLoadStatus.counts.steps}개`}
                   {driveLoadStatus.error === 'NO_TOKEN' && 'Google 토큰이 없습니다. 아래에서 Google Drive를 연동해 주세요.'}
                   {driveLoadStatus.error === 'AUTH_ERROR' && 'Google 토큰이 만료되었습니다. 아래에서 재연결해 주세요.'}
-                  {driveLoadStatus.error === 'NO_FILE' && 'Drive에 저장된 파일이 없습니다. 맥에서 먼저 데이터를 작성·저장해 주세요.'}
+                  {driveLoadStatus.error === 'NO_FILE' && 'Drive에 저장된 파일이 없습니다. 맥에서 먼저 저장해 주세요.'}
+                  {driveLoadStatus.error === 'EMPTY_FILE' && 'Drive 파일이 비어 있습니다. 맥 앱에서 데이터가 있는지 확인 후 저장해 주세요.'}
                   {driveLoadStatus.error === 'IMPORT_FAILED' && `가져오기 실패: ${driveLoadStatus.message}`}
                 </div>
               )}
