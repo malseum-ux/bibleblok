@@ -625,9 +625,7 @@ function AppInner() {
     } catch (e) {
       return { error: 'IMPORT_FAILED', message: e.message }
     }
-    await loadSermons()
-    await loadWorships()
-    await loadDawns()
+    setTimeout(() => window.location.reload(), 800)
     return { success: true, counts }
   }
 
