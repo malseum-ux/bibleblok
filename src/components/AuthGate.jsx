@@ -22,19 +22,36 @@ export default function AuthGate({ children }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    function applyToken(token) {
+      if (!token) return
+      setGoogleToken(token)
+      localStorage.setItem('gd_token', token)
+      localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
-      if (data.session?.provider_token) setGoogleToken(data.session.provider_token)
+      if (data.session?.provider_token) {
+        applyToken(data.session.provider_token)
+      } else {
+        // 세션에 토큰 없으면 localStorage 캐시 사용
+        const stored = localStorage.getItem('gd_token')
+        const expiry = parseInt(localStorage.getItem('gd_token_expiry') || '0', 10)
+        if (stored && Date.now() < expiry) setGoogleToken(stored)
+      }
       if (data.session) checkAccess(data.session.user.email)
     })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session?.provider_token) {
-        setGoogleToken(session.provider_token)
+        applyToken(session.provider_token)
       }
       if (!session) {
         setGoogleToken(null)
         setAccess(null)
+        localStorage.removeItem('gd_token')
+        localStorage.removeItem('gd_token_expiry')
       } else {
         checkAccess(session.user.email)
       }
