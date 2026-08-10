@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { exportAllData, importAllData } from '../db'
+import { exportAllData, importAllData, db } from '../db'
 import { supabase } from '../supabase'
 import { useUserEmail } from './AuthGate'
 import { dropboxLoginUrl, dropboxConfigured } from '../dropbox'
@@ -36,6 +36,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
   const [driveLoadStatus, setDriveLoadStatus] = useState(null)
+  const [dbCounts, setDbCounts] = useState(null)
   const fileInputRef = useRef(null)
   const userEmail = useUserEmail()
   const isAdmin = userEmail === ADMIN_EMAIL
@@ -442,9 +443,31 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               </div>
             )}
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                 Drive 토큰: {driveToken ? '있음' : '없음 (Google 로그인 필요)'}
               </div>
+              <button
+                onClick={async () => {
+                  const [s, d, w, ss, ds] = await Promise.all([
+                    db.sermons.count(), db.dawns.count(), db.worships.count(),
+                    db.sermonSteps.count(), db.dawnSteps.count(),
+                  ])
+                  setDbCounts({ sermons: s, dawns: d, worships: w, steps: ss + ds })
+                }}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  fontSize: 11, color: 'var(--accent)', cursor: 'pointer',
+                  marginBottom: 6, textDecoration: 'underline',
+                }}
+              >
+                로컬 DB 확인
+              </button>
+              {dbCounts && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                  DB: 설교 {dbCounts.sermons}개 / 새벽 {dbCounts.dawns}개 / 단계내용 {dbCounts.steps}개
+                </div>
+              )}
+            </div>
               <button
                 onClick={async () => {
                   setDriveLoadStatus('loading')
