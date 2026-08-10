@@ -104,21 +104,24 @@ function AppInner() {
     ).then(signedIn => setIcloudReady(signedIn))
   }, [])
 
-  // Drive에서 초기 데이터 불러오기
+  // 초기 데이터 불러오기: 로컬 먼저 즉시 표시 → 클라우드 백그라운드 동기화
   useEffect(() => {
     driveReady.current = false
     ;(async () => {
-      // 연결된 클라우드 중 가장 최근 데이터 사용
+      // 1단계: 로컬 IndexedDB에서 즉시 표시
+      await loadSermons()
+      await loadWorships()
+      await loadDawns()
+
+      // 2단계: 클라우드에서 최신 데이터 가져오기 (백그라운드)
       const candidates = []
       if (driveToken) {
         const r = await driveLoad(driveToken)
         if (r?.error === 'AUTH_ERROR') {
-          // 토큰 만료 시 세션 갱신 시도
           const { data: refreshed } = await supabase.auth.refreshSession()
           if (!refreshed?.session?.provider_token) {
             setDriveAuthError(true)
           }
-          // 갱신 성공 시 onAuthStateChange → googleToken 업데이트 → 이 effect 재실행
         } else if (r) {
           candidates.push(r)
           setDriveAuthError(false)
@@ -140,13 +143,14 @@ function AppInner() {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
         try {
           await importAllData(latest.data)
+          // 클라우드 데이터로 화면 갱신
+          await loadSermons()
+          await loadWorships()
+          await loadDawns()
         } catch (e) {
           console.error('importAllData failed:', e)
         }
       }
-      await loadSermons()
-      await loadWorships()
-      await loadDawns()
       driveReady.current = true
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
