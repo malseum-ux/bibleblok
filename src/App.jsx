@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import AuthGate, { useSession } from './components/AuthGate'
+import AuthGate, { useGoogleToken } from './components/AuthGate'
+import { supabase } from './supabase'
 import { driveSave, driveLoad } from './googleDrive'
 import { dropboxExchangeCode, dropboxSave, dropboxLoad, dropboxConfigured } from './dropbox'
 import { onedriveExchangeCode, onedriveSave, onedriveLoad, onedriveConfigured } from './onedrive'
@@ -26,13 +27,7 @@ function loadTokens(key) {
 }
 
 function AppInner() {
-  const session = useSession()
-  const driveToken = (() => {
-    if (session?.provider_token) return session.provider_token
-    const stored = localStorage.getItem('gd_token')
-    const expiry = parseInt(localStorage.getItem('gd_token_expiry') || '0', 10)
-    return stored && Date.now() < expiry ? stored : null
-  })()
+  const driveToken = useGoogleToken()
   const [driveSyncing, setDriveSyncing] = useState(false)
   const [driveLastSync, setDriveLastSync] = useState(null)
   const [driveAuthError, setDriveAuthError] = useState(false)
@@ -111,15 +106,19 @@ function AppInner() {
 
   // Drive에서 초기 데이터 불러오기
   useEffect(() => {
+    driveReady.current = false
     ;(async () => {
       // 연결된 클라우드 중 가장 최근 데이터 사용
       const candidates = []
       if (driveToken) {
         const r = await driveLoad(driveToken)
         if (r?.error === 'AUTH_ERROR') {
-          localStorage.removeItem('gd_token')
-          localStorage.removeItem('gd_token_expiry')
-          setDriveAuthError(true)
+          // 토큰 만료 시 세션 갱신 시도
+          const { data: refreshed } = await supabase.auth.refreshSession()
+          if (!refreshed?.session?.provider_token) {
+            setDriveAuthError(true)
+          }
+          // 갱신 성공 시 onAuthStateChange → googleToken 업데이트 → 이 effect 재실행
         } else if (r) {
           candidates.push(r)
           setDriveAuthError(false)
@@ -165,9 +164,10 @@ function AppInner() {
         icloudReady ? icloudSave(data) : Promise.resolve(false),
       ])
       if (driveResult === 'AUTH_ERROR') {
-        localStorage.removeItem('gd_token')
-        localStorage.removeItem('gd_token_expiry')
-        setDriveAuthError(true)
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        if (!refreshed?.session?.provider_token) {
+          setDriveAuthError(true)
+        }
       } else if (driveResult) {
         setDriveAuthError(false)
       }

@@ -6,11 +6,14 @@ const TRIAL_DAYS = 30
 
 export const UserEmailContext = createContext(null)
 export const SessionContext = createContext(null)
+export const GoogleTokenContext = createContext(null)
 export function useUserEmail() { return useContext(UserEmailContext) }
 export function useSession() { return useContext(SessionContext) }
+export function useGoogleToken() { return useContext(GoogleTokenContext) }
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
+  const [googleToken, setGoogleToken] = useState(null)
   const [access, setAccess] = useState(null)
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -19,25 +22,21 @@ export default function AuthGate({ children }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    function saveProviderToken(session) {
-      if (session?.provider_token) {
-        localStorage.setItem('gd_token', session.provider_token)
-        localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
-      }
-    }
     supabase.auth.getSession().then(({ data }) => {
-      saveProviderToken(data.session)
       setSession(data.session)
+      if (data.session?.provider_token) setGoogleToken(data.session.provider_token)
       if (data.session) checkAccess(data.session.user.email)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      saveProviderToken(session)
       setSession(session)
-      if (session) checkAccess(session.user.email)
-      else {
+      if (session?.provider_token) {
+        setGoogleToken(session.provider_token)
+      }
+      if (!session) {
+        setGoogleToken(null)
         setAccess(null)
-        localStorage.removeItem('gd_token')
-        localStorage.removeItem('gd_token_expiry')
+      } else {
+        checkAccess(session.user.email)
       }
     })
     return () => subscription.unsubscribe()
@@ -154,7 +153,9 @@ export default function AuthGate({ children }) {
     return (
       <SessionContext.Provider value={session}>
         <UserEmailContext.Provider value={session.user.email}>
-          {children}
+          <GoogleTokenContext.Provider value={googleToken}>
+            {children}
+          </GoogleTokenContext.Provider>
         </UserEmailContext.Provider>
       </SessionContext.Provider>
     )
