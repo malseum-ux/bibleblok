@@ -30,7 +30,7 @@ function getDefaultKeywords() {
   return result
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
+export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, driveAuthError, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [importStatus, setImportStatus] = useState(null)
@@ -435,16 +435,29 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                 동기화 중...{driveLastSync ? ` (마지막: ${new Date(driveLastSync).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
               </div>
             )}
+            {driveAuthError && (
+              <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8, lineHeight: 1.6 }}>
+                Google Drive 연결이 만료되었습니다. 아래 재연결 버튼을 눌러 주세요.
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
                 {
                   id: 'google',
                   label: 'Google Drive',
-                  connected: !!driveToken,
+                  connected: !!driveToken && !driveAuthError,
                   configured: true,
-                  onConnect: null,
+                  connectLabel: driveAuthError ? '재연결' : '연동',
+                  onConnect: () => supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                      redirectTo: window.location.origin,
+                      scopes: 'https://www.googleapis.com/auth/drive.appdata',
+                      queryParams: { access_type: 'offline', prompt: 'consent' },
+                    },
+                  }),
                   onDisconnect: null,
-                  note: driveToken ? null : 'Google 로그인 시 자동 연동',
+                  note: (!!driveToken && !driveAuthError) ? null : driveAuthError ? '재연결 필요' : 'Google 로그인 시 자동 연동',
                 },
                 {
                   id: 'dropbox',
@@ -473,7 +486,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   onDisconnect: async () => { await icloudSignOut(); onIcloudDisconnect?.() },
                   note: icloudConfigured() ? null : 'Apple Developer 설정 필요',
                 },
-              ].map(({ id, label, connected, configured, onConnect, onDisconnect, note }) => (
+              ].map(({ id, label, connected, configured, onConnect, onDisconnect, note, connectLabel }) => (
                 <div key={id} style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -506,7 +519,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                         onClick={onConnect}
                         style={{ background: 'var(--accent)', border: 'none', borderRadius: 4, padding: '3px 8px', fontSize: 11, color: '#fff', cursor: 'pointer', fontWeight: 600 }}
                       >
-                        연동
+                        {connectLabel || '연동'}
                       </button>
                     )
                   )}

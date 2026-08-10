@@ -5,6 +5,7 @@ async function findFile(token) {
     `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${FILE_NAME}'&fields=files(id)`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
+  if (res.status === 401) return 'AUTH_ERROR'
   if (!res.ok) return null
   const json = await res.json()
   return json.files?.[0]?.id ?? null
@@ -14,6 +15,7 @@ export async function driveSave(token, data) {
   try {
     const body = JSON.stringify(data)
     const existingId = await findFile(token)
+    if (existingId === 'AUTH_ERROR') return 'AUTH_ERROR'
 
     if (existingId) {
       const res = await fetch(
@@ -53,6 +55,7 @@ export async function driveSave(token, data) {
 export async function driveLoad(token) {
   try {
     const fileId = await findFile(token)
+    if (fileId === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
     if (!fileId) return null
 
     const metaRes = await fetch(

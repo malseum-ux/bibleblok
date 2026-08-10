@@ -27,9 +27,15 @@ function loadTokens(key) {
 
 function AppInner() {
   const session = useSession()
-  const driveToken = session?.provider_token ?? null
+  const driveToken = (() => {
+    if (session?.provider_token) return session.provider_token
+    const stored = localStorage.getItem('gd_token')
+    const expiry = parseInt(localStorage.getItem('gd_token_expiry') || '0', 10)
+    return stored && Date.now() < expiry ? stored : null
+  })()
   const [driveSyncing, setDriveSyncing] = useState(false)
   const [driveLastSync, setDriveLastSync] = useState(null)
+  const [driveAuthError, setDriveAuthError] = useState(false)
   const driveReady = useRef(false)
   const driveSaveTimer = useRef(null)
 
@@ -110,7 +116,14 @@ function AppInner() {
       const candidates = []
       if (driveToken) {
         const r = await driveLoad(driveToken)
-        if (r) candidates.push(r)
+        if (r?.error === 'AUTH_ERROR') {
+          localStorage.removeItem('gd_token')
+          localStorage.removeItem('gd_token_expiry')
+          setDriveAuthError(true)
+        } else if (r) {
+          candidates.push(r)
+          setDriveAuthError(false)
+        }
       }
       if (dropboxTokens) {
         const r = await dropboxLoad(dropboxTokens)
@@ -145,13 +158,20 @@ function AppInner() {
     driveSaveTimer.current = setTimeout(async () => {
       setDriveSyncing(true)
       const data = await exportAllData()
-      const results = await Promise.all([
+      const [driveResult, ...rest] = await Promise.all([
         driveToken ? driveSave(driveToken, data) : Promise.resolve(false),
         dropboxTokens ? dropboxSave(dropboxTokens, data) : Promise.resolve(false),
         onedriveTokens ? onedriveSave(onedriveTokens, data) : Promise.resolve(false),
         icloudReady ? icloudSave(data) : Promise.resolve(false),
       ])
-      if (results.some(Boolean)) setDriveLastSync(Date.now())
+      if (driveResult === 'AUTH_ERROR') {
+        localStorage.removeItem('gd_token')
+        localStorage.removeItem('gd_token_expiry')
+        setDriveAuthError(true)
+      } else if (driveResult) {
+        setDriveAuthError(false)
+      }
+      if (driveResult === true || rest.some(Boolean)) setDriveLastSync(Date.now())
       setDriveSyncing(false)
     }, 2000)
   }, [sermons, worships, dawns, driveToken, dropboxTokens, onedriveTokens, icloudReady])
@@ -759,6 +779,7 @@ function AppInner() {
           driveToken={driveToken}
           driveSyncing={driveSyncing}
           driveLastSync={driveLastSync}
+          driveAuthError={driveAuthError}
           dropboxTokens={dropboxTokens}
           onedriveTokens={onedriveTokens}
           icloudReady={icloudReady}

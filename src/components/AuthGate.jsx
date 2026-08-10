@@ -19,14 +19,26 @@ export default function AuthGate({ children }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    function saveProviderToken(session) {
+      if (session?.provider_token) {
+        localStorage.setItem('gd_token', session.provider_token)
+        localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
+      }
+    }
     supabase.auth.getSession().then(({ data }) => {
+      saveProviderToken(data.session)
       setSession(data.session)
       if (data.session) checkAccess(data.session.user.email)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      saveProviderToken(session)
       setSession(session)
       if (session) checkAccess(session.user.email)
-      else setAccess(null)
+      else {
+        setAccess(null)
+        localStorage.removeItem('gd_token')
+        localStorage.removeItem('gd_token_expiry')
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
