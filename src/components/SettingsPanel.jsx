@@ -467,7 +467,6 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   DB: 설교 {dbCounts.sermons}개 / 새벽 {dbCounts.dawns}개 / 단계내용 {dbCounts.steps}개
                 </div>
               )}
-            </div>
               <button
                 onClick={async () => {
                   setDriveLoadStatus('loading')
