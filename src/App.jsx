@@ -138,7 +138,11 @@ function AppInner() {
       }
       if (candidates.length > 0) {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
-        await importAllData(latest.data)
+        try {
+          await importAllData(latest.data)
+        } catch (e) {
+          console.error('importAllData failed:', e)
+        }
       }
       await loadSermons()
       await loadWorships()
@@ -599,6 +603,22 @@ function AppInner() {
     setSearchLoading(false)
   }
 
+  async function handleManualDriveLoad() {
+    if (!driveToken) return { error: 'NO_TOKEN' }
+    const r = await driveLoad(driveToken)
+    if (r?.error === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
+    if (!r) return { error: 'NO_FILE' }
+    try {
+      await importAllData(r.data)
+    } catch (e) {
+      return { error: 'IMPORT_FAILED', message: e.message }
+    }
+    await loadSermons()
+    await loadWorships()
+    await loadDawns()
+    return { success: true }
+  }
+
   function handleSettingsChange(next) {
     setSettings(next)
     saveSettings(next)
@@ -780,6 +800,7 @@ function AppInner() {
           driveSyncing={driveSyncing}
           driveLastSync={driveLastSync}
           driveAuthError={driveAuthError}
+          onManualDriveLoad={handleManualDriveLoad}
           dropboxTokens={dropboxTokens}
           onedriveTokens={onedriveTokens}
           icloudReady={icloudReady}

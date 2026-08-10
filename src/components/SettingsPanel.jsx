@@ -30,11 +30,12 @@ function getDefaultKeywords() {
   return result
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, driveAuthError, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
+export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, driveAuthError, onManualDriveLoad, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
+  const [driveLoadStatus, setDriveLoadStatus] = useState(null)
   const fileInputRef = useRef(null)
   const userEmail = useUserEmail()
   const isAdmin = userEmail === ADMIN_EMAIL
@@ -440,6 +441,47 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                 Google Drive 연결이 만료되었습니다. 아래 재연결 버튼을 눌러 주세요.
               </div>
             )}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                Drive 토큰: {driveToken ? '있음' : '없음 (Google 로그인 필요)'}
+              </div>
+              <button
+                onClick={async () => {
+                  setDriveLoadStatus('loading')
+                  const result = await onManualDriveLoad?.()
+                  setDriveLoadStatus(result)
+                }}
+                disabled={driveLoadStatus === 'loading' || !onManualDriveLoad}
+                style={{
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  padding: '7px 12px',
+                  fontSize: 12,
+                  cursor: driveLoadStatus === 'loading' ? 'not-allowed' : 'pointer',
+                  width: '100%',
+                  textAlign: 'left',
+                  opacity: driveLoadStatus === 'loading' ? 0.7 : 1,
+                }}
+              >
+                {driveLoadStatus === 'loading' ? 'Drive 확인 중...' : 'Drive에서 지금 불러오기'}
+              </button>
+              {driveLoadStatus && driveLoadStatus !== 'loading' && (
+                <div style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  lineHeight: 1.6,
+                  color: driveLoadStatus.success ? '#16a34a' : '#dc2626',
+                }}>
+                  {driveLoadStatus.success && '불러오기 완료! 목록이 새로고침되었습니다.'}
+                  {driveLoadStatus.error === 'NO_TOKEN' && 'Google 토큰이 없습니다. 아래에서 Google Drive를 연동해 주세요.'}
+                  {driveLoadStatus.error === 'AUTH_ERROR' && 'Google 토큰이 만료되었습니다. 아래에서 재연결해 주세요.'}
+                  {driveLoadStatus.error === 'NO_FILE' && 'Drive에 저장된 파일이 없습니다. 맥에서 먼저 데이터를 작성·저장해 주세요.'}
+                  {driveLoadStatus.error === 'IMPORT_FAILED' && `가져오기 실패: ${driveLoadStatus.message}`}
+                </div>
+              )}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
                 {
