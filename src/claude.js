@@ -44,9 +44,9 @@ export const SERMON_STEP_ITEMS = {
     { key: 'modern', label: '현대 언론 예화', text: '- 현대 언론 예화: 레거시 언론에 보도된 사건사고에서 볼 수 있는 현대인의 삶 예화 2개 (각 예화마다 본문과 연결되는 이유 설명)' },
   ],
   hymns: [
-    { key: 'before_hymn', label: '설교 전 찬송가', text: '- 설교 전 한국 찬송가 1곡 (번호, 제목, 선택 이유)' },
+    { key: 'before_hymn', label: '설교 전 찬송가', text: '- 설교 전 찬송가 1곡 (대한찬송가공회 2006년 발행, 총 645장 기준으로 번호, 제목, 선택 이유)' },
     { key: 'before_ccm', label: '설교 전 CCM', text: '- 설교 전 CCM 1곡 (제목, 아티스트, 선택 이유)' },
-    { key: 'after_hymn', label: '설교 후 찬송가', text: '- 설교 후 한국 찬송가 1곡 (번호, 제목, 선택 이유)' },
+    { key: 'after_hymn', label: '설교 후 찬송가', text: '- 설교 후 찬송가 1곡 (대한찬송가공회 2006년 발행, 총 645장 기준으로 번호, 제목, 선택 이유)' },
     { key: 'after_ccm', label: '설교 후 CCM', text: '- 설교 후 CCM 1곡 (제목, 아티스트, 선택 이유)' },
     { key: 'explanation', label: '연결 설명', text: '- 각 곡이 본문 메시지와 어떻게 연결되는지, 예배 흐름에서 어떤 역할을 하는지 설명' },
   ],
@@ -80,15 +80,15 @@ export const WORSHIP_STEP_ITEMS = {
     { key: 'full', label: '교독문 전문', text: '- 선택한 교독문 전문 (인도자/회중 구분하여 작성)' },
   ],
   opening_hymns: [
-    { key: 'hymnal', label: '21세기찬송가', text: '- 21세기찬송가에서 예배를 여는 곡 1~2곡 추천 (번호, 제목, 선택 이유)' },
+    { key: 'hymnal', label: '찬송가', text: '- 찬송가에서 예배를 여는 곡 1~2곡 추천 (대한찬송가공회 2006년 발행, 총 645장 기준으로 번호, 제목, 선택 이유)' },
     { key: 'ccm', label: 'CCM', text: '- 예배를 여는 CCM 1~2곡 추천 (제목, 아티스트, 선택 이유)' },
   ],
   pre_sermon_hymns: [
-    { key: 'hymnal', label: '21세기찬송가', text: '- 21세기찬송가에서 설교 전 곡 1~2곡 추천 (번호, 제목, 선택 이유)' },
+    { key: 'hymnal', label: '찬송가', text: '- 찬송가에서 설교 전 곡 1~2곡 추천 (대한찬송가공회 2006년 발행, 총 645장 기준으로 번호, 제목, 선택 이유)' },
     { key: 'ccm', label: 'CCM', text: '- 설교 전 CCM 1~2곡 추천 (제목, 아티스트, 선택 이유)' },
   ],
   post_sermon_hymns: [
-    { key: 'hymnal', label: '21세기찬송가', text: '- 21세기찬송가에서 설교 후 응답/결단 곡 1~2곡 추천 (번호, 제목, 선택 이유)' },
+    { key: 'hymnal', label: '찬송가', text: '- 찬송가에서 설교 후 응답/결단 곡 1~2곡 추천 (대한찬송가공회 2006년 발행, 총 645장 기준으로 번호, 제목, 선택 이유)' },
     { key: 'ccm', label: 'CCM', text: '- 설교 후 응답/결단을 위한 CCM 1~2곡 추천 (제목, 아티스트, 선택 이유)' },
   ],
   benediction: [],
@@ -125,7 +125,7 @@ export const DAWN_STEP_ITEMS = {
     { key: 'nation', label: '나라와 이웃', text: '- 나라와 이웃을 위한 기도' },
   ],
   hymn: [
-    { key: 'hymnal', label: '찬송가 추천', text: '- 한국 찬송가 1곡 (번호, 제목, 이 본문과 연결되는 이유 2~3줄)' },
+    { key: 'hymnal', label: '찬송가 추천', text: '- 찬송가 1곡 (대한찬송가공회 2006년 발행, 총 645장 기준으로 번호, 제목, 이 본문과 연결되는 이유 2~3줄)' },
     { key: 'ccm', label: 'CCM 추천', text: '- CCM 1곡 (제목, 아티스트, 이 본문과 연결되는 이유 2~3줄)' },
   ],
 }
@@ -224,6 +224,7 @@ ${buildItems(SERMON_STEP_ITEMS.illustration, selectedKeys)}
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
 기본 번역본: ${bible || '개역개정성경'}
+찬송가 기준: 대한찬송가공회 2006년 발행 찬송가 (총 645장)
 
 다음을 포함하세요:
 ${buildItems(SERMON_STEP_ITEMS.hymns, selectedKeys)}
@@ -470,6 +471,7 @@ ${buildItems(DAWN_STEP_ITEMS.prayer_topics, selectedKeys)}
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
 기본 번역본: ${bible || '개역개정성경'}
+찬송가 기준: 대한찬송가공회 2006년 발행 찬송가 (총 645장)
 
 ${buildItems(DAWN_STEP_ITEMS.hymn, selectedKeys)}
 `,
