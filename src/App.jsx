@@ -38,6 +38,7 @@ function AppInner() {
   const [dropboxTokens, setDropboxTokens] = useState(() => loadTokens('dropbox_tokens'))
   const [onedriveTokens, setOnedriveTokens] = useState(() => loadTokens('onedrive_tokens'))
   const [icloudReady, setIcloudReady] = useState(false)
+  const [saveKick, setSaveKick] = useState(0)
 
   const [tab, setTab] = useState('sermon')
   const [settings, setSettings] = useState(getSettings)
@@ -142,18 +143,27 @@ function AppInner() {
       }
       if (candidates.length > 0) {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
-        try {
-          await importAllData(latest.data)
-          // 클라우드 데이터로 화면 갱신 + StepView 강제 리로드
-          await loadSermons()
-          await loadWorships()
-          await loadDawns()
-          setCloudSyncKey(v => v + 1)
-        } catch (e) {
-          console.error('importAllData failed:', e)
+        // 마지막으로 Drive에 성공적으로 저장한 시각 (localStorage 기준)
+        const lastSync = parseInt(localStorage.getItem('drive_last_sync') || '0')
+        // Drive 데이터가 마지막 저장보다 최신일 때만 가져옴
+        // (같거나 오래됐으면 로컬이 최신이므로 덮어쓰지 않음)
+        if (latest.updatedAt > lastSync) {
+          try {
+            await importAllData(latest.data)
+            // 클라우드 데이터로 화면 갱신 + StepView 강제 리로드
+            await loadSermons()
+            await loadWorships()
+            await loadDawns()
+            setCloudSyncKey(v => v + 1)
+            localStorage.setItem('drive_last_sync', String(latest.updatedAt))
+          } catch (e) {
+            console.error('importAllData failed:', e)
+          }
         }
       }
       driveReady.current = true
+      // 로드 완료 후 로컬 데이터를 Drive에 저장 (Drive 저장 실패 후 새로고침 시 복구)
+      setSaveKick(v => v + 1)
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driveToken])
@@ -178,13 +188,23 @@ function AppInner() {
         if (!refreshed?.session?.provider_token) {
           setDriveAuthError(true)
         }
-      } else if (driveResult) {
+      } else if (driveResult !== false) {
         setDriveAuthError(false)
       }
-      if (driveResult === true || rest.some(Boolean)) setDriveLastSync(Date.now())
+      // Drive 저장 성공 시: Google 서버가 부여한 modifiedTime을 그대로 기록
+      // (로컬 시계와 서버 시계 차이로 인한 오작동 방지)
+      if (typeof driveResult === 'number') {
+        setDriveLastSync(driveResult)
+        localStorage.setItem('drive_last_sync', String(driveResult))
+      } else if (rest.some(Boolean)) {
+        const syncTime = Date.now()
+        setDriveLastSync(syncTime)
+        localStorage.setItem('drive_last_sync', String(syncTime))
+      }
       setDriveSyncing(false)
     }, 2000)
-  }, [sermons, worships, dawns, driveToken, dropboxTokens, onedriveTokens, icloudReady])
+  // saveKick: 로드 완료 후 Drive 저장을 강제 실행하기 위한 트리거
+  }, [sermons, worships, dawns, driveToken, dropboxTokens, onedriveTokens, icloudReady, saveKick])
 
   useEffect(() => {
     if (isFileSystemSupported()) {
@@ -628,6 +648,7 @@ function AppInner() {
 
     try {
       await importAllData(r.data)
+      localStorage.setItem('drive_last_sync', String(r.updatedAt || Date.now()))
     } catch (e) {
       return { error: 'IMPORT_FAILED', message: e.message }
     }

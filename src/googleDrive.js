@@ -19,14 +19,17 @@ export async function driveSave(token, data) {
 
     if (existingId) {
       const res = await fetch(
-        `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`,
+        `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media&fields=modifiedTime`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body,
         }
       )
-      return res.ok
+      if (!res.ok) return false
+      const json = await res.json()
+      // Google 서버가 기록한 실제 저장 시각을 반환 (로컬 시계와 차이 방지)
+      return new Date(json.modifiedTime).getTime()
     } else {
       const metadata = JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] })
       const boundary = 'sermonblok_boundary'
@@ -35,7 +38,7 @@ export async function driveSave(token, data) {
         `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n` +
         `--${boundary}--`
       const res = await fetch(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=modifiedTime',
         {
           method: 'POST',
           headers: {
@@ -45,7 +48,9 @@ export async function driveSave(token, data) {
           body: multipart,
         }
       )
-      return res.ok
+      if (!res.ok) return false
+      const json = await res.json()
+      return new Date(json.modifiedTime).getTime()
     }
   } catch {
     return false
