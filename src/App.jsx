@@ -144,7 +144,6 @@ function AppInner() {
       }
       if (candidates.length > 0) {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
-        const lastSync = parseInt(localStorage.getItem('drive_last_sync') || '0')
 
         const [localSermonCount, localDawnCount] = await Promise.all([
           db.sermons.count(),
@@ -152,13 +151,9 @@ function AppInner() {
         ])
         const localIsEmpty = localSermonCount === 0 && localDawnCount === 0
 
-        const shouldImport = localIsEmpty || (lastSync > 0 && latest.updatedAt > lastSync)
-
-        console.log('[SYNC] 로컬:', localSermonCount, '설교 /', localDawnCount, '새벽')
-        console.log('[SYNC] drive_last_sync:', lastSync, '/ Drive updatedAt:', latest.updatedAt)
-        console.log('[SYNC] import 실행 여부:', shouldImport)
-
-        if (shouldImport) {
+        // 로컬이 완전히 비어있을 때만 Drive에서 가져옴 (새 기기 첫 설정)
+        // 로컬에 데이터가 있으면 절대 자동으로 덮어쓰지 않음
+        if (localIsEmpty) {
           try {
             await importAllData(latest.data)
             await loadSermons()
