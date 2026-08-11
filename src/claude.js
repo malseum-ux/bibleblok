@@ -1,3 +1,4 @@
+import { getHymnListText } from './hymns.js'
 
 export const SERMON_STEP_ITEMS = {
   narrative: [
@@ -226,6 +227,9 @@ ${buildItems(SERMON_STEP_ITEMS.illustration, selectedKeys)}
 기본 번역본: ${bible || '개역개정성경'}
 찬송가 기준: 대한찬송가공회 2006년 발행 찬송가 (총 645장)
 
+[대한찬송가공회 찬송가 전체 목록 - 반드시 이 목록의 번호와 제목을 그대로 사용하세요]
+${getHymnListText()}
+
 다음을 포함하세요:
 ${buildItems(SERMON_STEP_ITEMS.hymns, selectedKeys)}
 `,
@@ -362,6 +366,9 @@ ${buildItems(WORSHIP_STEP_ITEMS.responsive_reading, selectedKeys)}
 날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
+[대한찬송가공회 찬송가 전체 목록 - 반드시 이 목록의 번호와 제목을 그대로 사용하세요]
+${getHymnListText()}
+
 [예배를 여는 찬양]
 예배를 시작하며 회중의 마음을 하나님께 향하게 하는 찬양을 추천해 주세요.
 ${buildItems(WORSHIP_STEP_ITEMS.opening_hymns, selectedKeys)}
@@ -372,6 +379,9 @@ ${buildItems(WORSHIP_STEP_ITEMS.opening_hymns, selectedKeys)}
 날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
+[대한찬송가공회 찬송가 전체 목록 - 반드시 이 목록의 번호와 제목을 그대로 사용하세요]
+${getHymnListText()}
+
 [설교전찬양]
 설교를 앞두고 회중이 말씀을 받을 준비를 하도록 돕는 찬양을 추천해 주세요.
 ${buildItems(WORSHIP_STEP_ITEMS.pre_sermon_hymns, selectedKeys)}
@@ -381,6 +391,9 @@ ${buildItems(WORSHIP_STEP_ITEMS.pre_sermon_hymns, selectedKeys)}
 
 날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
+
+[대한찬송가공회 찬송가 전체 목록 - 반드시 이 목록의 번호와 제목을 그대로 사용하세요]
+${getHymnListText()}
 
 [설교후찬양]
 설교 후 회중이 말씀에 응답하고 결단하도록 돕는 찬양을 추천해 주세요.
@@ -472,6 +485,9 @@ ${buildItems(DAWN_STEP_ITEMS.prayer_topics, selectedKeys)}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
 기본 번역본: ${bible || '개역개정성경'}
 찬송가 기준: 대한찬송가공회 2006년 발행 찬송가 (총 645장)
+
+[대한찬송가공회 찬송가 전체 목록 - 반드시 이 목록의 번호와 제목을 그대로 사용하세요]
+${getHymnListText()}
 
 ${buildItems(DAWN_STEP_ITEMS.hymn, selectedKeys)}
 `,
