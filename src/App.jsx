@@ -967,6 +967,38 @@ function AppInner() {
         )}
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
+          {!driveToken && !driveAuthError && !!localStorage.getItem('drive_last_sync') && (
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.1)',
+              borderBottom: '1px solid rgba(245, 158, 11, 0.35)',
+              padding: '7px 16px',
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexShrink: 0,
+            }}>
+              <span style={{ color: '#d97706', fontWeight: 600 }}>Drive 연결 끊김</span>
+              <span style={{ color: 'var(--text-muted)' }}>재로그인하면 데이터 손실 없이 Drive가 다시 연결됩니다.</span>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                style={{
+                  marginLeft: 'auto',
+                  background: '#534AB7',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '3px 10px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                재로그인
+              </button>
+            </div>
+          )}
+
           {!selected && (
             <div style={{ flex: 1, overflow: 'auto' }}>
               <ItemDetail
