@@ -5,7 +5,7 @@ import { driveSave, driveLoad } from './googleDrive'
 import { dropboxExchangeCode, dropboxSave, dropboxLoad, dropboxConfigured } from './dropbox'
 import { onedriveExchangeCode, onedriveSave, onedriveLoad, onedriveConfigured } from './onedrive'
 import { icloudSave, icloudLoad, icloudConfigured, icloudSetupAuth } from './icloud'
-import { exportAllData, importAllData } from './db'
+import { exportAllData, importAllData, db } from './db'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
@@ -143,14 +143,24 @@ function AppInner() {
       }
       if (candidates.length > 0) {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
-        // 마지막으로 Drive에 성공적으로 저장한 시각 (localStorage 기준)
         const lastSync = parseInt(localStorage.getItem('drive_last_sync') || '0')
-        // Drive 데이터가 마지막 저장보다 최신일 때만 가져옴
-        // (같거나 오래됐으면 로컬이 최신이므로 덮어쓰지 않음)
-        if (latest.updatedAt > lastSync) {
+
+        // 로컬 데이터 개수 확인
+        const [localSermonCount, localDawnCount] = await Promise.all([
+          db.sermons.count(),
+          db.dawns.count(),
+        ])
+        const localIsEmpty = localSermonCount === 0 && localDawnCount === 0
+
+        // Drive에서 가져오는 조건:
+        // 1) 로컬이 비어있음 (새 기기 or 처음 사용) → Drive에서 복구
+        // 2) Drive가 마지막 저장 이후 다른 기기에서 업데이트됨 (updatedAt > lastSync)
+        // 로컬에 데이터가 있고 Drive가 더 오래됐으면 → 절대 덮어쓰지 않음
+        const shouldImport = localIsEmpty || (lastSync > 0 && latest.updatedAt > lastSync)
+
+        if (shouldImport) {
           try {
             await importAllData(latest.data)
-            // 클라우드 데이터로 화면 갱신 + StepView 강제 리로드
             await loadSermons()
             await loadWorships()
             await loadDawns()
