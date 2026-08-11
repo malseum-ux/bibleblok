@@ -540,6 +540,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
       console.log('[SAVE] 결과내용 저장 완료')
     }
     await onGenerated?.(item.id)
+    onItemUpdate?.()
     setManualSaved(true)
     setTimeout(() => setManualSaved(false), 1500)
   }
@@ -561,6 +562,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
         setStepContents(prev => ({ ...prev, [0]: text }))
       }
       onGenerated?.(item.id)
+      onItemUpdate?.()
     }, 800)
   }, [resultHistory.text, editing]) // eslint-disable-line
 
