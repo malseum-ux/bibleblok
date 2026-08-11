@@ -114,6 +114,7 @@ function AppInner() {
       await loadSermons()
       await loadWorships()
       await loadDawns()
+      console.log('[SYNC] Phase1 완료 - driveToken 있음:', !!driveToken)
 
       // 2단계: 클라우드에서 최신 데이터 가져오기 (백그라운드)
       const candidates = []
@@ -145,18 +146,17 @@ function AppInner() {
         const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
         const lastSync = parseInt(localStorage.getItem('drive_last_sync') || '0')
 
-        // 로컬 데이터 개수 확인
         const [localSermonCount, localDawnCount] = await Promise.all([
           db.sermons.count(),
           db.dawns.count(),
         ])
         const localIsEmpty = localSermonCount === 0 && localDawnCount === 0
 
-        // Drive에서 가져오는 조건:
-        // 1) 로컬이 비어있음 (새 기기 or 처음 사용) → Drive에서 복구
-        // 2) Drive가 마지막 저장 이후 다른 기기에서 업데이트됨 (updatedAt > lastSync)
-        // 로컬에 데이터가 있고 Drive가 더 오래됐으면 → 절대 덮어쓰지 않음
         const shouldImport = localIsEmpty || (lastSync > 0 && latest.updatedAt > lastSync)
+
+        console.log('[SYNC] 로컬:', localSermonCount, '설교 /', localDawnCount, '새벽')
+        console.log('[SYNC] drive_last_sync:', lastSync, '/ Drive updatedAt:', latest.updatedAt)
+        console.log('[SYNC] import 실행 여부:', shouldImport)
 
         if (shouldImport) {
           try {
