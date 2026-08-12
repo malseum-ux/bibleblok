@@ -127,6 +127,18 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
 
           <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
 
+          {/* 기본색 초기화 */}
+          <button
+            onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetColor().run() }}
+            title="기본 색상"
+            style={{
+              width: 15, height: 15, borderRadius: '50%', padding: 0, cursor: 'pointer', flexShrink: 0,
+              background: 'transparent', border: '1px solid #aaa', position: 'relative', overflow: 'hidden',
+            }}
+          >
+            <span style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: '#dc2626', transform: 'rotate(-45deg) translateY(-50%)' }} />
+          </button>
+
           {COLORS.map(c => (
             <button
               key={c}
