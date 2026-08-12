@@ -794,24 +794,6 @@ function AppInner() {
           </svg>
         </button>
 
-        {/* 글자 크기 조절 */}
-        {!isMobile && <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 32 }}>
-          <button
-            onClick={() => setFontSizes(prev => ({ ...prev, [tab]: Math.max(11, prev[tab] - 1) }))}
-            style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1 }}
-          >
-            ↓
-          </button>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 22, textAlign: 'center', userSelect: 'none' }}>
-            {fontSizes[tab]}
-          </span>
-          <button
-            onClick={() => setFontSizes(prev => ({ ...prev, [tab]: Math.min(22, prev[tab] + 1) }))}
-            style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1 }}
-          >
-            ↑
-          </button>
-        </div>}
 
         <button
           onClick={() => setSettingsOpen(true)}
@@ -1021,6 +1003,7 @@ function AppInner() {
                 lang={lang}
                 bible={settings.bible}
                 fontSize={fontSizes[tab]}
+                onFontSizeChange={size => setFontSizes(prev => ({ ...prev, [tab]: size }))}
                 isMobile={isMobile}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}

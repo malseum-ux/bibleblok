@@ -5,6 +5,14 @@ import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorsh
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
+import RichEditor from './RichEditor'
+
+function stripHtml(html) {
+  if (!html || !html.trimStart().startsWith('<')) return html
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || ''
+}
 
 // 언두/리두 히스토리 훅
 // resetKey가 바뀌면 히스토리를 initialValue로 초기화
@@ -100,7 +108,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -846,7 +854,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
                       {content && !loading && (
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(editing ? resultHistory.text : content)
+                            navigator.clipboard.writeText(stripHtml(editing ? resultHistory.text : content))
                             setResultCopied(true)
                             setTimeout(() => setResultCopied(false), 1500)
                           }}
@@ -862,6 +870,18 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
                             transition: 'all 0.2s',
                           }}
                         >{resultCopied ? '복사됨' : '복사'}</button>
+                      )}
+                      {content && !loading && onFontSizeChange && (
+                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
+                          <button
+                            onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))}
+                            style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
+                          >A-</button>
+                          <button
+                            onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))}
+                            style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
+                          >A+</button>
+                        </div>
                       )}
                       {content && !loading && (
                         <button
@@ -1001,27 +1021,12 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
             )
           })()}
 
-          {/* 결과창: 편집 모드이면 textarea, 아니면 읽기 전용 */}
+          {/* 결과창: 편집 모드이면 RichEditor, 아니면 읽기 전용 */}
           {editing ? (
-            <textarea
-              ref={resultTextareaRef}
+            <RichEditor
               value={resultHistory.text}
-              onChange={e => resultHistory.onChange(e.target.value)}
-              onKeyDown={handleResultKeyDown}
-              disabled={refining}
-              style={{
-                flex: 1,
-                border: 'none',
-                outline: 'none',
-                resize: 'none',
-                padding: '20px 24px',
-                fontSize,
-                lineHeight: 1.8,
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                fontFamily: 'inherit',
-                overflow: 'auto',
-              }}
+              onChange={resultHistory.onChange}
+              baseFontSize={fontSize}
             />
           ) : (
             <div ref={resultDivRef} style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
@@ -1031,15 +1036,26 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, isMobi
                 </div>
               )}
               {content ? (
-                <div
-                  onMouseUp={() => {
-                    const sel = window.getSelection()?.toString().trim()
-                    lastSelectionRef.current = sel || ''
-                  }}
-                  style={{ lineHeight: 1.8, color: 'var(--text)', fontSize, whiteSpace: 'pre-wrap' }}
-                >
-                  {content}
-                </div>
+                content.trimStart().startsWith('<') ? (
+                  <div
+                    onMouseUp={() => {
+                      const sel = window.getSelection()?.toString().trim()
+                      lastSelectionRef.current = sel || ''
+                    }}
+                    dangerouslySetInnerHTML={{ __html: content }}
+                    style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}
+                  />
+                ) : (
+                  <div
+                    onMouseUp={() => {
+                      const sel = window.getSelection()?.toString().trim()
+                      lastSelectionRef.current = sel || ''
+                    }}
+                    style={{ lineHeight: 1.8, color: 'var(--text)', fontSize, whiteSpace: 'pre-wrap' }}
+                  >
+                    {content}
+                  </div>
+                )
               ) : !loading && (
                 <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
                   {lang === 'ko' ? 'AI 생성 버튼을 눌러 내용을 생성하세요' : 'Click Generate to create content'}
