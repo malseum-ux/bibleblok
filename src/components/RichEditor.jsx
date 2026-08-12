@@ -2,6 +2,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
 import TextAlign from '@tiptap/extension-text-align'
+import Underline from '@tiptap/extension-underline'
 import { useEffect, useState, useCallback } from 'react'
 
 const FONT_SIZES = ['0.75em', '0.85em', '1em', '1.2em', '1.5em', '2em']
@@ -37,6 +38,7 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
       Color,
       FontSize.configure({ types: ['textStyle'] }),
       TextAlign.configure({ types: ['paragraph'] }),
+      Underline,
     ],
     content: toHtml(value),
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -105,8 +107,8 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
           <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }}
             style={{ ...btnStyle(editor.isActive('italic')), fontStyle: 'italic' }}>I</button>
 
-          <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleStrike().run() }}
-            style={{ ...btnStyle(editor.isActive('strike')), textDecoration: 'line-through' }}>S</button>
+          <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }}
+            style={{ ...btnStyle(editor.isActive('underline')), textDecoration: 'underline' }}>U</button>
 
           <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
 

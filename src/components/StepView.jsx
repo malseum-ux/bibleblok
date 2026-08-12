@@ -1038,6 +1038,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               {content ? (
                 content.trimStart().startsWith('<') ? (
                   <div
+                    className="rich-view"
                     onMouseUp={() => {
                       const sel = window.getSelection()?.toString().trim()
                       lastSelectionRef.current = sel || ''
