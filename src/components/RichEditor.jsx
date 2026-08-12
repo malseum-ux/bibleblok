@@ -1,8 +1,7 @@
 import { useEditor, EditorContent } from '@tiptap/react'
-import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 const FONT_SIZES = ['0.75em', '0.85em', '1em', '1.2em', '1.5em', '2em']
 const COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#6b7280']
@@ -20,12 +19,15 @@ function changeSize(editor, direction) {
   const current = editor.getAttributes('textStyle').fontSize || '1em'
   const idx = FONT_SIZES.indexOf(current)
   const base = idx === -1 ? 2 : idx
-  const next = direction === '+' ? FONT_SIZES[Math.min(base + 1, FONT_SIZES.length - 1)]
-                                 : FONT_SIZES[Math.max(base - 1, 0)]
+  const next = direction === '+'
+    ? FONT_SIZES[Math.min(base + 1, FONT_SIZES.length - 1)]
+    : FONT_SIZES[Math.max(base - 1, 0)]
   editor.chain().focus().setFontSize(next).run()
 }
 
 export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
+  const [toolbar, setToolbar] = useState(null)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, code: false, blockquote: false, horizontalRule: false }),
@@ -35,74 +37,83 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
     ],
     content: toHtml(value),
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
-    editorProps: {
-      attributes: {
-        style: 'outline: none; min-height: 100%; line-height: 1.8; color: var(--text); font-family: inherit;',
-      },
-    },
   })
 
   useEffect(() => {
     if (editor) editor.view.dom.style.fontSize = `${baseFontSize}px`
   }, [editor, baseFontSize])
 
+  const showToolbar = useCallback(() => {
+    setTimeout(() => {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || !sel.rangeCount) { setToolbar(null); return }
+      const rect = sel.getRangeAt(0).getBoundingClientRect()
+      setToolbar({ top: rect.top - 48, left: rect.left + rect.width / 2 })
+    }, 10)
+  }, [])
+
+  const hideToolbar = useCallback((e) => {
+    if (!e.target.closest('[data-richtoolbar]')) setToolbar(null)
+  }, [])
+
   if (!editor) return null
 
-  const bubble = {
-    wrapper: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 2,
-      background: 'var(--bg)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      padding: '4px 8px',
-      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-    },
-    btn: active => ({
-      background: active ? 'var(--accent)' : 'none',
-      border: 'none',
-      cursor: 'pointer',
-      borderRadius: 4,
-      padding: '3px 7px',
-      fontSize: 13,
-      color: active ? '#fff' : 'var(--text)',
-      fontWeight: active ? 700 : 400,
-      lineHeight: 1.4,
-    }),
-    divider: { width: 1, height: 16, background: 'var(--border)', margin: '0 3px', flexShrink: 0 },
-  }
+  const btnStyle = (active) => ({
+    background: active ? 'var(--accent)' : 'none',
+    border: 'none',
+    cursor: 'pointer',
+    borderRadius: 4,
+    padding: '3px 7px',
+    fontSize: 13,
+    color: active ? '#fff' : 'var(--text)',
+    fontWeight: 600,
+    lineHeight: 1.4,
+  })
 
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', position: 'relative' }}>
-      <BubbleMenu
-        editor={editor}
-        tippyOptions={{ duration: 100, placement: 'top' }}
-      >
-        <div style={bubble.wrapper}>
-          {/* 굵게 */}
+    <div
+      style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}
+      onMouseUp={showToolbar}
+      onMouseDown={hideToolbar}
+    >
+      {/* 선택 시 떠오르는 툴바 */}
+      {toolbar && (
+        <div
+          data-richtoolbar="1"
+          style={{
+            position: 'fixed',
+            top: toolbar.top,
+            left: toolbar.left,
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '4px 8px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          }}
+        >
           <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBold().run() }}
-            style={{ ...bubble.btn(editor.isActive('bold')), fontWeight: 700 }}>B</button>
+            style={{ ...btnStyle(editor.isActive('bold')), fontWeight: 700 }}>B</button>
 
-          {/* 기울임 */}
           <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }}
-            style={{ ...bubble.btn(editor.isActive('italic')), fontStyle: 'italic' }}>I</button>
+            style={{ ...btnStyle(editor.isActive('italic')), fontStyle: 'italic' }}>I</button>
 
-          {/* 취소선 */}
           <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleStrike().run() }}
-            style={{ ...bubble.btn(editor.isActive('strike')), textDecoration: 'line-through' }}>S</button>
+            style={{ ...btnStyle(editor.isActive('strike')), textDecoration: 'line-through' }}>S</button>
 
-          <div style={bubble.divider} />
+          <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
 
-          {/* 글자 크기 */}
           <button onMouseDown={e => { e.preventDefault(); changeSize(editor, '-') }}
-            style={bubble.btn(false)}>A-</button>
+            style={btnStyle(false)}>A-</button>
           <button onMouseDown={e => { e.preventDefault(); changeSize(editor, '+') }}
-            style={bubble.btn(false)}>A+</button>
+            style={btnStyle(false)}>A+</button>
 
-          <div style={bubble.divider} />
+          <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
 
-          {/* 색상 */}
           {COLORS.map(c => (
             <button
               key={c}
@@ -113,21 +124,19 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
                   : editor.chain().focus().setColor(c).run()
               }}
               style={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                background: c,
+                width: 15, height: 15, borderRadius: '50%', background: c, padding: 0,
                 border: editor.isActive('textStyle', { color: c }) ? '2px solid var(--accent)' : '1px solid #aaa',
-                cursor: 'pointer',
-                padding: 0,
-                flexShrink: 0,
+                cursor: 'pointer', flexShrink: 0,
               }}
             />
           ))}
         </div>
-      </BubbleMenu>
+      )}
 
-      <EditorContent editor={editor} />
+      <EditorContent
+        editor={editor}
+        style={{ lineHeight: 1.8, color: 'var(--text)', fontFamily: 'inherit', fontSize: baseFontSize }}
+      />
     </div>
   )
 }
