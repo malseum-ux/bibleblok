@@ -1,6 +1,7 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
+import TextAlign from '@tiptap/extension-text-align'
 import { useEffect, useState, useCallback } from 'react'
 
 const FONT_SIZES = ['0.75em', '0.85em', '1em', '1.2em', '1.5em', '2em']
@@ -9,9 +10,10 @@ const COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed'
 function toHtml(value) {
   if (!value) return ''
   if (value.trimStart().startsWith('<')) return value
+  // 줄 단위로 변환: 빈 줄은 <p><br></p>로 유지, 내용 있는 줄은 <p>텍스트</p>
   return value
-    .split('\n\n')
-    .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+    .split('\n')
+    .map(line => line === '' ? '<p><br></p>' : `<p>${line}</p>`)
     .join('')
 }
 
@@ -34,6 +36,7 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
       TextStyle,
       Color,
       FontSize.configure({ types: ['textStyle'] }),
+      TextAlign.configure({ types: ['paragraph'] }),
     ],
     content: toHtml(value),
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -111,6 +114,16 @@ export default function RichEditor({ value, onChange, baseFontSize = 14 }) {
             style={btnStyle(false)}>A-</button>
           <button onMouseDown={e => { e.preventDefault(); changeSize(editor, '+') }}
             style={btnStyle(false)}>A+</button>
+
+          <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
+
+          {/* 정렬 */}
+          <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().setTextAlign('left').run() }}
+            style={btnStyle(editor.isActive({ textAlign: 'left' }))} title="왼쪽 정렬">좌</button>
+          <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().setTextAlign('center').run() }}
+            style={btnStyle(editor.isActive({ textAlign: 'center' }))} title="가운데 정렬">중</button>
+          <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().setTextAlign('right').run() }}
+            style={btnStyle(editor.isActive({ textAlign: 'right' }))} title="오른쪽 정렬">우</button>
 
           <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
 
