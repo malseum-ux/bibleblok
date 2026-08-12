@@ -207,6 +207,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     setUserKeyword(saved)
   }, [tab, step?.key, item?.id]) // eslint-disable-line
 
+
   function toggleItem(key) {
     if (tab === 'sermon') {
       setSelectedItems(prev =>

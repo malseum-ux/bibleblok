@@ -18,6 +18,7 @@ function toHtml(value) {
     .join('')
 }
 
+
 function changeSize(editor, direction) {
   const current = editor.getAttributes('textStyle').fontSize || '1em'
   const idx = FONT_SIZES.indexOf(current)
