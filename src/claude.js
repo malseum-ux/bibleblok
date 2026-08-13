@@ -101,24 +101,24 @@ export const WORSHIP_STEP_ITEMS = {
 
 export const DAWN_STEP_ITEMS = {
   exposition: [
-    { key: 'intro', label: '본문 소개/배경', text: '- 본문을 자연스럽게 소개하고 배경을 간략히 설명' },
-    { key: 'message', label: '핵심 내용 전달', text: '- 본문의 핵심 내용을 따뜻하고 힘 있게 풀어서 전달' },
-    { key: 'closing', label: '위로와 힘의 마무리', text: '- 오늘 하루를 시작하는 성도들에게 힘과 위로를 주는 마무리' },
+    { key: 'intro', label: '본문 소개/배경', text: '- 본문의 역사적·문학적 배경을 간략히 서술' },
+    { key: 'message', label: '핵심 내용 해설', text: '- 본문의 핵심 내용을 해설하듯 풀어서 서술' },
+    { key: 'closing', label: '마무리 서술', text: '- 본문이 전하는 의미와 통찰로 마무리' },
   ],
   core_message: [
-    { key: 'proclamation', label: '핵심 선포', text: '- 오늘 이 말씀이 우리에게 전하는 단 하나의 메시지를 선명하게 선포' },
-    { key: 'points', label: '핵심 포인트', text: '- 그 메시지를 뒷받침하는 핵심 포인트 2~3가지를 자연스럽게 풀어서 전달' },
-    { key: 'closing', label: '마무리', text: '- "오늘 하루 이 말씀을 붙들고 나아가십시오"라는 마음으로 마무리' },
+    { key: 'proclamation', label: '핵심 메시지', text: '- 이 본문이 전하는 단 하나의 핵심 메시지를 명확하게 서술' },
+    { key: 'points', label: '핵심 포인트', text: '- 그 메시지를 뒷받침하는 핵심 포인트 2~3가지를 설명하듯 서술' },
+    { key: 'closing', label: '마무리', text: '- 핵심 메시지를 정리하며 마무리' },
   ],
   meditation: [
-    { key: 'intro', label: '도입', text: '- 성도들의 마음 문을 여는 짧은 도입' },
-    { key: 'questions', label: '묵상 질문', text: '- 오늘 하루 마음에 품을 묵상 질문 2~3개 (질문 후 짧은 안내 포함)' },
-    { key: 'verse', label: '핵심 구절', text: '- 하루 동안 반복해서 되새길 핵심 구절 1개로 마무리' },
+    { key: 'intro', label: '도입', text: '- 본문의 핵심 주제를 묵상의 출발점으로 제시' },
+    { key: 'questions', label: '묵상 질문', text: '- 깊이 생각해 볼 묵상 질문 2~3개 (질문 후 짧은 해설 포함)' },
+    { key: 'verse', label: '핵심 구절', text: '- 반복해서 되새길 핵심 구절 1개와 그 의미 서술' },
   ],
   application: [
-    { key: 'action', label: '실천 적용', text: '- 오늘 하루 딱 하나 실천할 수 있는 적용 (가정/직장/교회/이웃 중 한 영역)' },
-    { key: 'connection', label: '본문 연결', text: '- 그 적용이 왜 이 본문에서 나오는지 자연스럽게 연결' },
-    { key: 'closing', label: '결단과 기도문', text: '- 결단을 촉구하는 짧고 힘 있는 마무리 (기도문 한 줄 포함)' },
+    { key: 'action', label: '실천 적용', text: '- 이 본문에서 도출되는 구체적인 실천 적용 (가정/직장/교회/이웃 중 한 영역)' },
+    { key: 'connection', label: '본문 연결', text: '- 그 적용이 본문 어디에서 나오는지 설명' },
+    { key: 'closing', label: '마무리', text: '- 본문이 이끄는 결단의 방향을 서술하며 마무리 (짧은 기도문 한 줄 포함)' },
   ],
   prayer_topics: [
     { key: 'personal', label: '개인 기도', text: '- 개인 기도 (본문 말씀을 내 삶에 적용하는 기도)' },
@@ -424,45 +424,48 @@ ${buildItems(WORSHIP_STEP_ITEMS.sending, selectedKeys)}
 
 const DAWN_STEP_PROMPTS = {
   exposition: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 새벽 기도회를 섬기는 목회자입니다. 다음 본문으로 성도들이 하루를 시작할 때 들을 새벽 메시지를 직접 작성해 주세요.
-10~15분 낭독 분량(약 1,200~1,800자)으로 목회자가 회중에게 직접 전하는 말씀 형식으로 써 주세요.
+당신은 성경 해설서를 집필하는 신학 저술가입니다. 아래 본문을 해설 에세이 형식으로 서술하세요.
+형식: 출판된 성경 묵상집에 실리는 해설 글. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다", "~된다" 서술체만 사용.
+분량: 약 1,200~1,800자.
 
 본문: ${passage}
-응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
-기본 번역본: ${bible || '개역개정성경'}
-${seriesCtx ? `\n${seriesCtx}\n이 시리즈의 흐름을 이어가는 메시지를 써 주세요.` : ''}
+번역본: ${bible || '개역개정성경'}
+언어: ${lang === 'ko' ? '한국어' : 'English'}
+${seriesCtx ? `\n${seriesCtx}` : ''}
 
 ${buildItems(DAWN_STEP_ITEMS.exposition, selectedKeys)}
-- 설교문 형식으로 작성 (학술 분석 아님)
 `,
   core_message: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 새벽 기도회를 섬기는 목회자입니다. 이 본문의 핵심 메시지를 성도들에게 전하는 글로 직접 작성해 주세요.
-약 900~1,200자, 목회자가 강단에서 말하듯 써 주세요.
+당신은 성경 해설서를 집필하는 신학 저술가입니다. 이 본문의 핵심 주제를 해설 에세이로 서술하세요.
+형식: 출판된 성경 묵상집의 핵심 메시지 페이지. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다" 서술체만 사용.
+분량: 약 900~1,200자.
 
 본문: ${passage}
-응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
-기본 번역본: ${bible || '개역개정성경'}
-${seriesCtx ? `\n${seriesCtx}\n시리즈 흐름을 살린 핵심 메시지를 써 주세요.` : ''}
+번역본: ${bible || '개역개정성경'}
+언어: ${lang === 'ko' ? '한국어' : 'English'}
+${seriesCtx ? `\n${seriesCtx}` : ''}
 
 ${buildItems(DAWN_STEP_ITEMS.core_message, selectedKeys)}
 `,
   meditation: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 새벽 기도회를 섬기는 목회자입니다. 성도들이 하루 중 말씀을 묵상하도록 안내하는 글을 직접 작성해 주세요.
-약 900~1,200자, 목회자가 부드럽게 이끌어 가는 묵상 안내문 형식으로 써 주세요.
+당신은 성경 해설서를 집필하는 신학 저술가입니다. 이 본문을 묵상 에세이로 서술하세요.
+형식: 출판된 성경 묵상집의 묵상 페이지. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다" 서술체만 사용.
+분량: 약 900~1,200자.
 
 본문: ${passage}
-응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
-기본 번역본: ${bible || '개역개정성경'}
+번역본: ${bible || '개역개정성경'}
+언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 ${buildItems(DAWN_STEP_ITEMS.meditation, selectedKeys)}
 `,
   application: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 새벽 기도회를 섬기는 목회자입니다. 오늘 말씀을 삶에 적용하도록 촉구하는 글을 직접 작성해 주세요.
-약 900~1,200자, 구체적이고 따뜻하게, 성도들의 일상에 닿는 언어로 써 주세요.
+당신은 성경 해설서를 집필하는 신학 저술가입니다. 이 본문의 삶의 적용을 해설 에세이로 서술하세요.
+형식: 출판된 성경 묵상집의 적용 페이지. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다" 서술체만 사용.
+분량: 약 900~1,200자.
 
 본문: ${passage}
-응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
-기본 번역본: ${bible || '개역개정성경'}
+번역본: ${bible || '개역개정성경'}
+언어: ${lang === 'ko' ? '한국어' : 'English'}
 
 ${buildItems(DAWN_STEP_ITEMS.application, selectedKeys)}
 `,
@@ -571,6 +574,8 @@ ${sel('sending')}
   return streamCompletion(prompt, onChunk)
 }
 
+const DAWN_STYLE_SYSTEM = '절대로 "사랑하는 여러분", "함께", "~해 봅시다", "~하십시오", "~하세요" 같은 구어체·청중 호칭 표현을 사용하지 마세요. 모든 내용은 문어체(해설체)로, 독자가 혼자 읽으며 이해할 수 있는 산문으로 서술하세요.'
+
 export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
 
   const sel = (key) => {
@@ -580,8 +585,8 @@ export async function generateDawnCombined(passage, emphasis, lang, bible, serie
     return buildItems(items, selected ?? items.map(i => i.key))
   }
 
-  let prompt = `당신은 새벽 기도회를 섬기는 목회자입니다. 아래 본문으로 새벽 기도회 전체 순서에 사용할 수 있는 완성된 말씀 자료를 A4 3~4장 분량(약 4,000~5,500자)으로 작성해 주세요.
-목회자가 새벽 기도회를 인도할 때 바로 사용할 수 있게 실용적으로 작성해 주세요.
+  let prompt = `아래 본문을 바탕으로 새벽 기도회 전체 순서에 사용할 수 있는 말씀 자료를 A4 3~4장 분량(약 4,000~5,500자)으로 문어체로 작성해 주세요.
+"사랑하는 여러분", "~해 봅시다", "~하십시오" 같은 구어체·청중 호칭은 절대 사용하지 말고, 설명하듯·해설하듯 서술하는 문어 산문으로 써 주세요.
 
 본문: ${passage}
 응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
@@ -593,7 +598,7 @@ ${emphasis ? `\n강조하고 싶은 주제: ${emphasis}` : ''}
 
 [1. 본문 해설]
 ${sel('exposition')}
-- 설교문 형식으로 작성 (학술 분석 아님)
+- 문어체 해설 형식으로 작성
 
 [2-4. 핵심 메시지 · 묵상 · 적용]
 아래 구조를 두 번 반복하세요. 첫 번째 핵심 메시지를 전한 뒤, 바로 이어서 그에 따른 묵상 안내와 적용을 제시합니다. 그 다음 두 번째 핵심 메시지와 그에 따른 묵상·적용을 이어서 작성합니다.
@@ -626,7 +631,7 @@ ${sel('hymn')}
   const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
   if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
-  return streamCompletion(prompt, onChunk)
+  return streamCompletion(prompt, onChunk, DAWN_STYLE_SYSTEM)
 }
 
 export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk, selectedItems = null, userKeyword = '') {
@@ -643,7 +648,8 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   const base = promptFn(passage, lang, bible, seriesCtx, selectedItems)
   let prompt = emphasis ? base + `\n\n강조하고 싶은 주제: ${emphasis}` : base
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
-  return streamCompletion(prompt, onChunk)
+  const extra = ['exposition', 'core_message', 'meditation', 'application'].includes(stepKey) ? DAWN_STYLE_SYSTEM : ''
+  return streamCompletion(prompt, onChunk, extra)
 }
 
 export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, passage, title, onChunk) {
@@ -718,9 +724,11 @@ export function stopCurrentGeneration() {
   _currentAbortController = null
 }
 
-async function streamCompletion(prompt, onChunk) {
+async function streamCompletion(prompt, onChunk, systemExtra = '') {
   _currentAbortController = new AbortController()
   const signal = _currentAbortController.signal
+  const baseSystem = '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요. 단락 사이에 빈 줄을 두 줄 이상 넣지 마세요. 항목 사이에도 불필요한 공백 줄을 넣지 마세요. 각 항목과 소제목에는 반드시 번호를 붙여(1. 2. 3. 형식) 내용이 한눈에 구조적으로 파악되도록 작성하세요. 찬송가를 추천할 때는 반드시 2006년 한국찬송가공회 발행 21세기찬송가(총 645장)를 기준으로 하세요. 번호와 제목을 스스로 교차 확인한 후 제시하되, 확신하지 못할 경우 번호 없이 제목만 제시하고 "번호는 직접 확인하세요"라고 안내하세요.'
+  const systemContent = systemExtra ? baseSystem + '\n\n' + systemExtra : baseSystem
   const response = await fetch('/api/generate', {
     method: 'POST',
     signal,
@@ -732,7 +740,7 @@ async function streamCompletion(prompt, onChunk) {
       max_tokens: 8000,
       stream: true,
       messages: [
-        { role: 'system', content: '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요. 단락 사이에 빈 줄을 두 줄 이상 넣지 마세요. 항목 사이에도 불필요한 공백 줄을 넣지 마세요. 각 항목과 소제목에는 반드시 번호를 붙여(1. 2. 3. 형식) 내용이 한눈에 구조적으로 파악되도록 작성하세요. 찬송가를 추천할 때는 반드시 2006년 한국찬송가공회 발행 21세기찬송가(총 645장)를 기준으로 하세요. 번호와 제목을 스스로 교차 확인한 후 제시하되, 확신하지 못할 경우 번호 없이 제목만 제시하고 "번호는 직접 확인하세요"라고 안내하세요.' },
+        { role: 'system', content: systemContent },
         { role: 'user', content: prompt },
       ],
     }),
