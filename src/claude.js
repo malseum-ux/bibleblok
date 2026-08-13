@@ -727,7 +727,7 @@ export function stopCurrentGeneration() {
 async function streamCompletion(prompt, onChunk, systemExtra = '') {
   _currentAbortController = new AbortController()
   const signal = _currentAbortController.signal
-  const baseSystem = '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요. 단락 사이에 빈 줄을 두 줄 이상 넣지 마세요. 항목 사이에도 불필요한 공백 줄을 넣지 마세요. 각 항목과 소제목에는 반드시 번호를 붙여(1. 2. 3. 형식) 내용이 한눈에 구조적으로 파악되도록 작성하세요. 찬송가를 추천할 때는 반드시 2006년 한국찬송가공회 발행 21세기찬송가(총 645장)를 기준으로 하세요. 번호와 제목을 스스로 교차 확인한 후 제시하되, 확신하지 못할 경우 번호 없이 제목만 제시하고 "번호는 직접 확인하세요"라고 안내하세요.'
+  const baseSystem = '결과를 반드시 일반 텍스트로만 작성하세요. ##, **, ***, --, ---, > 같은 마크다운 기호를 절대 사용하지 마세요. 제목은 줄 바꿈으로, 강조는 일반 문장으로 표현하세요. 단락과 항목 사이에는 반드시 빈 줄 하나로 구분하세요. 빈 줄을 두 줄 이상 연속으로 넣지 마세요. 각 항목과 소제목에는 반드시 번호를 붙여(1. 2. 3. 형식) 내용이 한눈에 구조적으로 파악되도록 작성하세요. 찬송가를 추천할 때는 반드시 2006년 한국찬송가공회 발행 21세기찬송가(총 645장)를 기준으로 하세요. 번호와 제목을 스스로 교차 확인한 후 제시하되, 확신하지 못할 경우 번호 없이 제목만 제시하고 "번호는 직접 확인하세요"라고 안내하세요.'
   const systemContent = systemExtra ? baseSystem + '\n\n' + systemExtra : baseSystem
   const response = await fetch('/api/generate', {
     method: 'POST',
