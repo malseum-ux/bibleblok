@@ -424,8 +424,9 @@ ${buildItems(WORSHIP_STEP_ITEMS.sending, selectedKeys)}
 
 const DAWN_STEP_PROMPTS = {
   exposition: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 성경 해설서를 집필하는 신학 저술가입니다. 아래 본문을 해설 에세이 형식으로 서술하세요.
-형식: 출판된 성경 묵상집에 실리는 해설 글. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다", "~된다" 서술체만 사용.
+아래 본문을 해설하는 글을 작성하세요.
+문체: "~이다", "~한다", "~된다" 서술체만 사용. "사랑하는 여러분", "~해 봅시다" 등 구어체·청중 호칭 절대 금지.
+구조: 아래 각 항목을 번호(1. 2. 3.)로 시작하고, 항목 사이에 반드시 빈 줄을 한 줄 넣어 구분하세요.
 분량: 약 1,200~1,800자.
 
 본문: ${passage}
@@ -436,8 +437,9 @@ ${seriesCtx ? `\n${seriesCtx}` : ''}
 ${buildItems(DAWN_STEP_ITEMS.exposition, selectedKeys)}
 `,
   core_message: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 성경 해설서를 집필하는 신학 저술가입니다. 이 본문의 핵심 주제를 해설 에세이로 서술하세요.
-형식: 출판된 성경 묵상집의 핵심 메시지 페이지. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다" 서술체만 사용.
+이 본문의 핵심 메시지를 해설하는 글을 작성하세요.
+문체: "~이다", "~한다" 서술체만 사용. "사랑하는 여러분", "~해 봅시다" 등 구어체·청중 호칭 절대 금지.
+구조: 아래 각 항목을 번호(1. 2. 3.)로 시작하고, 항목 사이에 반드시 빈 줄을 한 줄 넣어 구분하세요.
 분량: 약 900~1,200자.
 
 본문: ${passage}
@@ -448,8 +450,9 @@ ${seriesCtx ? `\n${seriesCtx}` : ''}
 ${buildItems(DAWN_STEP_ITEMS.core_message, selectedKeys)}
 `,
   meditation: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 성경 해설서를 집필하는 신학 저술가입니다. 이 본문을 묵상 에세이로 서술하세요.
-형식: 출판된 성경 묵상집의 묵상 페이지. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다" 서술체만 사용.
+이 본문을 바탕으로 묵상을 돕는 글을 작성하세요.
+문체: "~이다", "~한다" 서술체만 사용. "사랑하는 여러분", "~해 봅시다" 등 구어체·청중 호칭 절대 금지.
+구조: 아래 각 항목을 번호(1. 2. 3.)로 시작하고, 항목 사이에 반드시 빈 줄을 한 줄 넣어 구분하세요.
 분량: 약 900~1,200자.
 
 본문: ${passage}
@@ -459,8 +462,9 @@ ${buildItems(DAWN_STEP_ITEMS.core_message, selectedKeys)}
 ${buildItems(DAWN_STEP_ITEMS.meditation, selectedKeys)}
 `,
   application: (passage, lang, bible, seriesCtx, selectedKeys = null) => `
-당신은 성경 해설서를 집필하는 신학 저술가입니다. 이 본문의 삶의 적용을 해설 에세이로 서술하세요.
-형식: 출판된 성경 묵상집의 적용 페이지. 독자 호칭(여러분·우리·성도 등) 없음. "~이다", "~한다" 서술체만 사용.
+이 본문의 삶의 적용을 해설하는 글을 작성하세요.
+문체: "~이다", "~한다" 서술체만 사용. "사랑하는 여러분", "~해 봅시다" 등 구어체·청중 호칭 절대 금지.
+구조: 아래 각 항목을 번호(1. 2. 3.)로 시작하고, 항목 사이에 반드시 빈 줄을 한 줄 넣어 구분하세요.
 분량: 약 900~1,200자.
 
 본문: ${passage}
