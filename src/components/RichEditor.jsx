@@ -27,10 +27,12 @@ function changeSize(editor, direction) {
   editor.chain().focus().setFontSize(next).run()
 }
 
-export default function RichEditor({ value, onChange, baseFontSize = 14, fixedToolbar = false, editable = true }) {
+export default function RichEditor({ value, onChange, baseFontSize = 14, fixedToolbar = false, editable = true, onEnterCommand }) {
   const [toolbar, setToolbar] = useState(null)
   const lastEmittedRef = useRef(toHtml(value || ''))
   const isSyncingRef = useRef(false)
+  const onEnterCommandRef = useRef(onEnterCommand)
+  onEnterCommandRef.current = onEnterCommand
 
   const editor = useEditor({
     extensions: [
@@ -47,6 +49,29 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
       const html = editor.getHTML()
       lastEmittedRef.current = html
       onChange(html)
+    },
+    editorProps: {
+      handleKeyDown: (view, event) => {
+        if (event.key !== 'Enter' || event.shiftKey || !onEnterCommandRef.current) return false
+        const { from, empty } = view.state.selection
+        if (!empty) return false
+        const $from = view.state.selection.$from
+        const paragraphStart = $from.start()
+        const lineText = view.state.doc.textBetween(paragraphStart, from)
+        const slashIdx = lineText.indexOf('//')
+        if (slashIdx === -1) return false
+        const instruction = lineText.slice(slashIdx + 2).trim()
+        if (!instruction) return false
+        event.preventDefault()
+        const slashAbsPos = paragraphStart + slashIdx
+        const docSize = view.state.doc.content.size
+        const contextBefore = view.state.doc.textBetween(0, slashAbsPos, '\n')
+        const contextAfter = view.state.doc.textBetween(from, docSize, '\n')
+        const tr = view.state.tr.delete(slashAbsPos, from)
+        view.dispatch(tr)
+        onEnterCommandRef.current({ instruction, contextBefore, contextAfter })
+        return true
+      },
     },
   })
 

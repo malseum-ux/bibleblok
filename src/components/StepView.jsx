@@ -422,32 +422,20 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }
 
-  async function handleDraftKeyDown(e) {
-    if (e.key !== 'Enter' || e.shiftKey) return
-    const text = draftHistory.text
-    const cursor = draftTextareaRef.current?.selectionStart ?? 0
-    const textBeforeCursor = text.slice(0, cursor)
-    const lastNewline = textBeforeCursor.lastIndexOf('\n')
-    const currentLineStart = lastNewline + 1
-    const currentLine = textBeforeCursor.slice(currentLineStart)
-    const slashIdx = currentLine.indexOf('//')
-    if (slashIdx === -1) return
-    const instruction = currentLine.slice(slashIdx + 2).trim()
-    if (!instruction) return
-    e.preventDefault()
-    const contextBefore = text.slice(0, currentLineStart + slashIdx)
-    const contextAfter = text.slice(cursor)
+  async function handleDraftSlashCommand({ instruction, contextBefore, contextAfter }) {
+    if (!item) return
     draftHistory.forceSnapshot()
     setRefining(true)
+    const fallback = draftHistory.text
+    let generated = ''
     try {
-      let generated = ''
       await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
         generated = chunk
         draftHistory.onChange(contextBefore + chunk + contextAfter)
       })
       handleDraftChange(contextBefore + generated + contextAfter)
     } catch {
-      handleDraftChange(text)
+      handleDraftChange(fallback)
     } finally {
       setRefining(false)
     }
@@ -1184,6 +1172,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               value={draftHistory.text}
               onChange={handleDraftChange}
               baseFontSize={fontSize}
+              onEnterCommand={handleDraftSlashCommand}
             />
           </div>
         )}
