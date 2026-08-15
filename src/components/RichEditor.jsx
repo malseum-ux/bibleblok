@@ -51,24 +51,6 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
       onChange(html)
     },
     editorProps: {
-      handlePaste: (view, event) => {
-        if (!fixedToolbar) return false  // 고정 툴바(초안) 영역에서만 처리
-        const text = event.clipboardData?.getData('text/plain') || ''
-        if (!text.includes('\n')) return false  // 줄바꿈 없으면 기본 처리
-        event.preventDefault()
-        const { schema, tr, selection } = view.state
-        let transaction = tr
-        if (!selection.empty) transaction = transaction.deleteSelection()
-        const pos = transaction.mapping.map(selection.from)
-        const nodes = text.split('\n').map(line =>
-          line === ''
-            ? schema.nodes.paragraph.create()
-            : schema.nodes.paragraph.create(null, [schema.text(line)])
-        )
-        transaction = transaction.insert(pos, nodes)
-        view.dispatch(transaction)
-        return true
-      },
       handleKeyDown: (view, event) => {
         if (event.key !== 'Enter' || event.shiftKey || !onEnterCommandRef.current) return false
         const { from, empty } = view.state.selection
@@ -103,6 +85,27 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
     lastEmittedRef.current = html
     isSyncingRef.current = false
   }, [value, editor])
+
+  // 초안(fixedToolbar) 영역: 붙여넣기 시 줄바꿈을 단락으로 분리
+  // TipTap 내부 처리보다 먼저 실행되도록 캡처링 단계에서 등록
+  useEffect(() => {
+    if (!editor || !fixedToolbar) return
+    const onPaste = (event) => {
+      const text = (event.clipboardData?.getData('text/plain') || '')
+        .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      if (!text.includes('\n')) return
+      event.preventDefault()
+      event.stopPropagation()
+      editor.commands.insertContent(
+        text.split('\n').map(line => ({
+          type: 'paragraph',
+          content: line ? [{ type: 'text', text: line }] : [],
+        }))
+      )
+    }
+    editor.view.dom.addEventListener('paste', onPaste, true)
+    return () => editor.view.dom.removeEventListener('paste', onPaste, true)
+  }, [editor, fixedToolbar])
 
   useEffect(() => {
     if (editor) editor.view.dom.style.fontSize = `${baseFontSize}px`
