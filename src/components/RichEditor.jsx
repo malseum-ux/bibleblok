@@ -87,24 +87,25 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
   }, [value, editor])
 
   // 초안(fixedToolbar) 영역: 붙여넣기 시 줄바꿈을 단락으로 분리
-  // TipTap 내부 처리보다 먼저 실행되도록 캡처링 단계에서 등록
+  // document 캡처링 단계에서 등록해야 TipTap 내부 핸들러보다 먼저 실행됨
   useEffect(() => {
     if (!editor || !fixedToolbar) return
     const onPaste = (event) => {
+      if (!editor.view.dom.contains(event.target) && event.target !== editor.view.dom) return
       const text = (event.clipboardData?.getData('text/plain') || '')
         .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
       if (!text.includes('\n')) return
       event.preventDefault()
-      event.stopPropagation()
-      editor.commands.insertContent(
-        text.split('\n').map(line => ({
-          type: 'paragraph',
-          content: line ? [{ type: 'text', text: line }] : [],
-        }))
-      )
+      event.stopPropagation()  // document 캡처링에서 막아 TipTap에 도달 안 되게 함
+      const html = text.split('\n')
+        .map(line => line
+          ? `<p>${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`
+          : '<p></p>')
+        .join('')
+      editor.commands.insertContent(html)
     }
-    editor.view.dom.addEventListener('paste', onPaste, true)
-    return () => editor.view.dom.removeEventListener('paste', onPaste, true)
+    document.addEventListener('paste', onPaste, true)
+    return () => document.removeEventListener('paste', onPaste, true)
   }, [editor, fixedToolbar])
 
   useEffect(() => {

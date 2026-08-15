@@ -86,7 +86,7 @@ body {
 }
 .ProseMirror p + p,
 .rich-view p + p {
-  margin-top: 0;
+  margin-top: 0.2em;
 }
 .ProseMirror {
   outline: none;
