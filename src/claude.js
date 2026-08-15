@@ -533,6 +533,10 @@ export async function generateWorshipCombined(date, season, lectionary, lang, bi
 날짜: ${date} | 절기: ${season || '일반 주일'} | 성서정과: ${lectionary || '미지정'}
 번역본: ${bible || '개역개정성경'} | 언어: ${lang === 'ko' ? '한국어' : 'English'}
 
+[대한찬송가공회 찬송가 전체 목록]
+찬송 추천([3], [7], [10] 항목)은 반드시 아래 목록의 번호와 제목을 그대로 사용하세요. 이 목록에 없는 번호나 제목은 절대 사용하지 마세요.
+${getHymnListText()}
+
 다음 예배 순서를 모두 포함하세요:
 
 [1. 예배의 부름 성경구절]
@@ -607,6 +611,10 @@ export async function generateDawnCombined(passage, emphasis, lang, bible, serie
 기본 번역본: ${bible || '개역개정성경'}
 ${seriesCtx ? `\n${seriesCtx}\n이 시리즈의 흐름을 이어가는 내용을 써 주세요.` : ''}
 ${emphasis ? `\n강조하고 싶은 주제: ${emphasis}` : ''}
+
+[대한찬송가공회 찬송가 전체 목록]
+[6. 찬송 추천]은 반드시 아래 목록의 번호와 제목을 그대로 사용하세요. 이 목록에 없는 번호나 제목은 절대 사용하지 마세요.
+${getHymnListText()}
 
 다음 내용을 모두 포함하세요:
 
