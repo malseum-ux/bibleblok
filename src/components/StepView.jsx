@@ -141,8 +141,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const draftTimer = useRef(null)
   const resultEditTimer = useRef(null)
   const splitContainerRef = useRef(null)
-  const draftTextareaRef = useRef(null)
-  const resultTextareaRef = useRef(null)
   const resultDivRef = useRef(null)
   const lastSelectionRef = useRef('')
 
@@ -387,11 +385,15 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
 
   function applyToSermon() {
     if (!content) return
-    // 결과창에서 드래그 선택된 텍스트가 있으면 그것만, 없으면 전체
     const textToAdd = lastSelectionRef.current || content
     lastSelectionRef.current = ''
-    const separator = draftHistory.text.trim() ? '\n\n' : ''
-    handleDraftChange(draftHistory.text + separator + textToAdd)
+    const existingHtml = draftHistory.text
+    // textToAdd를 HTML 단락으로 변환하여 기존 초안에 붙임 (기존 서식 유지)
+    const addHtml = textToAdd.trimStart().startsWith('<')
+      ? textToAdd
+      : textToAdd.split('\n').map(l => l === '' ? '<p><br></p>' : `<p>${l}</p>`).join('')
+    const separator = stripHtml(existingHtml).trim() ? '<p><br></p>' : ''
+    handleDraftChange(existingHtml + separator + addHtml)
   }
 
   function saveDraftNow() {
@@ -403,33 +405,18 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   }
 
   async function refineSermonDraft() {
-    if (!draftHistory.text.trim() || refining || loading) return
-    const textarea = draftTextareaRef.current
-    const selStart = textarea?.selectionStart ?? 0
-    const selEnd = textarea?.selectionEnd ?? 0
-    const hasSelection = selStart !== selEnd
-    const fullText = draftHistory.text
+    const plainText = stripHtml(draftHistory.text)
+    if (!plainText.trim() || refining || loading) return
+    const originalHtml = draftHistory.text
     draftHistory.forceSnapshot()
     setRefining(true)
     try {
-      if (hasSelection) {
-        const selected = fullText.slice(selStart, selEnd)
-        const before = fullText.slice(0, selStart)
-        const after = fullText.slice(selEnd)
-        let refined = ''
-        await refineDraft(selected, lang, bible, (text) => {
-          refined = text
-          draftHistory.onChange(before + text + after)
-        })
-        handleDraftChange(before + refined + after)
-      } else {
-        const refined = await refineDraft(fullText, lang, bible, (text) => {
-          draftHistory.onChange(text)
-        })
-        handleDraftChange(refined)
-      }
+      const refined = await refineDraft(plainText, lang, bible, (text) => {
+        draftHistory.onChange(text)
+      })
+      handleDraftChange(refined)
     } catch {
-      handleDraftChange(fullText)
+      handleDraftChange(originalHtml)
     } finally {
       setRefining(false)
     }
@@ -532,7 +519,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   async function handleManualSave() {
     clearTimeout(draftTimer.current)
     console.log('[SAVE] 저장 버튼 클릭 - 초안:', draftHistory.text.slice(0, 30), '/ 결과내용:', content.slice(0, 30))
-    if (draftHistory.text.trim()) {
+    if (stripHtml(draftHistory.text).trim()) {
       if (tab === 'dawn') await updateDawn(item.id, { draft: draftHistory.text })
       else if (tab === 'sermon') await updateSermon(item.id, { draft: draftHistory.text })
       console.log('[SAVE] 초안 저장 완료')
@@ -582,17 +569,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }, [content, loading])
 
-  useEffect(() => {
-    if (refining && resultTextareaRef.current) {
-      resultTextareaRef.current.scrollTop = resultTextareaRef.current.scrollHeight
-    }
-  }, [resultHistory.text, refining])
-
-  useEffect(() => {
-    if (refining && draftTextareaRef.current) {
-      draftTextareaRef.current.scrollTop = draftTextareaRef.current.scrollHeight
-    }
-  }, [draftHistory.text, refining])
 
   if (!step) return null
 
@@ -1145,71 +1121,69 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   minWidth: 0,
                 }}
               />
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(draftHistory.text)
-                  setDraftCopied(true)
-                  setTimeout(() => setDraftCopied(false), 1500)
-                }}
-                disabled={!draftHistory.text.trim()}
-                style={{
-                  background: draftCopied ? 'var(--accent)' : 'transparent',
-                  color: draftCopied ? '#fff' : 'var(--text-muted)',
-                  border: '1px solid ' + (draftCopied ? 'var(--accent)' : 'var(--border)'),
-                  borderRadius: 5,
-                  padding: '2px 9px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: draftHistory.text.trim() ? 'pointer' : 'default',
-                  opacity: !draftHistory.text.trim() ? 0.4 : 1,
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {draftCopied ? '복사됨' : '복사'}
-              </button>
-              <button
-                onClick={refineSermonDraft}
-                disabled={refining || loading || !draftHistory.text.trim()}
-                style={{
-                  background: refining ? 'var(--border)' : 'var(--accent-light)',
-                  color: refining ? 'var(--text-muted)' : 'var(--accent)',
-                  border: '1px solid ' + (refining ? 'var(--border)' : 'var(--accent)'),
-                  borderRadius: 5,
-                  padding: '2px 9px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: (refining || loading || !draftHistory.text.trim()) ? 'default' : 'pointer',
-                  opacity: !draftHistory.text.trim() ? 0.4 : 1,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {refining ? (lang === 'ko' ? '다듬는 중...' : 'Refining...') : (lang === 'ko' ? 'AI 다듬기' : 'AI Refine')}
-              </button>
+              {(() => {
+                const draftHasContent = !!stripHtml(draftHistory.text).trim()
+                return (
+                  <>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(stripHtml(draftHistory.text))
+                        setDraftCopied(true)
+                        setTimeout(() => setDraftCopied(false), 1500)
+                      }}
+                      disabled={!draftHasContent}
+                      style={{
+                        background: draftCopied ? 'var(--accent)' : 'transparent',
+                        color: draftCopied ? '#fff' : 'var(--text-muted)',
+                        border: '1px solid ' + (draftCopied ? 'var(--accent)' : 'var(--border)'),
+                        borderRadius: 5,
+                        padding: '2px 9px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: draftHasContent ? 'pointer' : 'default',
+                        opacity: !draftHasContent ? 0.4 : 1,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {draftCopied ? '복사됨' : '복사'}
+                    </button>
+                    <button
+                      onClick={refineSermonDraft}
+                      disabled={refining || loading || !draftHasContent}
+                      style={{
+                        background: refining ? 'var(--border)' : 'var(--accent-light)',
+                        color: refining ? 'var(--text-muted)' : 'var(--accent)',
+                        border: '1px solid ' + (refining ? 'var(--border)' : 'var(--accent)'),
+                        borderRadius: 5,
+                        padding: '2px 9px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: (refining || loading || !draftHasContent) ? 'default' : 'pointer',
+                        opacity: !draftHasContent ? 0.4 : 1,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {refining ? (lang === 'ko' ? '다듬는 중...' : 'Refining...') : (lang === 'ko' ? 'AI 다듬기' : 'AI Refine')}
+                    </button>
+                  </>
+                )
+              })()}
+              {onFontSizeChange && (
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden', height: 24, flexShrink: 0 }}>
+                  <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 6px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, lineHeight: 1 }}>A-</button>
+                  <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 6px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, lineHeight: 1 }}>A+</button>
+                </div>
+              )}
               <button onClick={draftHistory.undo} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
               <button onClick={draftHistory.redo} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
-            <textarea
-              ref={draftTextareaRef}
+            <RichEditor
+              fixedToolbar
+              editable={!refining}
               value={draftHistory.text}
-              onChange={e => handleDraftChange(e.target.value)}
-              onKeyDown={handleDraftKeyDown}
-              disabled={refining}
-              placeholder={lang === 'ko'
-                ? '왼쪽 단계 내용을 참고하여 설교문을 작성하세요.\n\n"설교문에 반영" 버튼으로 단계 내용을 가져올 수 있습니다.'
-                : 'Write your sermon here.\n\nUse "Add to Sermon" to bring in step content.'}
-              style={{
-                flex: 1,
-                border: 'none',
-                outline: 'none',
-                resize: 'none',
-                padding: '20px 24px',
-                fontSize,
-                lineHeight: 1.9,
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                fontFamily: 'inherit',
-              }}
+              onChange={handleDraftChange}
+              baseFontSize={fontSize}
             />
           </div>
         )}
