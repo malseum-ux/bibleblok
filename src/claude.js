@@ -109,13 +109,12 @@ export const DAWN_STEP_ITEMS = {
     { key: 'points', label: '핵심 포인트', text: '- 그 메시지를 뒷받침하는 핵심 포인트 2~3가지를 설명하듯 서술' },
   ],
   meditation: [
-    { key: 'intro', label: '도입', text: '- 본문의 핵심 주제를 묵상의 출발점으로 제시' },
     { key: 'questions', label: '묵상 질문', text: '- 깊이 생각해 볼 묵상 질문 2~3개 (질문 후 짧은 해설 포함)' },
     { key: 'verse', label: '핵심 구절', text: '- 반복해서 되새길 핵심 구절 1개와 그 의미 서술' },
   ],
   application: [
-    { key: 'action', label: '실천 적용', text: '- 이 본문에서 도출되는 구체적인 실천 적용 (가정/직장/교회/이웃 중 한 영역)' },
-    { key: 'connection', label: '본문 연결', text: '- 그 적용이 본문 어디에서 나오는지 설명' },
+    { key: 'connection', label: '본문 연결', text: '- 이 실천적 교훈이 본문 어디에서 나오는지 먼저 설명' },
+    { key: 'action', label: '실천 적용', text: '- 본문에서 이끌어낸 구체적인 실천적 교훈 (가정/직장/교회/이웃 중 한 영역)' },
   ],
   prayer_topics: [
     { key: 'personal', label: '개인 기도', text: '- 개인 기도 (본문 말씀을 내 삶에 적용하는 기도)' },
