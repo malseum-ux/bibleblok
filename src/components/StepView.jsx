@@ -143,6 +143,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const splitContainerRef = useRef(null)
   const resultDivRef = useRef(null)
   const lastSelectionRef = useRef('')
+  const resultPanelRef = useRef(null)
+  const finishEditRef = useRef(null)
 
   const step = steps[currentStep] || steps[0]
   const stepItemsDefs = tab === 'sermon' ? SERMON_STEP_ITEMS : tab === 'worship' ? WORSHIP_STEP_ITEMS : DAWN_STEP_ITEMS
@@ -557,6 +559,23 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }, [content, loading])
 
+  // 매 렌더마다 최신 resultHistory.text를 참조하도록 유지
+  finishEditRef.current = () => {
+    setContent(resultHistory.text)
+    setEditing(false)
+  }
+
+  // 결과창 바깥 클릭 시 편집 종료
+  useEffect(() => {
+    if (!editing) return
+    function handleMouseDown(e) {
+      if (resultPanelRef.current && !resultPanelRef.current.contains(e.target)) {
+        finishEditRef.current()
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [editing])
 
   if (!step) return null
 
@@ -736,7 +755,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
       <div ref={splitContainerRef} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* 좌: AI 생성 내용 */}
-        <div style={{
+        <div ref={resultPanelRef} style={{
           width: tab === 'sermon' && !isMobile ? `${leftPct}%` : '100%',
           flexShrink: 0,
           display: isMobile && tab === 'sermon' && mobilePanel === 'draft' ? 'none' : 'flex',
@@ -761,127 +780,75 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   gap: 8,
                   flexShrink: 0,
                 }}>
-                  {editing ? (
-                    // 편집 모드: 언두/리두 + 취소/저장
-                    <>
-                      <div style={{ flex: 1 }} />
-                      <button onClick={resultHistory.undo} disabled={!resultHistory.canUndo} style={undoBtnStyle(resultHistory.canUndo)}>↩</button>
-                      <button onClick={resultHistory.redo} disabled={!resultHistory.canRedo} style={undoBtnStyle(resultHistory.canRedo)}>↪</button>
-                      <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+                  <>
+                    {hasItems && (
                       <button
-                        onClick={cancelEdit}
+                        onClick={() => setInstructionsOpen(v => !v)}
                         style={{
-                          background: 'transparent',
-                          color: 'var(--text-muted)',
-                          border: '1px solid var(--border)',
+                          background: instructionsOpen ? 'var(--accent)' : 'transparent',
+                          color: instructionsOpen ? '#fff' : 'var(--text-muted)',
+                          border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)'),
                           borderRadius: 6,
                           padding: '4px 10px',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >취소</button>
-                      <button
-                        onClick={saveEdit}
-                        style={{
-                          background: 'var(--accent)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 6,
-                          padding: '5px 14px',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >저장</button>
-                    </>
-                  ) : (
-                    // 일반 모드: 지시항목 + (수정) + AI생성
-                    <>
-                      {hasItems && (
-                        <button
-                          onClick={() => setInstructionsOpen(v => !v)}
-                          style={{
-                            background: instructionsOpen ? 'var(--accent)' : 'transparent',
-                            color: instructionsOpen ? '#fff' : 'var(--text-muted)',
-                            border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)'),
-                            borderRadius: 6,
-                            padding: '4px 10px',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          지시 항목 {displaySelected.length + (tab === 'sermon' ? selectedCustomKeys : (stepSelectedCustomKeys[step?.key] ?? customItems.map(i => i.id))).length}/{currentItems.length + customItems.length}
-                        </button>
-                      )}
-                      <div style={{ flex: 1 }} />
-                      {content && !loading && (
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(stripHtml(editing ? resultHistory.text : content))
-                            setResultCopied(true)
-                            setTimeout(() => setResultCopied(false), 1500)
-                          }}
-                          style={{
-                            background: resultCopied ? 'var(--accent)' : 'transparent',
-                            color: resultCopied ? '#fff' : 'var(--text-muted)',
-                            border: '1px solid ' + (resultCopied ? 'var(--accent)' : 'var(--border)'),
-                            borderRadius: 6,
-                            padding: '5px 10px',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                          }}
-                        >{resultCopied ? '복사됨' : '복사'}</button>
-                      )}
-                      {content && !loading && onFontSizeChange && (
-                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
-                          <button
-                            onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))}
-                            style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
-                          >A-</button>
-                          <button
-                            onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))}
-                            style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
-                          >A+</button>
-                        </div>
-                      )}
-                      {content && !loading && (
-                        <button
-                          onClick={startEdit}
-                          style={{
-                            background: 'transparent',
-                            color: 'var(--text-muted)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 6,
-                            padding: '5px 10px',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >수정</button>
-                      )}
-                      <button
-                        onClick={loading ? stopCurrentGeneration : generate}
-                        style={{
-                          background: loading ? '#dc2626' : 'var(--accent)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 6,
-                          padding: '5px 14px',
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: 600,
                           cursor: 'pointer',
                         }}
                       >
-                        {loading
-                          ? (lang === 'ko' ? '중지' : 'Stop')
-                          : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
+                        지시 항목 {displaySelected.length + (tab === 'sermon' ? selectedCustomKeys : (stepSelectedCustomKeys[step?.key] ?? customItems.map(i => i.id))).length}/{currentItems.length + customItems.length}
                       </button>
-                    </>
-                  )}
+                    )}
+                    <div style={{ flex: 1 }} />
+                    {content && !loading && (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(stripHtml(editing ? resultHistory.text : content))
+                          setResultCopied(true)
+                          setTimeout(() => setResultCopied(false), 1500)
+                        }}
+                        style={{
+                          background: resultCopied ? 'var(--accent)' : 'transparent',
+                          color: resultCopied ? '#fff' : 'var(--text-muted)',
+                          border: '1px solid ' + (resultCopied ? 'var(--accent)' : 'var(--border)'),
+                          borderRadius: 6,
+                          padding: '5px 10px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                      >{resultCopied ? '복사됨' : '복사'}</button>
+                    )}
+                    {content && !loading && onFontSizeChange && (
+                      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
+                        <button
+                          onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))}
+                          style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
+                        >A-</button>
+                        <button
+                          onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))}
+                          style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
+                        >A+</button>
+                      </div>
+                    )}
+                    <button
+                      onClick={loading ? stopCurrentGeneration : generate}
+                      style={{
+                        background: loading ? '#dc2626' : 'var(--accent)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '5px 14px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {loading
+                        ? (lang === 'ko' ? '중지' : 'Stop')
+                        : (content ? (lang === 'ko' ? '다시 생성' : 'Regenerate') : (lang === 'ko' ? 'AI 생성' : 'Generate'))}
+                    </button>
+                  </>
                 </div>
 
                 {/* 지시 항목 패널 (편집 모드가 아닐 때만) */}
@@ -989,12 +956,17 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           {/* 결과창: 편집 모드이면 RichEditor, 아니면 읽기 전용 */}
           {editing ? (
             <RichEditor
+              fixedToolbar
               value={resultHistory.text}
               onChange={resultHistory.onChange}
               baseFontSize={fontSize}
             />
           ) : (
-            <div ref={resultDivRef} style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+            <div
+              ref={resultDivRef}
+              onClick={content && !loading ? startEdit : undefined}
+              style={{ flex: 1, overflow: 'auto', padding: '20px 24px', cursor: content && !loading ? 'text' : 'default' }}
+            >
               {error && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
                   {error}
