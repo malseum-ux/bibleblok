@@ -116,6 +116,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const [content, setContent] = useState('')
   const draftHistory = useTextHistory(item?.draft || '', item?.id)
   const [editing, setEditing] = useState(false)
+  const [draftEditing, setDraftEditing] = useState(false)
   const [refining, setRefining] = useState(false)
   const [draftSaved, setDraftSaved] = useState(false)
   const [resultCopied, setResultCopied] = useState(false)
@@ -145,6 +146,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const lastSelectionRef = useRef('')
   const resultPanelRef = useRef(null)
   const finishEditRef = useRef(null)
+  const draftPanelRef = useRef(null)
+  const draftFinishEditRef = useRef(null)
 
   const step = steps[currentStep] || steps[0]
   const stepItemsDefs = tab === 'sermon' ? SERMON_STEP_ITEMS : tab === 'worship' ? WORSHIP_STEP_ITEMS : DAWN_STEP_ITEMS
@@ -576,6 +579,19 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     document.addEventListener('mousedown', handleMouseDown)
     return () => document.removeEventListener('mousedown', handleMouseDown)
   }, [editing])
+
+  // 초안창 바깥 클릭 시 편집 종료
+  draftFinishEditRef.current = () => setDraftEditing(false)
+  useEffect(() => {
+    if (!draftEditing) return
+    function handleMouseDown(e) {
+      if (draftPanelRef.current && !draftPanelRef.current.contains(e.target)) {
+        draftFinishEditRef.current()
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [draftEditing])
 
   if (!step) return null
 
@@ -1047,7 +1063,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
 
         {/* 우: 설교문 초안 (설교 탭만) */}
         {tab === 'sermon' && (!isMobile || mobilePanel === 'draft') && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: isMobile ? '100%' : undefined }}>
+          <div ref={draftPanelRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: isMobile ? '100%' : undefined }}>
             <div style={{
               height: 46,
               padding: '0 20px',
@@ -1138,14 +1154,37 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               <button onClick={draftHistory.undo} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
               <button onClick={draftHistory.redo} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
-            <RichEditor
-              fixedToolbar
-              editable={!refining}
-              value={draftHistory.text}
-              onChange={handleDraftChange}
-              baseFontSize={fontSize}
-              onEnterCommand={handleDraftSlashCommand}
-            />
+            {draftEditing ? (
+              <RichEditor
+                fixedToolbar
+                editable={!refining}
+                value={draftHistory.text}
+                onChange={handleDraftChange}
+                baseFontSize={fontSize}
+                onEnterCommand={handleDraftSlashCommand}
+              />
+            ) : (
+              <div
+                onClick={() => setDraftEditing(true)}
+                style={{ flex: 1, overflow: 'auto', padding: '20px 24px', cursor: 'text' }}
+              >
+                {draftHistory.text ? (
+                  draftHistory.text.trimStart().startsWith('<') ? (
+                    <div className="rich-view" dangerouslySetInnerHTML={{ __html: draftHistory.text }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
+                  ) : (
+                    <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                      {draftHistory.text.split('\n').map((line, i, arr) => (
+                        <Fragment key={i}>{line}{i < arr.length - 1 && <br />}</Fragment>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
+                    {lang === 'ko' ? '클릭하여 설교문 초안을 작성하세요' : 'Click to start writing'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
