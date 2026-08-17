@@ -103,12 +103,10 @@ export const DAWN_STEP_ITEMS = {
   exposition: [
     { key: 'intro', label: '본문 소개/배경', text: '- 본문의 역사적·문학적 배경을 간략히 서술' },
     { key: 'message', label: '핵심 내용 해설', text: '- 본문의 핵심 내용을 해설하듯 풀어서 서술' },
-    { key: 'closing', label: '마무리 서술', text: '- 본문이 전하는 의미와 통찰로 마무리' },
   ],
   core_message: [
     { key: 'proclamation', label: '핵심 메시지', text: '- 이 본문이 전하는 단 하나의 핵심 메시지를 명확하게 서술' },
     { key: 'points', label: '핵심 포인트', text: '- 그 메시지를 뒷받침하는 핵심 포인트 2~3가지를 설명하듯 서술' },
-    { key: 'closing', label: '마무리', text: '- 핵심 메시지를 정리하며 마무리' },
   ],
   meditation: [
     { key: 'intro', label: '도입', text: '- 본문의 핵심 주제를 묵상의 출발점으로 제시' },
@@ -118,7 +116,6 @@ export const DAWN_STEP_ITEMS = {
   application: [
     { key: 'action', label: '실천 적용', text: '- 이 본문에서 도출되는 구체적인 실천 적용 (가정/직장/교회/이웃 중 한 영역)' },
     { key: 'connection', label: '본문 연결', text: '- 그 적용이 본문 어디에서 나오는지 설명' },
-    { key: 'closing', label: '마무리', text: '- 본문이 이끄는 결단의 방향을 서술하며 마무리 (짧은 기도문 한 줄 포함)' },
   ],
   prayer_topics: [
     { key: 'personal', label: '개인 기도', text: '- 개인 기도 (본문 말씀을 내 삶에 적용하는 기도)' },
