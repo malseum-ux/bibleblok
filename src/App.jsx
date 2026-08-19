@@ -16,6 +16,7 @@ import {
   saveSermonStep, saveWorshipStep, saveDawnStep,
 } from './db'
 import { getSettings, saveSettings, applyTheme } from './settings'
+import { fetchUsage } from './usage'
 import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName, buildJsonContent, deleteFileFromDir } from './fileSystem'
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
@@ -39,6 +40,14 @@ function AppInner() {
   const [onedriveTokens, setOnedriveTokens] = useState(() => loadTokens('onedrive_tokens'))
   const [icloudReady, setIcloudReady] = useState(false)
   const [saveKick, setSaveKick] = useState(0)
+  const [usageInfo, setUsageInfo] = useState(null)
+
+  useEffect(() => {
+    async function loadUsage() { setUsageInfo(await fetchUsage()) }
+    loadUsage()
+    window.addEventListener('usageUpdated', loadUsage)
+    return () => window.removeEventListener('usageUpdated', loadUsage)
+  }, [])
 
   const [tab, setTab] = useState('sermon')
   const [settings, setSettings] = useState(getSettings)
@@ -713,6 +722,17 @@ function AppInner() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
+
+        {usageInfo && !usageInfo.isAdmin && !usageInfo.isFree && (
+          <div style={{
+            fontSize: 12,
+            color: usageInfo.count >= usageInfo.limit ? '#dc2626' : 'var(--text-muted)',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}>
+            이번 달 {usageInfo.count}/{usageInfo.limit}회
+          </div>
+        )}
 
         {/* 검색창 */}
         {searchOpen && (

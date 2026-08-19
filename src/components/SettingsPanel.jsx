@@ -77,6 +77,11 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
     fetchTrialUsers()
   }
 
+  async function handleUpdateUser(id, field, value) {
+    await supabase.from('allowed_users').update({ [field]: value }).eq('id', id)
+    fetchTrialUsers()
+  }
+
   function getDaysLeft(createdAt) {
     const expiresAt = new Date(createdAt)
     expiresAt.setDate(expiresAt.getDate() + TRIAL_DAYS)
@@ -284,34 +289,60 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   return (
                     <div key={u.id} style={{
                       display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '7px 10px',
+                      flexDirection: 'column',
+                      gap: 4,
+                      padding: '8px 10px',
                       background: 'var(--bg)',
                       border: '1px solid var(--border)',
                       borderRadius: 6,
                     }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {u.email}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {u.email}
+                          </div>
+                          <div style={{ fontSize: 11, color: daysLeft <= 0 ? '#dc2626' : daysLeft <= 5 ? '#d97706' : 'var(--text-muted)', marginTop: 1 }}>
+                            {daysLeft <= 0 ? '만료됨' : `${daysLeft}일 남음`}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 11, color: daysLeft <= 0 ? '#dc2626' : daysLeft <= 5 ? '#d97706' : 'var(--text-muted)', marginTop: 2 }}>
-                          {daysLeft <= 0 ? '만료됨' : `${daysLeft}일 남음`}
-                        </div>
+                        <button
+                          onClick={() => handleDeleteUser(u.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                        >×</button>
                       </div>
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: 'var(--text-muted)',
-                          fontSize: 16,
-                          lineHeight: 1,
-                          padding: '0 2px',
-                          flexShrink: 0,
-                        }}
-                      >×</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>월 한도</span>
+                        <input
+                          type="number"
+                          min={1}
+                          defaultValue={u.monthly_limit ?? 200}
+                          disabled={!!u.is_free}
+                          onBlur={e => handleUpdateUser(u.id, 'monthly_limit', parseInt(e.target.value) || 200)}
+                          style={{
+                            width: 60,
+                            padding: '3px 6px',
+                            fontSize: 12,
+                            border: '1px solid var(--border)',
+                            borderRadius: 4,
+                            background: u.is_free ? 'var(--bg-sidebar)' : 'var(--bg)',
+                            color: u.is_free ? 'var(--text-muted)' : 'var(--text)',
+                            outline: 'none',
+                          }}
+                        />
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>회</span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 4 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!u.is_free}
+                            onChange={e => handleUpdateUser(u.id, 'is_free', e.target.checked)}
+                            style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>무료</span>
+                        </label>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                          이번 달 {u.usage_month === new Date().toISOString().slice(0, 7) ? (u.usage_count || 0) : 0}회 사용
+                        </span>
+                      </div>
                     </div>
                   )
                 })}

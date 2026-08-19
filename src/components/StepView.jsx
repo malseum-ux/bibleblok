@@ -368,6 +368,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     } catch (e) {
       if (e.name === 'AbortError') {
         // 사용자가 중지 — 에러 표시 없이 현재 내용 유지
+      } else if (e.message === 'USAGE_LIMIT_EXCEEDED') {
+        setError('이번 달 AI 생성 한도에 도달했습니다. 관리자에게 문의하세요.')
       } else {
         setError(e.message)
       }
