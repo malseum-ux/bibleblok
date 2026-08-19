@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import AuthGate, { useGoogleToken } from './components/AuthGate'
+import AuthGate, { useGoogleToken, useUserEmail } from './components/AuthGate'
+import AdminPanel from './components/AdminPanel'
 import { supabase } from './supabase'
 import { driveSave, driveLoad } from './googleDrive'
 import { dropboxExchangeCode, dropboxSave, dropboxLoad, dropboxConfigured } from './dropbox'
@@ -27,8 +28,13 @@ function loadTokens(key) {
   try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
 }
 
+const ADMIN_EMAIL = 'malseum@gmail.com'
+
 function AppInner() {
   const driveToken = useGoogleToken()
+  const userEmail = useUserEmail()
+  const isAdmin = userEmail === ADMIN_EMAIL
+  const [adminOpen, setAdminOpen] = useState(false)
   const [driveSyncing, setDriveSyncing] = useState(false)
   const [driveLastSync, setDriveLastSync] = useState(null)
   const [driveAuthError, setDriveAuthError] = useState(false)
@@ -815,6 +821,32 @@ function AppInner() {
         </button>
 
 
+        {isAdmin && (
+          <button
+            onClick={() => setAdminOpen(true)}
+            title="사용자 관리"
+            style={{
+              background: 'none',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              width: 32,
+              height: 32,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </button>
+        )}
+
         <button
           onClick={() => setSettingsOpen(true)}
           title={lang === 'ko' ? '설정' : 'Settings'}
@@ -837,6 +869,8 @@ function AppInner() {
           </svg>
         </button>
       </header>
+
+      {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
 
       {settingsOpen && (
         <SettingsPanel

@@ -2,12 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { exportAllData, importAllData, db } from '../db'
 import { supabase } from '../supabase'
-import { useUserEmail } from './AuthGate'
 import { dropboxLoginUrl, dropboxConfigured } from '../dropbox'
 import { onedriveLoginUrl, onedriveConfigured } from '../onedrive'
 import { icloudSignIn, icloudSignOut, icloudConfigured } from '../icloud'
 
-const ADMIN_EMAIL = 'malseum@gmail.com'
 const TRIAL_DAYS = 30
 
 const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS }
@@ -38,55 +36,6 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
   const [driveLoadStatus, setDriveLoadStatus] = useState(null)
   const [dbCounts, setDbCounts] = useState(null)
   const fileInputRef = useRef(null)
-  const userEmail = useUserEmail()
-  const isAdmin = userEmail === ADMIN_EMAIL
-  const [trialUsers, setTrialUsers] = useState([])
-  const [newUserEmail, setNewUserEmail] = useState('')
-  const [addStatus, setAddStatus] = useState(null)
-
-  useEffect(() => {
-    if (isAdmin) fetchTrialUsers()
-  }, [isAdmin])
-
-  async function fetchTrialUsers() {
-    const { data } = await supabase
-      .from('allowed_users')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setTrialUsers(data || [])
-  }
-
-  async function handleAddUser() {
-    const trimmed = newUserEmail.trim().toLowerCase()
-    if (!trimmed) return
-    setAddStatus('loading')
-    const { error } = await supabase.from('allowed_users').insert({ email: trimmed })
-    if (error) {
-      setAddStatus('error:' + (error.message || '추가 실패'))
-    } else {
-      await supabase.auth.signInWithOtp({ email: trimmed, options: { shouldCreateUser: true } })
-      setNewUserEmail('')
-      setAddStatus('sent')
-      fetchTrialUsers()
-      setTimeout(() => setAddStatus(null), 3000)
-    }
-  }
-
-  async function handleDeleteUser(id) {
-    await supabase.from('allowed_users').delete().eq('id', id)
-    fetchTrialUsers()
-  }
-
-  async function handleUpdateUser(id, field, value) {
-    await supabase.from('allowed_users').update({ [field]: value }).eq('id', id)
-    fetchTrialUsers()
-  }
-
-  function getDaysLeft(createdAt) {
-    const expiresAt = new Date(createdAt)
-    expiresAt.setDate(expiresAt.getDate() + TRIAL_DAYS)
-    return Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24))
-  }
 
   async function handleExport() {
     const data = await exportAllData()
@@ -235,120 +184,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-          {isAdmin && (
-            <div style={sectionStyle}>
-              <div style={labelStyle}>사용자 관리</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                <input
-                  type="email"
-                  value={newUserEmail}
-                  onChange={e => setNewUserEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddUser()}
-                  placeholder="이메일 입력"
-                  style={{
-                    flex: 1,
-                    padding: '7px 10px',
-                    fontSize: 12,
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                    background: 'var(--bg)',
-                    color: 'var(--text)',
-                    outline: 'none',
-                    minWidth: 0,
-                  }}
-                />
-                <button
-                  onClick={handleAddUser}
-                  disabled={addStatus === 'loading'}
-                  style={{
-                    padding: '7px 12px',
-                    background: 'var(--accent)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
-                >
-                  추가
-                </button>
-              </div>
-              {addStatus === 'sent' && (
-                <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 6 }}>추가되었습니다. 초대 메일을 발송했습니다.</div>
-              )}
-              {addStatus?.startsWith('error:') && (
-                <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 6 }}>{addStatus.slice(6)}</div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {trialUsers.length === 0 && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>등록된 사용자가 없습니다.</div>
-                )}
-                {trialUsers.map(u => {
-                  const daysLeft = getDaysLeft(u.created_at)
-                  return (
-                    <div key={u.id} style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                      padding: '8px 10px',
-                      background: 'var(--bg)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {u.email}
-                          </div>
-                          <div style={{ fontSize: 11, color: daysLeft <= 0 ? '#dc2626' : daysLeft <= 5 ? '#d97706' : 'var(--text-muted)', marginTop: 1 }}>
-                            {daysLeft <= 0 ? '만료됨' : `${daysLeft}일 남음`}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteUser(u.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
-                        >×</button>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>월 한도</span>
-                        <input
-                          type="number"
-                          min={1}
-                          defaultValue={u.monthly_limit ?? 200}
-                          disabled={!!u.is_free}
-                          onBlur={e => handleUpdateUser(u.id, 'monthly_limit', parseInt(e.target.value) || 200)}
-                          style={{
-                            width: 60,
-                            padding: '3px 6px',
-                            fontSize: 12,
-                            border: '1px solid var(--border)',
-                            borderRadius: 4,
-                            background: u.is_free ? 'var(--bg-sidebar)' : 'var(--bg)',
-                            color: u.is_free ? 'var(--text-muted)' : 'var(--text)',
-                            outline: 'none',
-                          }}
-                        />
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>회</span>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 4 }}>
-                          <input
-                            type="checkbox"
-                            checked={!!u.is_free}
-                            onChange={e => handleUpdateUser(u.id, 'is_free', e.target.checked)}
-                            style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
-                          />
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>무료</span>
-                        </label>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                          이번 달 {u.usage_month === new Date().toISOString().slice(0, 7) ? (u.usage_count || 0) : 0}회 사용
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+
 
           <div style={sectionStyle}>
             <div style={labelStyle}>{lang === 'ko' ? '데이터 백업' : 'Backup'}</div>
