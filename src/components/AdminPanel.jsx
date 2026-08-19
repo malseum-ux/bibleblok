@@ -23,6 +23,8 @@ export default function AdminPanel({ onClose }) {
   const [sortDir, setSortDir] = useState('desc')
   const [newEmail, setNewEmail] = useState('')
   const [addStatus, setAddStatus] = useState(null)
+  const [searchField, setSearchField] = useState('name')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => { fetchUsers() }, [])
 
@@ -75,7 +77,11 @@ export default function AdminPanel({ onClose }) {
     return u.usage_month === currentMonth ? (u.usage_count || 0) : 0
   }
 
-  const sorted = [...users].sort((a, b) => {
+  const filtered = searchQuery.trim()
+    ? users.filter(u => (u[searchField] || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : users
+
+  const sorted = [...filtered].sort((a, b) => {
     let av, bv
     if (sortKey === 'usage') {
       av = getUsage(a); bv = getUsage(b)
@@ -158,6 +164,43 @@ export default function AdminPanel({ onClose }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-heading)', flex: 1 }}>
             사용자 관리
           </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <select
+              value={searchField}
+              onChange={e => { setSearchField(e.target.value); setSearchQuery('') }}
+              style={{
+                padding: '6px 8px',
+                fontSize: 12,
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="name">이름</option>
+              <option value="email">이메일</option>
+              <option value="phone">전화번호</option>
+            </select>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="검색..."
+              style={{
+                padding: '6px 10px',
+                fontSize: 13,
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                outline: 'none',
+                width: 160,
+              }}
+            />
+          </div>
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
           <div style={{ display: 'flex', gap: 6 }}>
             <input
               type="email"
@@ -173,7 +216,7 @@ export default function AdminPanel({ onClose }) {
                 background: 'var(--bg)',
                 color: 'var(--text)',
                 outline: 'none',
-                width: 220,
+                width: 200,
               }}
             />
             <button
@@ -325,7 +368,7 @@ export default function AdminPanel({ onClose }) {
           color: 'var(--text-muted)',
           flexShrink: 0,
         }}>
-          총 {users.length}명 · 셀을 클릭하여 직접 편집, 클릭 밖으로 나가면 저장
+          {searchQuery ? `${sorted.length}명 검색됨 (전체 ${users.length}명)` : `총 ${users.length}명`} · 셀을 클릭하여 직접 편집, 클릭 밖으로 나가면 저장
         </div>
       </div>
     </div>
