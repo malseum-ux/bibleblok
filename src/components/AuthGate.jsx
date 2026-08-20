@@ -5,10 +5,9 @@ const ADMIN_EMAIL = 'malseum@gmail.com'
 const TRIAL_DAYS = 30
 
 export const UserEmailContext = createContext(null)
-export const SessionContext = createContext(null)
+const SessionContext = createContext(null)
 export const GoogleTokenContext = createContext(null)
 export function useUserEmail() { return useContext(UserEmailContext) }
-export function useSession() { return useContext(SessionContext) }
 export function useGoogleToken() { return useContext(GoogleTokenContext) }
 
 export default function AuthGate({ children }) {
