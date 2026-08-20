@@ -310,9 +310,45 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               </div>
             )}
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-                Drive 토큰: {driveToken ? '있음' : '없음 (Google 로그인 필요)'}
-              </div>
+              {!driveToken && (
+                <div style={{
+                  fontSize: 11,
+                  background: '#fef3c7',
+                  border: '1px solid #fde68a',
+                  borderRadius: 6,
+                  padding: '8px 10px',
+                  marginBottom: 8,
+                  lineHeight: 1.6,
+                  color: '#92400e',
+                }}>
+                  Google Drive 연동이 필요합니다.<br />
+                  아래 버튼으로 Google 계정에 연결하세요.
+                  <button
+                    onClick={() => supabase.auth.signInWithOAuth({
+                      provider: 'google',
+                      options: {
+                        redirectTo: window.location.origin,
+                        scopes: 'https://www.googleapis.com/auth/drive.appdata',
+                        queryParams: { access_type: 'offline', prompt: 'consent' },
+                      },
+                    })}
+                    style={{
+                      display: 'block',
+                      marginTop: 6,
+                      padding: '5px 12px',
+                      background: '#534AB7',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 5,
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Google Drive 연동하기
+                  </button>
+                </div>
+              )}
               <button
                 onClick={async () => {
                   const [s, d, w, ss, ds] = await Promise.all([
@@ -340,18 +376,18 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   const result = await onManualDriveLoad?.()
                   setDriveLoadStatus(result)
                 }}
-                disabled={driveLoadStatus === 'loading' || !onManualDriveLoad}
+                disabled={driveLoadStatus === 'loading' || !onManualDriveLoad || !driveToken}
                 style={{
-                  background: 'var(--bg)',
+                  background: driveToken ? 'var(--bg)' : 'var(--border)',
                   color: 'var(--text)',
                   border: '1px solid var(--border)',
                   borderRadius: 6,
                   padding: '7px 12px',
                   fontSize: 12,
-                  cursor: driveLoadStatus === 'loading' ? 'not-allowed' : 'pointer',
+                  cursor: driveLoadStatus === 'loading' || !driveToken ? 'not-allowed' : 'pointer',
                   width: '100%',
                   textAlign: 'left',
-                  opacity: driveLoadStatus === 'loading' ? 0.7 : 1,
+                  opacity: driveLoadStatus === 'loading' || !driveToken ? 0.5 : 1,
                 }}
               >
                 {driveLoadStatus === 'loading' ? 'Drive 확인 중...' : 'Drive에서 지금 불러오기'}
@@ -359,13 +395,17 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               {driveLoadStatus && driveLoadStatus !== 'loading' && (
                 <div style={{
                   marginTop: 6,
+                  padding: '8px 10px',
+                  borderRadius: 6,
                   fontSize: 11,
                   lineHeight: 1.6,
+                  background: driveLoadStatus.success ? '#f0fdf4' : '#fef2f2',
+                  border: `1px solid ${driveLoadStatus.success ? '#bbf7d0' : '#fecaca'}`,
                   color: driveLoadStatus.success ? '#16a34a' : '#dc2626',
                 }}>
                   {driveLoadStatus.success && `불러오기 완료! 설교 ${driveLoadStatus.counts.sermons}개, 새벽설교 ${driveLoadStatus.counts.dawns}개, 단계내용 ${driveLoadStatus.counts.steps}개`}
-                  {driveLoadStatus.error === 'NO_TOKEN' && 'Google 토큰이 없습니다. 아래에서 Google Drive를 연동해 주세요.'}
-                  {driveLoadStatus.error === 'AUTH_ERROR' && 'Google 토큰이 만료되었습니다. 아래에서 재연결해 주세요.'}
+                  {driveLoadStatus.error === 'NO_TOKEN' && 'Google 토큰이 없습니다. 위 버튼으로 연동해 주세요.'}
+                  {driveLoadStatus.error === 'AUTH_ERROR' && 'Google 토큰이 만료되었습니다. 재연동이 필요합니다.'}
                   {driveLoadStatus.error === 'NO_FILE' && 'Drive에 저장된 파일이 없습니다. 맥에서 먼저 저장해 주세요.'}
                   {driveLoadStatus.error === 'EMPTY_FILE' && 'Drive 파일이 비어 있습니다. 맥 앱에서 데이터가 있는지 확인 후 저장해 주세요.'}
                   {driveLoadStatus.error === 'IMPORT_FAILED' && `가져오기 실패: ${driveLoadStatus.message}`}

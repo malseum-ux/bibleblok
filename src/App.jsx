@@ -676,8 +676,6 @@ function AppInner() {
     await loadWorships()
     await loadDawns()
     await loadFolders()
-    setSettingsOpen(false)
-    setSidebarVisible(true)
     return { success: true, counts }
   }
 
