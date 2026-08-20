@@ -57,6 +57,43 @@ export async function driveSave(token, data) {
   }
 }
 
+export async function driveListRevisions(token) {
+  try {
+    const fileId = await findFile(token)
+    if (fileId === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
+    if (!fileId) return null
+
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime,size)`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (res.status === 401) return { error: 'AUTH_ERROR' }
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.revisions || []
+  } catch {
+    return null
+  }
+}
+
+export async function driveLoadRevision(token, revisionId) {
+  try {
+    const fileId = await findFile(token)
+    if (fileId === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
+    if (!fileId) return null
+
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}/revisions/${revisionId}?alt=media`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (res.status === 401) return { error: 'AUTH_ERROR' }
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 export async function driveLoad(token) {
   try {
     const fileId = await findFile(token)

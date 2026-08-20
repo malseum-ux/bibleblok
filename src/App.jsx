@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import AuthGate, { useGoogleToken, useUserEmail } from './components/AuthGate'
 import AdminPanel from './components/AdminPanel'
 import { supabase } from './supabase'
-import { driveSave, driveLoad } from './googleDrive'
+import { driveSave, driveLoad, driveLoadRevision } from './googleDrive'
 import { dropboxExchangeCode, dropboxSave, dropboxLoad, dropboxConfigured } from './dropbox'
 import { onedriveExchangeCode, onedriveSave, onedriveLoad, onedriveConfigured } from './onedrive'
 import { icloudSave, icloudLoad, icloudConfigured, icloudSetupAuth } from './icloud'
@@ -679,6 +679,23 @@ function AppInner() {
     return { success: true, counts }
   }
 
+  async function handleDriveRestoreRevision(revisionId) {
+    if (!driveToken) return { error: 'NO_TOKEN' }
+    const data = await driveLoadRevision(driveToken, revisionId)
+    if (!data) return { error: 'LOAD_FAILED' }
+    if (data.error === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
+    try {
+      await importAllData(data)
+    } catch (e) {
+      return { error: 'IMPORT_FAILED', message: e.message }
+    }
+    await loadSermons()
+    await loadWorships()
+    await loadDawns()
+    await loadFolders()
+    return { success: true }
+  }
+
   function handleSettingsChange(next) {
     setSettings(next)
     saveSettings(next)
@@ -882,6 +899,7 @@ function AppInner() {
           driveLastSync={driveLastSync}
           driveAuthError={driveAuthError}
           onManualDriveLoad={handleManualDriveLoad}
+          onDriveRestoreRevision={handleDriveRestoreRevision}
           dropboxTokens={dropboxTokens}
           onedriveTokens={onedriveTokens}
           icloudReady={icloudReady}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { exportAllData, importAllData, db } from '../db'
 import { supabase } from '../supabase'
+import { driveListRevisions } from '../googleDrive'
 import { dropboxLoginUrl, dropboxConfigured } from '../dropbox'
 import { onedriveLoginUrl, onedriveConfigured } from '../onedrive'
 import { icloudSignIn, icloudSignOut, icloudConfigured } from '../icloud'
@@ -28,12 +29,15 @@ function getDefaultKeywords() {
   return result
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, driveAuthError, onManualDriveLoad, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
+export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, driveAuthError, onManualDriveLoad, onDriveRestoreRevision, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
   const [driveLoadStatus, setDriveLoadStatus] = useState(null)
+  const [revisions, setRevisions] = useState(null)
+  const [revisionsLoading, setRevisionsLoading] = useState(false)
+  const [restoreStatus, setRestoreStatus] = useState(null)
   const [dbCounts, setDbCounts] = useState(null)
   const fileInputRef = useRef(null)
 
@@ -412,6 +416,99 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                 </div>
               )}
             </div>
+
+            {driveToken && (
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  onClick={async () => {
+                    setRevisionsLoading(true)
+                    setRevisions(null)
+                    setRestoreStatus(null)
+                    const list = await driveListRevisions(driveToken)
+                    setRevisions(list)
+                    setRevisionsLoading(false)
+                  }}
+                  disabled={revisionsLoading}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    fontSize: 11, color: 'var(--accent)', cursor: revisionsLoading ? 'not-allowed' : 'pointer',
+                    textDecoration: 'underline', opacity: revisionsLoading ? 0.6 : 1,
+                  }}
+                >
+                  {revisionsLoading ? '버전 이력 불러오는 중...' : '버전 이력 보기'}
+                </button>
+                {revisions === null && !revisionsLoading ? null : revisions?.error ? (
+                  <div style={{ fontSize: 11, color: '#dc2626', marginTop: 4 }}>
+                    이력을 불러올 수 없습니다.
+                  </div>
+                ) : revisions?.length === 0 ? (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                    저장된 버전이 없습니다.
+                  </div>
+                ) : revisions && (
+                  <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {restoreStatus && (
+                      <div style={{
+                        padding: '6px 10px', borderRadius: 6, fontSize: 11,
+                        background: restoreStatus.success ? '#f0fdf4' : '#fef2f2',
+                        border: `1px solid ${restoreStatus.success ? '#bbf7d0' : '#fecaca'}`,
+                        color: restoreStatus.success ? '#16a34a' : '#dc2626',
+                        marginBottom: 4,
+                      }}>
+                        {restoreStatus.success && '복구 완료! 데이터가 해당 버전으로 교체되었습니다.'}
+                        {restoreStatus.error === 'LOAD_FAILED' && '버전 데이터를 불러오지 못했습니다.'}
+                        {restoreStatus.error === 'AUTH_ERROR' && '토큰이 만료되었습니다. 재연동 후 시도해 주세요.'}
+                        {restoreStatus.error === 'IMPORT_FAILED' && `가져오기 실패: ${restoreStatus.message}`}
+                      </div>
+                    )}
+                    {[...revisions].reverse().map((rev, i) => {
+                      const dt = new Date(rev.modifiedTime)
+                      const label = dt.toLocaleString('ko-KR', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                      })
+                      const kb = rev.size ? `${Math.round(rev.size / 1024)}KB` : ''
+                      return (
+                        <div key={rev.id} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '5px 8px',
+                          background: i === 0 ? 'var(--bg)' : 'transparent',
+                          border: '1px solid var(--border)',
+                          borderRadius: 6,
+                          gap: 8,
+                        }}>
+                          <div style={{ fontSize: 11, color: 'var(--text)' }}>
+                            {label}
+                            {i === 0 && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>최신</span>}
+                            {kb && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>{kb}</span>}
+                          </div>
+                          <button
+                            onClick={async () => {
+                              setRestoreStatus(null)
+                              const result = await onDriveRestoreRevision?.(rev.id)
+                              setRestoreStatus(result)
+                            }}
+                            style={{
+                              padding: '3px 10px',
+                              background: i === 0 ? 'var(--accent)' : 'var(--bg)',
+                              color: i === 0 ? '#fff' : 'var(--text)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 5,
+                              fontSize: 11,
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {i === 0 ? '최신으로 불러오기' : '이 버전으로 복구'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
                 {
