@@ -30,6 +30,20 @@ function loadTokens(key) {
 
 const ADMIN_EMAIL = 'malseum@gmail.com'
 
+async function refreshDriveToken() {
+  const { data } = await supabase.auth.refreshSession()
+  const token = data?.session?.provider_token
+  if (token) {
+    localStorage.setItem('gd_token', token)
+    localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
+    if (data.session.provider_refresh_token) {
+      localStorage.setItem('gd_refresh_token', data.session.provider_refresh_token)
+    }
+    return token
+  }
+  return null
+}
+
 function AppInner() {
   const driveToken = useGoogleToken()
   const userEmail = useUserEmail()
@@ -134,12 +148,15 @@ function AppInner() {
       // 2단계: 클라우드에서 최신 데이터 가져오기 (백그라운드)
       const candidates = []
       if (driveToken) {
-        const r = await driveLoad(driveToken)
+        let r = await driveLoad(driveToken)
         if (r?.error === 'AUTH_ERROR') {
-          const { data: refreshed } = await supabase.auth.refreshSession()
-          if (!refreshed?.session?.provider_token) {
-            setDriveAuthError(true)
+          const newToken = await refreshDriveToken()
+          if (newToken) {
+            r = await driveLoad(newToken)
           }
+        }
+        if (r?.error === 'AUTH_ERROR' || (r?.error && !r.data)) {
+          setDriveAuthError(true)
         } else if (r) {
           candidates.push(r)
           setDriveAuthError(false)
@@ -204,8 +221,19 @@ function AppInner() {
         icloudReady ? icloudSave(data) : Promise.resolve(false),
       ])
       if (driveResult === 'AUTH_ERROR') {
-        const { data: refreshed } = await supabase.auth.refreshSession()
-        if (!refreshed?.session?.provider_token) {
+        const newToken = await refreshDriveToken()
+        if (newToken) {
+          const retried = await driveSave(newToken, data)
+          if (retried === 'AUTH_ERROR' || retried === false) {
+            setDriveAuthError(true)
+          } else {
+            setDriveAuthError(false)
+            if (typeof retried === 'number') {
+              setDriveLastSync(retried)
+              localStorage.setItem('drive_last_sync', String(retried))
+            }
+          }
+        } else {
           setDriveAuthError(true)
         }
       } else if (driveResult !== false) {
