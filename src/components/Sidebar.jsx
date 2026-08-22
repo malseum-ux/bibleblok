@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useId } from 'react'
+import { useState, useRef, useEffect, useId, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 
 function fmtDate(d) {
@@ -98,10 +98,18 @@ export default function Sidebar({
     clearTimeout(dr.timer)
     const startX = e.clientX
     const startY = e.clientY
+    // 터치는 손가락 면적 때문에 미세 이동이 크므로 임계값을 높임
+    const moveThreshold = e.pointerType === 'touch' ? 12 : 6
     let moved = false
 
+    const cleanup = () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      document.removeEventListener('pointercancel', onCancel)
+    }
+
     const onMove = (me) => {
-      if (Math.abs(me.clientX - startX) > 6 || Math.abs(me.clientY - startY) > 6) moved = true
+      if (Math.abs(me.clientX - startX) > moveThreshold || Math.abs(me.clientY - startY) > moveThreshold) moved = true
       if (!dr.active) return
 
       setDragDisplay(prev => prev ? { ...prev, x: me.clientX, y: me.clientY } : null)
@@ -118,7 +126,7 @@ export default function Sidebar({
 
     const onUp = () => {
       clearTimeout(dr.timer)
-      document.removeEventListener('pointermove', onMove)
+      cleanup()
 
       if (dr.active) {
         const target = dr.dropTarget
@@ -135,6 +143,14 @@ export default function Sidebar({
       }
     }
 
+    const onCancel = () => {
+      clearTimeout(dr.timer)
+      cleanup()
+      dr.active = false
+      setDragDisplay(null)
+      setDropDisplay(undefined)
+    }
+
     dr.timer = setTimeout(() => {
       if (!moved) {
         dr.active = true
@@ -147,11 +163,18 @@ export default function Sidebar({
     }, 500)
 
     document.addEventListener('pointermove', onMove)
-    document.addEventListener('pointerup', onUp, { once: true })
+    document.addEventListener('pointerup', onUp)
+    document.addEventListener('pointercancel', onCancel)
   }
 
   const tree = buildTree(folders)
   const flatFolders = flattenTree(tree)
+
+  // 새벽설교 전체를 날짜순 정렬해 순번 맵 생성
+  const dawnNumberMap = useMemo(() => {
+    if (tab !== 'dawn') return {}
+    return Object.fromEntries(sortItems([...items]).map((item, i) => [item.id, i + 1]))
+  }, [tab, items, sortMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const folderMap = {}
   const rootItems = []
@@ -221,7 +244,19 @@ export default function Sidebar({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-          }}>{getLabel(item)}</span>
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            {tab === 'dawn' && dawnNumberMap[item.id] != null && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, minWidth: 18, textAlign: 'right' }}>
+                {dawnNumberMap[item.id]}.
+              </span>
+            )}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {getLabel(item)}
+            </span>
+          </span>
           <button
             title="폴더 이동"
             onClick={e => { e.stopPropagation(); setMovingItemId(isMoving ? null : item.id) }}
