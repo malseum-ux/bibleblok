@@ -93,23 +93,38 @@ export default function Sidebar({
   // 드래그 시작 — 500ms 길게 누르면 활성화, 짧은 클릭이면 clickCallback 실행
   function startDrag(e, type, id, label, clickCallback) {
     if (e.button !== undefined && e.button !== 0) return
+
+    // 터치 기기: 드래그 없이 탭만으로 선택 (스크롤 방해 방지)
+    if (e.pointerType === 'touch') {
+      const startX = e.clientX
+      const startY = e.clientY
+      const onTouchUp = (ue) => {
+        document.removeEventListener('pointerup', onTouchUp)
+        document.removeEventListener('pointercancel', onTouchUp)
+        const dx = Math.abs(ue.clientX - startX)
+        const dy = Math.abs(ue.clientY - startY)
+        if (dx < 15 && dy < 15) clickCallback?.()
+      }
+      document.addEventListener('pointerup', onTouchUp)
+      document.addEventListener('pointercancel', onTouchUp)
+      return
+    }
+
+    // 마우스(데스크탑): 500ms 길게 누르면 드래그 활성화
     e.preventDefault()
     const dr = dragRef.current
     clearTimeout(dr.timer)
     const startX = e.clientX
     const startY = e.clientY
-    // 터치는 손가락 면적 때문에 미세 이동이 크므로 임계값을 높임
-    const moveThreshold = e.pointerType === 'touch' ? 12 : 6
     let moved = false
 
     const cleanup = () => {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
-      document.removeEventListener('pointercancel', onCancel)
     }
 
     const onMove = (me) => {
-      if (Math.abs(me.clientX - startX) > moveThreshold || Math.abs(me.clientY - startY) > moveThreshold) moved = true
+      if (Math.abs(me.clientX - startX) > 6 || Math.abs(me.clientY - startY) > 6) moved = true
       if (!dr.active) return
 
       setDragDisplay(prev => prev ? { ...prev, x: me.clientX, y: me.clientY } : null)
@@ -138,17 +153,8 @@ export default function Sidebar({
         setDragDisplay(null)
         setDropDisplay(undefined)
       } else if (!moved) {
-        // 짧은 클릭 — 드래그 없이 손을 뗀 경우 선택/폴더 열기 실행
         clickCallback?.()
       }
-    }
-
-    const onCancel = () => {
-      clearTimeout(dr.timer)
-      cleanup()
-      dr.active = false
-      setDragDisplay(null)
-      setDropDisplay(undefined)
     }
 
     dr.timer = setTimeout(() => {
@@ -164,7 +170,6 @@ export default function Sidebar({
 
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
-    document.addEventListener('pointercancel', onCancel)
   }
 
   const tree = buildTree(folders)
