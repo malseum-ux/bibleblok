@@ -304,6 +304,65 @@ export async function importAllData(json) {
   }
 }
 
+// 클라우드 데이터를 로컬과 병합 (createdAt 기준 — 로컬에 없는 항목만 추가)
+export async function mergeFromCloud(json) {
+  const { data } = json
+  if (!data) return
+
+  const [
+    localSermons, localWorships, localDawns,
+    localSermonSteps, localWorshipSteps, localDawnSteps,
+    localFolders, localCustomStepItems,
+  ] = await Promise.all([
+    db.sermons.toArray(), db.worships.toArray(), db.dawns.toArray(),
+    db.sermonSteps.toArray(), db.worshipSteps.toArray(), db.dawnSteps.toArray(),
+    db.folders.toArray(), db.customStepItems.toArray(),
+  ])
+
+  const localSermonKeys = new Set(localSermons.map(s => s.createdAt))
+  const localWorshipKeys = new Set(localWorships.map(s => s.createdAt))
+  const localDawnKeys = new Set(localDawns.map(s => s.createdAt))
+
+  // 설교
+  const newSermons = (data.sermons || []).filter(s => !localSermonKeys.has(s.createdAt))
+  for (const s of newSermons) {
+    const oldId = s.id
+    const { id, ...rest } = s
+    const newId = await db.sermons.add(rest)
+    const steps = (data.sermonSteps || []).filter(st => st.sermonId === oldId)
+    for (const st of steps) {
+      const { id: stId, ...stRest } = st
+      await db.sermonSteps.add({ ...stRest, sermonId: newId })
+    }
+  }
+
+  // 예배
+  const newWorships = (data.worships || []).filter(s => !localWorshipKeys.has(s.createdAt))
+  for (const s of newWorships) {
+    const oldId = s.id
+    const { id, ...rest } = s
+    const newId = await db.worships.add(rest)
+    const steps = (data.worshipSteps || []).filter(st => st.worshipId === oldId)
+    for (const st of steps) {
+      const { id: stId, ...stRest } = st
+      await db.worshipSteps.add({ ...stRest, worshipId: newId })
+    }
+  }
+
+  // 새벽
+  const newDawns = (data.dawns || []).filter(s => !localDawnKeys.has(s.createdAt))
+  for (const s of newDawns) {
+    const oldId = s.id
+    const { id, ...rest } = s
+    const newId = await db.dawns.add(rest)
+    const steps = (data.dawnSteps || []).filter(st => st.dawnId === oldId)
+    for (const st of steps) {
+      const { id: stId, ...stRest } = st
+      await db.dawnSteps.add({ ...stRest, dawnId: newId })
+    }
+  }
+}
+
 // 강해 시리즈 컨텍스트 조회
 // type: 'sermon' | 'dawn', stepIndex for core message: sermon=2, dawn=1
 export async function getSeriesContext(type, seriesName, currentId) {

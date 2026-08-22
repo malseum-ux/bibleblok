@@ -6,7 +6,7 @@ import { driveSave, driveLoad, driveLoadRevision } from './googleDrive'
 import { dropboxExchangeCode, dropboxSave, dropboxLoad } from './dropbox'
 import { onedriveExchangeCode, onedriveSave, onedriveLoad } from './onedrive'
 import { icloudSave, icloudLoad, icloudConfigured, icloudSetupAuth } from './icloud'
-import { exportAllData, importAllData, db } from './db'
+import { exportAllData, importAllData, mergeFromCloud, db } from './db'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
@@ -183,19 +183,21 @@ function AppInner() {
         ])
         const localIsEmpty = localSermonCount === 0 && localDawnCount === 0
 
-        // 로컬이 완전히 비어있을 때만 Drive에서 가져옴 (새 기기 첫 설정)
-        // 로컬에 데이터가 있으면 절대 자동으로 덮어쓰지 않음
-        if (localIsEmpty) {
-          try {
+        try {
+          if (localIsEmpty) {
+            // 로컬이 비어있으면 전체 교체 (새 기기 첫 설정)
             await importAllData(latest.data)
-            await loadSermons()
-            await loadWorships()
-            await loadDawns()
-            setCloudSyncKey(v => v + 1)
-            localStorage.setItem('drive_last_sync', String(latest.updatedAt))
-          } catch (e) {
-            console.error('importAllData failed:', e)
+          } else {
+            // 로컬에 데이터가 있으면 클라우드에만 있는 항목을 추가 (병합)
+            await mergeFromCloud(latest.data)
           }
+          await loadSermons()
+          await loadWorships()
+          await loadDawns()
+          setCloudSyncKey(v => v + 1)
+          localStorage.setItem('drive_last_sync', String(latest.updatedAt))
+        } catch (e) {
+          console.error('cloud sync failed:', e)
         }
       }
       driveReady.current = true
