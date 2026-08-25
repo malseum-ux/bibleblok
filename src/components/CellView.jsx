@@ -293,12 +293,6 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               </button>
             )}
             <div style={{ flex: 1 }} />
-            {aiContent && !loading && onFontSizeChange && (
-              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
-                <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
-                <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
-              </div>
-            )}
             {aiContent && !loading && (
               <button
                 onClick={() => { navigator.clipboard.writeText(aiContent); setAiCopied(true); setTimeout(() => setAiCopied(false), 1500) }}
@@ -306,6 +300,12 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               >
                 {aiCopied ? '복사됨' : '복사'}
               </button>
+            )}
+            {aiContent && !loading && onFontSizeChange && (
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
+                <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
+                <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
+              </div>
             )}
             <button
               onClick={loading ? stopCurrentGeneration : generate}
@@ -315,7 +315,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
             </button>
           </div>
 
-          {/* 지시 항목 패널 */}
+          {/* 지시 항목 패널 (키워드 입력 포함) */}
           {instructionsOpen && hasItems && (
             <div style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', background: 'var(--bg-sidebar)', flexShrink: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 8 }}>
@@ -334,19 +334,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               <input
                 value={userKeyword}
                 onChange={e => setUserKeyword(e.target.value)}
-                placeholder="키워드 또는 지시사항..."
-                style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-          )}
-
-          {/* 키워드 필드 (지시항목 닫혀있을 때) */}
-          {!instructionsOpen && (
-            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-sidebar)' }}>
-              <input
-                value={userKeyword}
-                onChange={e => setUserKeyword(e.target.value)}
-                placeholder="키워드 또는 지시사항..."
+                placeholder="추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)"
                 style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
@@ -398,12 +386,6 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
             <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, background: 'var(--bg-sidebar)' }}>
               <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-heading)' }}>{step.label.ko} 작성</span>
               <div style={{ flex: 1 }} />
-              {finalHistory.text && onFontSizeChange && (
-                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
-                  <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
-                  <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
-                </div>
-              )}
               {finalHistory.text && (
                 <button
                   onClick={() => { navigator.clipboard.writeText(finalHistory.text); setFinalCopied(true); setTimeout(() => setFinalCopied(false), 1500) }}
@@ -411,6 +393,12 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                 >
                   {finalCopied ? '복사됨' : '복사'}
                 </button>
+              )}
+              {finalHistory.text && onFontSizeChange && (
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
+                  <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
+                  <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
+                </div>
               )}
             </div>
 
