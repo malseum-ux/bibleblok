@@ -1,22 +1,35 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { CELL_STEPS } from '../constants'
-import { CELL_STEP_ITEMS, generateCellMaterial, stopCurrentGeneration } from '../claude'
+import { CELL_STEP_ITEMS, generateCellMaterial, executeInlineCommand, stopCurrentGeneration } from '../claude'
 import { saveCellStep, getCellSteps } from '../db'
 import CellForm from './CellForm'
+import RichEditor from './RichEditor'
 
-function useTextHistory(initialValue) {
+function useTextHistory(initialValue, resetKey) {
   const [text, setText] = useState(initialValue)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const snapshots = useRef([initialValue])
   const snapIdx = useRef(0)
   const timer = useRef(null)
   const textRef = useRef(initialValue)
+  const prevKey = useRef(resetKey)
 
-  function reset(value) {
+  useEffect(() => {
+    if (prevKey.current === resetKey) return
+    prevKey.current = resetKey
     clearTimeout(timer.current)
-    textRef.current = value
-    setText(value)
-    snapshots.current = [value]
+    textRef.current = initialValue
+    setText(initialValue)
+    snapshots.current = [initialValue]
     snapIdx.current = 0
+    setCanUndo(false)
+    setCanRedo(false)
+  }, [resetKey]) // eslint-disable-line
+
+  function updateFlags() {
+    setCanUndo(snapIdx.current > 0 || textRef.current !== snapshots.current[snapIdx.current])
+    setCanRedo(snapIdx.current < snapshots.current.length - 1)
   }
 
   function pushSnapshot(val) {
@@ -26,16 +39,68 @@ function useTextHistory(initialValue) {
       if (snapshots.current.length > 100) snapshots.current.shift()
     }
     snapIdx.current = snapshots.current.length - 1
+    updateFlags()
   }
 
   function onChange(newText) {
     textRef.current = newText
     setText(newText)
+    updateFlags()
     clearTimeout(timer.current)
     timer.current = setTimeout(() => pushSnapshot(newText), 800)
   }
 
-  return { text, onChange, reset }
+  function reset(value) {
+    clearTimeout(timer.current)
+    textRef.current = value
+    setText(value)
+    snapshots.current = [value]
+    snapIdx.current = 0
+    setCanUndo(false)
+    setCanRedo(false)
+  }
+
+  function undo() {
+    clearTimeout(timer.current)
+    const curr = textRef.current
+    if (curr !== snapshots.current[snapIdx.current]) {
+      snapshots.current = snapshots.current.slice(0, snapIdx.current + 1)
+      snapshots.current.push(curr)
+      snapIdx.current = snapshots.current.length - 1
+    }
+    if (snapIdx.current > 0) {
+      snapIdx.current--
+      const val = snapshots.current[snapIdx.current]
+      textRef.current = val
+      setText(val)
+    }
+    updateFlags()
+  }
+
+  function redo() {
+    clearTimeout(timer.current)
+    if (snapIdx.current < snapshots.current.length - 1) {
+      snapIdx.current++
+      const val = snapshots.current[snapIdx.current]
+      textRef.current = val
+      setText(val)
+      updateFlags()
+    }
+  }
+
+  function forceSnapshot() {
+    clearTimeout(timer.current)
+    pushSnapshot(textRef.current)
+  }
+
+  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
+}
+
+function stripHtml(html) {
+  if (!html || !html.trimStart().startsWith('<')) return html || ''
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || ''
 }
 
 export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onExport }) {
@@ -43,9 +108,13 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const [stepContents, setStepContents] = useState({})
   const [finalContents, setFinalContents] = useState({})
   const [aiContent, setAiContent] = useState('')
-  const finalHistory = useTextHistory('')
+  const resultHistory = useTextHistory('', `${item?.id}-${currentStep}-result`)
+  const finalHistory = useTextHistory('', `${item?.id}-${currentStep}-final`)
   const [loading, setLoading] = useState(false)
+  const [refining, setRefining] = useState(false)
   const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [draftEditing, setDraftEditing] = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [selectedItems, setSelectedItems] = useState([])
   const [userKeyword, setUserKeyword] = useState('')
@@ -57,6 +126,8 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const [leftPct, setLeftPct] = useState(50)
   const splitContainerRef = useRef(null)
   const aiDivRef = useRef(null)
+  const resultPanelRef = useRef(null)
+  const draftPanelRef = useRef(null)
   const finalTimer = useRef(null)
 
   const step = CELL_STEPS[currentStep] || CELL_STEPS[0]
@@ -78,10 +149,15 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   }, [item?.id])
 
   useEffect(() => {
-    setAiContent(stepContents[currentStep] || '')
-    finalHistory.reset(finalContents[currentStep] || '')
+    const ai = stepContents[currentStep] || ''
+    const fin = finalContents[currentStep] || ''
+    setAiContent(ai)
+    resultHistory.reset(ai)
+    finalHistory.reset(fin)
     setSelectedItems(currentItemsDefs.map(i => i.key))
     setInstructionsOpen(false)
+    setEditing(false)
+    setDraftEditing(false)
     setError(null)
   }, [currentStep, stepContents]) // eslint-disable-line
 
@@ -91,22 +167,66 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     setUserKeyword(kw)
   }, [step?.key])
 
+  // 좌측 편집 내용 자동 저장
   useEffect(() => {
+    if (!editing) return
     clearTimeout(finalTimer.current)
     finalTimer.current = setTimeout(async () => {
-      const text = finalHistory.text
-      setFinalContents(prev => ({ ...prev, [currentStep]: text }))
+      const t = resultHistory.text
+      setStepContents(prev => ({ ...prev, [currentStep]: t }))
       if (item?.id) {
-        await saveCellStep(item.id, currentStep, stepContents[currentStep] || '', text)
+        await saveCellStep(item.id, currentStep, t, finalContents[currentStep] || '')
+      }
+    }, 800)
+  }, [resultHistory.text, editing]) // eslint-disable-line
+
+  // 우측 편집 내용 자동 저장
+  useEffect(() => {
+    if (!draftEditing && !finalHistory.text) return
+    clearTimeout(finalTimer.current)
+    finalTimer.current = setTimeout(async () => {
+      const t = finalHistory.text
+      setFinalContents(prev => ({ ...prev, [currentStep]: t }))
+      if (item?.id) {
+        await saveCellStep(item.id, currentStep, stepContents[currentStep] || '', t)
       }
     }, 800)
   }, [finalHistory.text]) // eslint-disable-line
 
+  // 생성 중 자동 스크롤
   useEffect(() => {
     if (loading && aiDivRef.current) {
       aiDivRef.current.scrollTop = aiDivRef.current.scrollHeight
     }
   }, [aiContent, loading])
+
+  // 좌측 편집 패널 바깥 클릭 시 편집 종료
+  useEffect(() => {
+    if (!editing) return
+    function handleClick(e) {
+      if (resultPanelRef.current && !resultPanelRef.current.contains(e.target)) {
+        setEditing(false)
+        const t = resultHistory.text
+        setAiContent(t)
+        setStepContents(prev => ({ ...prev, [currentStep]: t }))
+        if (item?.id) saveCellStep(item.id, currentStep, t, finalContents[currentStep] || '')
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [editing, currentStep]) // eslint-disable-line
+
+  // 우측 편집 패널 바깥 클릭 시 편집 종료
+  useEffect(() => {
+    if (!draftEditing) return
+    function handleClick(e) {
+      if (draftPanelRef.current && !draftPanelRef.current.contains(e.target)) {
+        setDraftEditing(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [draftEditing])
 
   function toggleItem(key) {
     setSelectedItems(prev =>
@@ -129,6 +249,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
   async function generate() {
     setLoading(true)
+    setEditing(false)
     setError(null)
 
     let effectiveKeyword = userKeyword
@@ -144,17 +265,18 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
     const prevContent = aiContent
     const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
+    let accumulated = prevContent + SEP
 
     try {
       await generateCellMaterial(
         item.passage, bible, lang, step.key,
-        (text) => setAiContent(prevContent + SEP + text),
+        (text) => { accumulated = prevContent + SEP + text; setAiContent(accumulated) },
         selectedItems, effectiveKeyword
-      ).then(async (full) => {
-        const combined = prevContent + SEP + full
-        setAiContent(combined)
-        setStepContents(prev => ({ ...prev, [currentStep]: combined }))
-        await saveCellStep(item.id, currentStep, combined, finalContents[currentStep] || '')
+      ).then(async () => {
+        setAiContent(accumulated)
+        resultHistory.reset(accumulated)
+        setStepContents(prev => ({ ...prev, [currentStep]: accumulated }))
+        await saveCellStep(item.id, currentStep, accumulated, finalContents[currentStep] || '')
       })
     } catch (e) {
       if (e.name === 'AbortError') {
@@ -169,11 +291,55 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     }
   }
 
+  async function handleAiSlashCommand({ instruction, contextBefore, contextAfter }) {
+    if (!item) return
+    resultHistory.forceSnapshot()
+    setRefining(true)
+    const fallback = resultHistory.text
+    let generated = ''
+    try {
+      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+        generated = chunk
+        resultHistory.onChange(contextBefore + chunk + contextAfter)
+      })
+      resultHistory.onChange(contextBefore + generated + contextAfter)
+    } catch {
+      resultHistory.onChange(fallback)
+    } finally {
+      setRefining(false)
+    }
+  }
+
+  async function handleFinalSlashCommand({ instruction, contextBefore, contextAfter }) {
+    if (!item) return
+    finalHistory.forceSnapshot()
+    setRefining(true)
+    const fallback = finalHistory.text
+    let generated = ''
+    try {
+      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+        generated = chunk
+        finalHistory.onChange(contextBefore + chunk + contextAfter)
+      })
+      finalHistory.onChange(contextBefore + generated + contextAfter)
+    } catch {
+      finalHistory.onChange(fallback)
+    } finally {
+      setRefining(false)
+    }
+  }
+
+  function startEdit() {
+    resultHistory.reset(aiContent)
+    setInstructionsOpen(false)
+    setEditing(true)
+  }
+
   function applyToFinal() {
     if (!aiContent) return
     const existing = finalHistory.text
     const sep = existing.trim() ? '\n\n' : ''
-    const newText = existing + sep + aiContent
+    const newText = existing + sep + stripHtml(aiContent)
     finalHistory.onChange(newText)
     setFinalContents(prev => ({ ...prev, [currentStep]: newText }))
     saveCellStep(item.id, currentStep, aiContent, newText)
@@ -183,9 +349,8 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
   async function handleSave() {
     for (const [idx, fc] of Object.entries(finalContents)) {
-      if (fc || stepContents[idx]) {
-        await saveCellStep(item.id, Number(idx), stepContents[idx] || '', fc || '')
-      }
+      const ai = stepContents[idx] || ''
+      if (ai || fc) await saveCellStep(item.id, Number(idx), ai, fc || '')
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
@@ -208,10 +373,23 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     whiteSpace: 'nowrap',
   }
 
+  const undoBtnStyle = (enabled) => ({
+    background: 'none',
+    border: '1px solid var(--border)',
+    borderRadius: 5,
+    padding: '2px 7px',
+    fontSize: 13,
+    cursor: enabled ? 'pointer' : 'default',
+    color: enabled ? 'var(--text-muted)' : 'var(--border)',
+  })
+
+  const displayAi = editing ? resultHistory.text : aiContent
+  const hasFinalContent = !!finalHistory.text
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* 단계 탭 + 기본정보/저장 버튼 */}
+      {/* 단계 탭 + 기본정보/저장/내보내기 버튼 */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-sidebar)', alignItems: 'center' }}>
         <div className="no-scrollbar" style={{ display: 'flex', overflowX: 'auto', flex: 1, padding: '10px 16px', gap: 0, scrollbarWidth: 'none', alignItems: 'center' }}>
           {CELL_STEPS.map((s, idx) => {
@@ -280,7 +458,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
       <div ref={splitContainerRef} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* 좌: AI 생성 */}
-        <div style={{ width: isMobile ? '100%' : `${leftPct}%`, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div ref={resultPanelRef} style={{ width: isMobile ? '100%' : `${leftPct}%`, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* 좌 헤더 */}
           <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -293,15 +471,15 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               </button>
             )}
             <div style={{ flex: 1 }} />
-            {aiContent && !loading && (
+            {displayAi && !loading && (
               <button
-                onClick={() => { navigator.clipboard.writeText(aiContent); setAiCopied(true); setTimeout(() => setAiCopied(false), 1500) }}
+                onClick={() => { navigator.clipboard.writeText(stripHtml(displayAi)); setAiCopied(true); setTimeout(() => setAiCopied(false), 1500) }}
                 style={{ ...btnBase, background: aiCopied ? 'var(--accent)' : 'transparent', color: aiCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (aiCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
               >
                 {aiCopied ? '복사됨' : '복사'}
               </button>
             )}
-            {aiContent && !loading && onFontSizeChange && (
+            {displayAi && !loading && onFontSizeChange && (
               <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
                 <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
                 <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
@@ -316,7 +494,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
           </div>
 
           {/* 지시 항목 패널 (키워드 입력 포함) */}
-          {instructionsOpen && hasItems && (
+          {!editing && instructionsOpen && hasItems && (
             <div style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', background: 'var(--bg-sidebar)', flexShrink: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 8 }}>
                 {currentItemsDefs.map(ci => (
@@ -341,22 +519,48 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
           )}
 
           {/* AI 결과 영역 */}
-          <div
-            ref={aiDivRef}
-            style={{ flex: 1, overflowY: 'auto', padding: '16px', fontSize, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: 'var(--text)', wordBreak: 'break-word' }}
-          >
-            {aiContent || (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7 }}>
-                {item?.passage
-                  ? `AI 생성 버튼을 눌러 ${step.label.ko}을 생성합니다.`
-                  : '기본정보에서 성경 본문을 먼저 입력하세요.'}
-              </div>
-            )}
-            {error && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 12 }}>{error}</div>}
-          </div>
+          {editing ? (
+            <RichEditor
+              fixedToolbar
+              editable={!refining}
+              value={resultHistory.text}
+              onChange={resultHistory.onChange}
+              baseFontSize={fontSize}
+              onEnterCommand={handleAiSlashCommand}
+            />
+          ) : (
+            <div
+              ref={aiDivRef}
+              onClick={aiContent && !loading ? startEdit : undefined}
+              style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', cursor: aiContent && !loading ? 'text' : 'default' }}
+            >
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
+                  {error}
+                </div>
+              )}
+              {aiContent ? (
+                aiContent.trimStart().startsWith('<') ? (
+                  <div className="rich-view" dangerouslySetInnerHTML={{ __html: aiContent }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
+                ) : (
+                  <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                    {aiContent.split('\n').map((line, i, arr) => (
+                      <Fragment key={i}>{line}{i < arr.length - 1 && <br />}</Fragment>
+                    ))}
+                  </div>
+                )
+              ) : !loading && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, textAlign: 'center', marginTop: 60 }}>
+                  {item?.passage
+                    ? `AI 생성 버튼을 눌러 ${step.label.ko}을 생성합니다.`
+                    : '기본정보에서 성경 본문을 먼저 입력하세요.'}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 교재작성 반영 버튼 */}
-          {aiContent && !loading && (
+          {aiContent && !loading && !editing && (
             <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-sidebar)' }}>
               <button
                 onClick={applyToFinal}
@@ -380,35 +584,66 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
         {/* 우: 교재 작성 */}
         {!isMobile && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div ref={draftPanelRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {/* 우 헤더 */}
             <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, background: 'var(--bg-sidebar)' }}>
               <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-heading)' }}>{step.label.ko} 작성</span>
               <div style={{ flex: 1 }} />
-              {finalHistory.text && (
+              {hasFinalContent && (
                 <button
-                  onClick={() => { navigator.clipboard.writeText(finalHistory.text); setFinalCopied(true); setTimeout(() => setFinalCopied(false), 1500) }}
+                  onClick={() => { navigator.clipboard.writeText(stripHtml(finalHistory.text)); setFinalCopied(true); setTimeout(() => setFinalCopied(false), 1500) }}
                   style={{ ...btnBase, background: finalCopied ? 'var(--accent)' : 'transparent', color: finalCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (finalCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
                 >
                   {finalCopied ? '복사됨' : '복사'}
                 </button>
               )}
-              {finalHistory.text && onFontSizeChange && (
+              {hasFinalContent && onFontSizeChange && (
                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
                   <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
                   <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
                 </div>
               )}
+              {hasFinalContent && (
+                <>
+                  <button onClick={finalHistory.undo} disabled={!finalHistory.canUndo} style={undoBtnStyle(finalHistory.canUndo)}>↩</button>
+                  <button onClick={finalHistory.redo} disabled={!finalHistory.canRedo} style={undoBtnStyle(finalHistory.canRedo)}>↪</button>
+                </>
+              )}
             </div>
 
             {/* 최종 교재 편집 영역 */}
-            <textarea
-              value={finalHistory.text}
-              onChange={e => finalHistory.onChange(e.target.value)}
-              placeholder={`${step.label.ko}을 작성하거나, 왼쪽에서 AI로 생성 후 "교재작성 반영" 버튼을 누르세요.`}
-              style={{ flex: 1, resize: 'none', border: 'none', outline: 'none', padding: '16px', fontSize, lineHeight: 1.8, color: 'var(--text)', background: 'var(--bg)', fontFamily: 'inherit', boxSizing: 'border-box' }}
-            />
+            {draftEditing ? (
+              <RichEditor
+                fixedToolbar
+                editable={!refining}
+                value={finalHistory.text}
+                onChange={finalHistory.onChange}
+                baseFontSize={fontSize}
+                onEnterCommand={handleFinalSlashCommand}
+              />
+            ) : (
+              <div
+                onClick={() => setDraftEditing(true)}
+                style={{ flex: 1, overflow: 'auto', padding: '20px 24px', cursor: 'text' }}
+              >
+                {finalHistory.text ? (
+                  finalHistory.text.trimStart().startsWith('<') ? (
+                    <div className="rich-view" dangerouslySetInnerHTML={{ __html: finalHistory.text }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
+                  ) : (
+                    <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                      {finalHistory.text.split('\n').map((line, i, arr) => (
+                        <Fragment key={i}>{line}{i < arr.length - 1 && <br />}</Fragment>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
+                    클릭하여 {step.label.ko}을 작성하거나, 왼쪽에서 AI로 생성 후 "교재작성 반영" 버튼을 누르세요
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
