@@ -1168,27 +1168,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                     >
                       {draftCopied ? '복사됨' : '복사'}
                     </button>
-                    {tab === 'sermon' && (
-                      <button
-                        onClick={handleGenerateDraftFromSteps}
-                        disabled={refining || loading}
-                        title={lang === 'ko' ? '단계별 연구 내용을 바탕으로 설교문 초안 생성' : 'Generate draft from step research'}
-                        style={{
-                          background: refining ? 'var(--border)' : '#534AB7',
-                          color: refining ? 'var(--text-muted)' : '#fff',
-                          border: 'none',
-                          borderRadius: 5,
-                          padding: '2px 9px',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: (refining || loading) ? 'default' : 'pointer',
-                          opacity: (refining || loading) ? 0.5 : 1,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {refining ? (lang === 'ko' ? '생성 중...' : 'Generating...') : (lang === 'ko' ? '연구 기반 초안' : 'Draft from Research')}
-                      </button>
-                    )}
                     <button
                       onClick={refineSermonDraft}
                       disabled={refining || loading || !draftHasContent}
