@@ -165,7 +165,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
         : await getDawnSteps(item.id)
       const map = {}
       saved.forEach(s => { map[s.stepIndex] = s.content })
-      console.log('[STEP] 단계내용 로드:', item.id, '초안(draft):', item.draft?.slice(0, 30), '/ 단계수:', saved.length)
       setStepContents(map)
     }
     loadContents()
@@ -555,22 +554,16 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
 
   async function handleManualSave() {
     clearTimeout(draftTimer.current)
-    console.log('[SAVE] 저장 버튼 클릭 - 초안:', draftHistory.text.slice(0, 30), '/ 결과내용:', content.slice(0, 30))
     if (stripHtml(draftHistory.text).trim()) {
       if (tab === 'dawn') await updateDawn(item.id, { draft: draftHistory.text })
       else if (tab === 'sermon') await updateSermon(item.id, { draft: draftHistory.text })
-      console.log('[SAVE] 초안 저장 완료')
-    } else {
-      console.log('[SAVE] 초안이 비어서 저장 안함')
     }
-    // 결과 내용도 함께 저장 (편집 중이거나 내용이 있으면)
     if (content.trim()) {
       clearTimeout(resultEditTimer.current)
       if (tab === 'sermon') await saveSermonStep(item.id, currentStep, content)
       else if (tab === 'worship') await saveWorshipStep(item.id, 0, content)
       else await saveDawnStep(item.id, 0, content)
       setStepContents(prev => ({ ...prev, [tab === 'sermon' ? currentStep : 0]: content }))
-      console.log('[SAVE] 결과내용 저장 완료')
     }
     await onGenerated?.(item.id)
     onItemUpdate?.()

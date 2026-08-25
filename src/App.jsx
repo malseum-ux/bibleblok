@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AuthGate, { useGoogleToken, useUserEmail } from './components/AuthGate'
 import AdminPanel from './components/AdminPanel'
 import { supabase } from './supabase'
@@ -148,8 +148,6 @@ function AppInner() {
       await loadWorships()
       await loadDawns()
       await loadCells()
-      console.log('[SYNC] Phase1 완료 - driveToken 있음:', !!driveToken)
-
       // 2단계: 클라우드에서 최신 데이터 가져오기 (백그라운드)
       const candidates = []
       if (driveToken) {
