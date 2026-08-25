@@ -38,7 +38,7 @@ function useTextHistory(initialValue) {
   return { text, onChange, reset }
 }
 
-export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem }) {
+export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onExport }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [stepContents, setStepContents] = useState({})
   const [finalContents, setFinalContents] = useState({})
@@ -228,6 +228,11 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                   </div>
                   <span style={{ fontSize: 18, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap' }}>
                     {s.label.ko}
+                    {s.label.en !== s.label.ko && (
+                      <span style={{ fontSize: 13, fontWeight: 400, color: isActive ? 'var(--accent)' : 'var(--text-muted)', marginLeft: 6, opacity: 0.8 }}>
+                        {s.label.en}
+                      </span>
+                    )}
                   </span>
                   {hasDot && (
                     <span style={{ fontSize: 7, color: 'var(--accent)', lineHeight: 1, opacity: 0.7 }}>●</span>
@@ -253,6 +258,13 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
             style={{ ...btnBase, background: saved ? 'var(--accent)' : 'transparent', color: saved ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (saved ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
           >
             {saved ? '저장됨' : '저장'}
+          </button>
+          <button
+            onClick={onExport}
+            title="이 항목을 .json 파일로 내보내기 (에어드롭·공유용)"
+            style={{ ...btnBase, background: 'transparent', color: 'var(--text-muted)' }}
+          >
+            내보내기
           </button>
         </div>
       </div>

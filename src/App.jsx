@@ -1134,6 +1134,7 @@ function AppInner() {
                 onFontSizeChange={size => setFontSizes(prev => ({ ...prev, cell: size }))}
                 isMobile={isMobile}
                 onSaveItem={handleSave}
+                onExport={() => handleExportItem(selected.id)}
               />
             </div>
           )}
