@@ -72,6 +72,51 @@ db.version(6).stores({
   }
 })
 
+db.version(7).stores({
+  sermons: '++id, date, category, title, passage, emphasis, createdAt',
+  sermonSteps: '++id, [sermonId+stepIndex], sermonId',
+  worships: '++id, date, season, createdAt',
+  worshipSteps: '++id, [worshipId+stepIndex], worshipId',
+  dawns: '++id, date, createdAt',
+  dawnSteps: '++id, [dawnId+stepIndex], dawnId',
+  folders: '++id, tab, parentId',
+  customStepItems: '++id, tab, stepKey',
+  cells: '++id, passage, title, date, folderId, createdAt',
+  cellSteps: '++id, [cellId+stepIndex], cellId',
+})
+
+// Cells
+export async function createCell(data) {
+  return db.cells.add({ ...data, createdAt: Date.now() })
+}
+
+export async function getCells() {
+  return db.cells.orderBy('createdAt').reverse().toArray()
+}
+
+export async function updateCell(id, data) {
+  return db.cells.update(id, data)
+}
+
+export async function deleteCell(id) {
+  await db.cellSteps.where('cellId').equals(id).delete()
+  await db.cells.delete(id)
+}
+
+// Cell steps
+export async function getCellSteps(cellId) {
+  return db.cellSteps.where('cellId').equals(cellId).toArray()
+}
+
+export async function saveCellStep(cellId, stepIndex, content, finalContent) {
+  const existing = await db.cellSteps.where({ cellId, stepIndex }).first()
+  if (existing) {
+    await db.cellSteps.update(existing.id, { content, finalContent })
+  } else {
+    await db.cellSteps.add({ cellId, stepIndex, content, finalContent })
+  }
+}
+
 // Custom step items
 export async function getCustomStepItems(tab, stepKey) {
   const all = await db.customStepItems
@@ -262,7 +307,7 @@ export async function moveItemToFolder(tab, itemId, folderId) {
 
 // 내보내기 / 불러오기
 export async function exportAllData() {
-  const [sermons, sermonSteps, worships, worshipSteps, dawns, dawnSteps, folders, customStepItems] =
+  const [sermons, sermonSteps, worships, worshipSteps, dawns, dawnSteps, folders, customStepItems, cells, cellSteps] =
     await Promise.all([
       db.sermons.toArray(),
       db.sermonSteps.toArray(),
@@ -272,6 +317,8 @@ export async function exportAllData() {
       db.dawnSteps.toArray(),
       db.folders.toArray(),
       db.customStepItems.toArray(),
+      db.cells.toArray(),
+      db.cellSteps.toArray(),
     ])
 
   const keywords = {}
@@ -283,7 +330,7 @@ export async function exportAllData() {
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
-    data: { sermons, sermonSteps, worships, worshipSteps, dawns, dawnSteps, folders, customStepItems, keywords },
+    data: { sermons, sermonSteps, worships, worshipSteps, dawns, dawnSteps, folders, customStepItems, cells, cellSteps, keywords },
   }
 }
 
@@ -291,7 +338,7 @@ export async function importAllData(json) {
   const { data } = json
   await db.transaction('rw',
     db.sermons, db.sermonSteps, db.worships, db.worshipSteps,
-    db.dawns, db.dawnSteps, db.folders, db.customStepItems,
+    db.dawns, db.dawnSteps, db.folders, db.customStepItems, db.cells, db.cellSteps,
     async () => {
       await db.sermons.clear()
       await db.sermonSteps.clear()
@@ -301,6 +348,8 @@ export async function importAllData(json) {
       await db.dawnSteps.clear()
       await db.folders.clear()
       await db.customStepItems.clear()
+      await db.cells.clear()
+      await db.cellSteps.clear()
       if (data.sermons?.length) await db.sermons.bulkPut(data.sermons)
       if (data.sermonSteps?.length) await db.sermonSteps.bulkPut(data.sermonSteps)
       if (data.worships?.length) await db.worships.bulkPut(data.worships)
@@ -309,6 +358,8 @@ export async function importAllData(json) {
       if (data.dawnSteps?.length) await db.dawnSteps.bulkPut(data.dawnSteps)
       if (data.folders?.length) await db.folders.bulkPut(data.folders)
       if (data.customStepItems?.length) await db.customStepItems.bulkPut(data.customStepItems)
+      if (data.cells?.length) await db.cells.bulkPut(data.cells)
+      if (data.cellSteps?.length) await db.cellSteps.bulkPut(data.cellSteps)
     }
   )
 
@@ -331,11 +382,11 @@ export async function mergeFromCloud(json) {
   const [
     localSermons, localWorships, localDawns,
     localSermonSteps, localWorshipSteps, localDawnSteps,
-    localFolders, localCustomStepItems,
+    localFolders, localCustomStepItems, localCells,
   ] = await Promise.all([
     db.sermons.toArray(), db.worships.toArray(), db.dawns.toArray(),
     db.sermonSteps.toArray(), db.worshipSteps.toArray(), db.dawnSteps.toArray(),
-    db.folders.toArray(), db.customStepItems.toArray(),
+    db.folders.toArray(), db.customStepItems.toArray(), db.cells.toArray(),
   ])
 
   const localSermonKeys = new Set(localSermons.map(s => s.createdAt))
@@ -378,6 +429,20 @@ export async function mergeFromCloud(json) {
     for (const st of steps) {
       const { id: stId, ...stRest } = st
       await db.dawnSteps.add({ ...stRest, dawnId: newId })
+    }
+  }
+
+  // 나눔교재
+  const localCellKeys = new Set(localCells.map(s => s.createdAt))
+  const newCells = (data.cells || []).filter(s => !localCellKeys.has(s.createdAt))
+  for (const s of newCells) {
+    const oldId = s.id
+    const { id, ...rest } = s
+    const newId = await db.cells.add(rest)
+    const steps = (data.cellSteps || []).filter(st => st.cellId === oldId)
+    for (const st of steps) {
+      const { id: stId, ...stRest } = st
+      await db.cellSteps.add({ ...stRest, cellId: newId })
     }
   }
 }

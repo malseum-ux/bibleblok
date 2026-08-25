@@ -46,6 +46,14 @@ export const DAWN_STEPS = [
   { index: 5, key: 'hymn', label: { ko: '찬송 선별', en: 'Hymn' } },
 ]
 
+export const CELL_STEPS = [
+  { index: 0, key: 'sharing', label: { ko: '나눔 교재', en: 'Sharing Material' } },
+  { index: 1, key: 'theological', label: { ko: '신학적 교재', en: 'Theological Material' } },
+  { index: 2, key: 'literary', label: { ko: '문학적 교재', en: 'Literary Material' } },
+  { index: 3, key: 'psychological', label: { ko: '심리학적 교재', en: 'Psychological Material' } },
+  { index: 4, key: 'communal', label: { ko: '공동체적 교재', en: 'Communal Material' } },
+]
+
 export const THEMES = [
   { code: 'system', label: { ko: '시스템', en: 'System' } },
   { code: 'light', label: { ko: '라이트', en: 'Light' } },

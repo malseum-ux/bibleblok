@@ -7,11 +7,12 @@ import { dropboxExchangeCode, dropboxSave, dropboxLoad } from './dropbox'
 import { onedriveExchangeCode, onedriveSave, onedriveLoad } from './onedrive'
 import { icloudSave, icloudLoad, icloudConfigured, icloudSetupAuth } from './icloud'
 import { exportAllData, importAllData, mergeFromCloud, db } from './db'
-import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from './constants'
+import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
   createWorship, getWorships, updateWorship, deleteWorship,
   createDawn, getDawns, updateDawn, deleteDawn,
+  createCell, getCells, updateCell, deleteCell,
   getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder, renameFolder,
   getSermonSteps, getWorshipSteps, getDawnSteps,
   saveSermonStep, saveWorshipStep, saveDawnStep,
@@ -22,6 +23,8 @@ import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHand
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
+import CellView from './components/CellView'
+import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
 
 function loadTokens(key) {
@@ -75,6 +78,7 @@ function AppInner() {
   const [sermons, setSermons] = useState([])
   const [worships, setWorships] = useState([])
   const [dawns, setDawns] = useState([])
+  const [cells, setCells] = useState([])
   const [folders, setFolders] = useState([])
   const [selected, setSelected] = useState(null)
   const [selectedFolder, setSelectedFolder] = useState(null)
@@ -86,7 +90,7 @@ function AppInner() {
   const [searchMode, setSearchMode] = useState('sermon-title')
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
-  const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14 })
+  const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14, cell: 14 })
   const [rootHandle, setRootHandle] = useState(null)
   const [fsFiles, setFsFiles] = useState([])
   const [sblViewer, setSblViewer] = useState(null)
@@ -143,6 +147,7 @@ function AppInner() {
       await loadSermons()
       await loadWorships()
       await loadDawns()
+      await loadCells()
       console.log('[SYNC] Phase1 완료 - driveToken 있음:', !!driveToken)
 
       // 2단계: 클라우드에서 최신 데이터 가져오기 (백그라운드)
@@ -383,6 +388,10 @@ function AppInner() {
     setDawns(await getDawns())
   }
 
+  async function loadCells() {
+    setCells(await getCells())
+  }
+
   async function loadFolders() {
     setFolders(await getFolders(tab))
   }
@@ -397,7 +406,7 @@ function AppInner() {
     await deleteFolder(id)
     await loadFolders()
     setSelectedFolder(null)
-    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : await loadDawns()
+    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : tab === 'dawn' ? await loadDawns() : await loadCells()
   }
 
   function isFolderDescendant(folderId, targetId) {
@@ -422,7 +431,7 @@ function AppInner() {
 
   async function handleMoveItem(itemId, folderId) {
     await moveItemToFolder(tab, itemId, folderId)
-    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : await loadDawns()
+    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : tab === 'dawn' ? await loadDawns() : await loadCells()
   }
 
   async function handlePickFolder() {
@@ -575,8 +584,8 @@ function AppInner() {
     setSelected(null)
   }
 
-  const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
-  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
+  const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : tab === 'dawn' ? dawns : cells
+  const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : tab === 'dawn' ? DAWN_STEPS : CELL_STEPS
   const selectedItem = items.find(i => i.id === selected?.id)
 
   async function handleCreateNew(formData) {
@@ -589,9 +598,13 @@ function AppInner() {
       const id = await createWorship(data)
       await loadWorships()
       setSelected({ id, step: null })
-    } else {
+    } else if (tab === 'dawn') {
       const id = await createDawn(data)
       await loadDawns()
+      setSelected({ id, step: null })
+    } else {
+      const id = await createCell(data)
+      await loadCells()
       setSelected({ id, step: null })
     }
   }
@@ -604,9 +617,12 @@ function AppInner() {
     } else if (tab === 'worship') {
       await deleteWorship(id)
       await loadWorships()
-    } else {
+    } else if (tab === 'dawn') {
       await deleteDawn(id)
       await loadDawns()
+    } else {
+      await deleteCell(id)
+      await loadCells()
     }
     if (selected?.id === id) setSelected(null)
     if (rootHandle) {
@@ -624,9 +640,12 @@ function AppInner() {
     } else if (tab === 'worship') {
       await updateWorship(selected.id, form)
       await loadWorships()
-    } else {
+    } else if (tab === 'dawn') {
       await updateDawn(selected.id, form)
       await loadDawns()
+    } else {
+      await updateCell(selected.id, form)
+      await loadCells()
     }
   }
 
@@ -753,7 +772,7 @@ function AppInner() {
         {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>SermonBlok</span>}
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
-          {[['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교']].map(([t, label]) => (
+          {[['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '나눔교재작성']].map(([t, label]) => (
             <button
               key={t}
               onClick={() => switchTab(t)}
@@ -1065,7 +1084,7 @@ function AppInner() {
             </div>
           )}
 
-          {!selected && (
+          {!selected && tab !== 'cell' && (
             <div style={{ flex: 1, overflow: 'auto' }}>
               <ItemDetail
                 key={`new-${tab}-${selectedFolder?.id ?? 'root'}`}
@@ -1078,7 +1097,14 @@ function AppInner() {
             </div>
           )}
 
-          {selected?.id && selectedItem && (
+          {!selected && tab === 'cell' && (
+            <div style={{ flex: 1, overflow: 'auto', padding: '32px 24px', maxWidth: 560 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-heading)', marginBottom: 20 }}>새 나눔 교재 만들기</div>
+              <CellForm cell={null} onSave={handleCreateNew} lang={lang} />
+            </div>
+          )}
+
+          {selected?.id && selectedItem && tab !== 'cell' && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <StepView
                 key={`${selected.id}-${cloudSyncKey}`}
@@ -1093,6 +1119,21 @@ function AppInner() {
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
                 onGenerated={(itemId) => saveItemToFs(itemId)}
                 onExport={() => handleExportItem(selected.id)}
+              />
+            </div>
+          )}
+
+          {selected?.id && selectedItem && tab === 'cell' && (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <CellView
+                key={`${selected.id}-${cloudSyncKey}`}
+                item={selectedItem}
+                lang={lang}
+                bible={settings.bible}
+                fontSize={fontSizes.cell}
+                onFontSizeChange={size => setFontSizes(prev => ({ ...prev, cell: size }))}
+                isMobile={isMobile}
+                onSaveItem={handleSave}
               />
             </div>
           )}
