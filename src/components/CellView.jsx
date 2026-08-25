@@ -137,6 +137,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const resultPanelRef = useRef(null)
   const draftPanelRef = useRef(null)
   const finalTimer = useRef(null)
+  const prevStepRef = useRef(0)
 
   const step = CELL_STEPS[currentStep] || CELL_STEPS[0]
   const currentItemsDefs = CELL_STEP_ITEMS[step?.key] || []
@@ -157,6 +158,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   }, [item?.id])
 
   useEffect(() => {
+    const stepChanged = prevStepRef.current !== currentStep
+    if (stepChanged) prevStepRef.current = currentStep
+
     const ai = stepContents[currentStep] || ''
     const fin = finalContents[currentStep] || ''
     setAiContent(ai)
@@ -164,9 +168,12 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     finalHistory.reset(fin)
     setSelectedItems(currentItemsDefs.map(i => i.key))
     setInstructionsOpen(false)
-    setEditing(false)
-    setDraftEditing(false)
     setError(null)
+
+    if (stepChanged) {
+      setEditing(false)
+      setDraftEditing(false)
+    }
   }, [currentStep, stepContents]) // eslint-disable-line
 
   useEffect(() => {
@@ -367,8 +374,11 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   function applyToFinal() {
     if (!aiContent) return
     const existing = finalHistory.text
-    const sep = existing.trim() ? '\n\n' : ''
-    const newText = existing + sep + stripHtml(aiContent)
+    const addHtml = aiContent.trimStart().startsWith('<')
+      ? aiContent
+      : aiContent.split('\n').map(l => l === '' ? '<p><br></p>' : `<p>${l}</p>`).join('')
+    const separator = existing.trim() ? '<p><br></p>' : ''
+    const newText = existing + separator + addHtml
     finalHistory.onChange(newText)
     setFinalContents(prev => ({ ...prev, [currentStep]: newText }))
     saveCellStep(item.id, currentStep, aiContent, newText)
