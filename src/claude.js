@@ -710,6 +710,48 @@ ${contextAfter.slice(0, 600)}
   return streamCompletion(prompt, onChunk)
 }
 
+export async function generateDraftFromSteps(stepsData, passage, title, date, lang, bible, userKeyword, onChunk) {
+  const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
+  const stepsText = stepsData.map(s => `## ${s.label}\n${s.content}`).join('\n\n')
+  const prompt = lang === 'en'
+    ? `You are a sermon writing expert. Based on the pastor's own research below, write a complete sermon draft.
+
+Passage: ${passage || ''}
+Title: ${title || '(untitled)'}
+Date: ${date || ''}
+Bible version: ${bibleRef}
+${userKeyword ? `Directive: ${userKeyword}` : ''}
+
+[Pastor's Research by Stage]
+${stepsText}
+
+[Principles]
+- Faithfully reflect the above research — do not fabricate content not present in the research.
+- Structure as introduction → body → conclusion, connected naturally without section headers.
+- Integrate the original language study, theological insights, illustrations, and applications into the sermon text.
+- Write in preaching style, easy for the congregation to follow.
+- Approximately 2–3 pages (A4) in length.`
+    : `당신은 설교 작성 전문가입니다. 아래 목사님의 단계별 연구 내용을 바탕으로 설교문 초안을 작성해 주세요.
+
+본문: ${passage || ''}
+제목: ${title || '(미정)'}
+날짜: ${date || ''}
+사용 성경: ${bibleRef}
+${userKeyword ? `추가 지시: ${userKeyword}` : ''}
+
+[단계별 연구 내용]
+${stepsText}
+
+[작성 원칙]
+- 위 연구 내용을 충실히 반영하되, 없는 내용을 임의로 만들어 넣지 말 것.
+- 서론-본론-결론 구조로 자연스럽게 연결하되, 단락 제목 없이 흐름으로 이어갈 것.
+- 원어 해설, 신학적 의미, 예화, 적용이 설교문 안에 자연스럽게 녹아들게 할 것.
+- 강단에서 낭독하기 적합한 설교체로 작성할 것.
+- 분량은 A4 2~3장 수준으로 작성할 것.`
+
+  return streamCompletion(prompt, onChunk)
+}
+
 export async function refineDraft(draft, lang, bible, onChunk) {
 
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
