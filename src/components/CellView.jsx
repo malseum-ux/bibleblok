@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { CELL_STEPS } from '../constants'
 import { CELL_STEP_ITEMS, generateCellMaterial, executeInlineCommand, stopCurrentGeneration } from '../claude'
 import { saveCellStep, getCellSteps, getSermonSteps } from '../db'
+import { addMemory, buildMemoryPrompt } from '../memory'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
 
@@ -273,6 +274,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
       if (step?.key) {
         if (cleaned) localStorage.setItem(`defaultKeyword_cell_${step.key}`, cleaned)
         else localStorage.removeItem(`defaultKeyword_cell_${step.key}`)
+        if (cleaned) addMemory('cell', step.key, cleaned)
       }
       effectiveKeyword = cleaned
       setUserKeyword(cleaned)
@@ -303,11 +305,13 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
       if (parts.length > 0) sermonContext = parts.join('\n\n---\n\n')
     }
 
+    const memory = step?.key ? buildMemoryPrompt('cell', step.key) : ''
+
     try {
       await generateCellMaterial(
         item.passage, bible, lang, step.key,
         (text) => { accumulated = prevContent + SEP + titleLine + text; setAiContent(accumulated) },
-        selectedItems, effectiveKeyword, sermonContext
+        selectedItems, effectiveKeyword, sermonContext, memory
       ).then(async () => {
         setAiContent(accumulated)
         resultHistory.reset(accumulated)

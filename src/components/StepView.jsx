@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, generateDraftFromSteps, executeInlineCommand, stopCurrentGeneration, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
+import { addMemory, buildMemoryPrompt } from '../memory'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
@@ -302,6 +303,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
       if (step?.key) {
         if (cleaned) localStorage.setItem(`defaultKeyword_${tab}_${step.key}`, cleaned)
         else localStorage.removeItem(`defaultKeyword_${tab}_${step.key}`)
+        if (cleaned) addMemory(tab, step.key, cleaned)
       }
       effectiveKeyword = cleaned
       setUserKeyword(cleaned)
@@ -310,6 +312,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     const prevContent = content
     const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
     const activeItems = hasItems ? selectedItems : null
+    const memory = step?.key ? buildMemoryPrompt(tab, step.key) : ''
     // 커스텀 항목 텍스트 빌드
     const buildCustomText = (ids, items) =>
       items.filter(i => ids.includes(i.id)).map(i => i.text).join('\n')
@@ -320,7 +323,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
         const customText = buildCustomText(selectedCustomKeys, customItems)
         await generateSermonStep(
           step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
-          (text) => setContent(prevContent + SEP + text), activeItems, effectiveKeyword, customText
+          (text) => setContent(prevContent + SEP + text), activeItems, effectiveKeyword, customText, memory
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           await saveSermonStep(item.id, currentStep, combined)
@@ -338,7 +341,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
         }
         await generateWorshipCombined(
           item.date, item.season, item.lectionary, lang, bible,
-          stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts
+          stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts, memory
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           await saveWorshipStep(item.id, 0, combined)
@@ -357,7 +360,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
         }
         await generateDawnCombined(
           item.passage, item.emphasis, lang, bible, seriesCtx,
-          stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts
+          stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts, memory
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           await saveDawnStep(item.id, 0, combined)

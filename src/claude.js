@@ -352,13 +352,14 @@ ${sections}`
   },
 }
 
-export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, selectedKeys = null, userKeyword = '', sermonContext = '') {
+export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, selectedKeys = null, userKeyword = '', sermonContext = '', memory = '') {
   const promptFn = CELL_MATERIAL_PROMPTS[stepKey]
   if (!promptFn) throw new Error('Unknown cell step key: ' + stepKey)
   let prompt = promptFn(passage, bible, selectedKeys)
   if (sermonContext) {
     prompt += `\n\n[설교 연구 참고 자료]\n아래는 같은 본문으로 작성된 설교 연구 내용입니다. 이 자료를 충분히 반영하여 교재를 작성해 주세요. 설교자의 본문 이해와 신학적 관점, 강조점을 교재 곳곳에 녹여주세요.\n\n${sermonContext}`
   }
+  if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
@@ -755,7 +756,7 @@ ${buildItems(DAWN_STEP_ITEMS.hymn, selectedKeys)}
 `,
 }
 
-export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '', customText = '') {
+export async function generateSermonStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '', customText = '', memory = '') {
 
   const prompt = SERMON_STEP_PROMPTS_WITH_EMPHASIS[stepKey]?.(passage, emphasis, lang, bible, selectedItems)
   let fullPrompt = seriesCtx
@@ -763,11 +764,12 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
     : prompt
   fullPrompt += `\n\n[문체 지침]\n모든 내용은 "~이다", "~한다" 형식의 평서체(이다체)로 작성하세요. "~입니다", "~합니다" 등의 존댓말은 사용하지 마세요.\n\n[중복 지양 지침]\n이 결과는 설교 준비의 여러 단계 중 하나입니다. 본문 소개나 배경 설명을 서론으로 반복하지 마세요. 이 단계 고유의 내용에 바로 집중하여 작성하세요.`
   if (customText) fullPrompt += `\n${customText}`
+  if (memory) fullPrompt += `\n\n${memory}`
   if (userKeyword) fullPrompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(fullPrompt, onChunk)
 }
 
-export async function generateWorshipCombined(date, season, lectionary, lang, bible, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
+export async function generateWorshipCombined(date, season, lectionary, lang, bible, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}, memory = '') {
 
   // 단계별로 선택된 지시항목을 사용해 동적으로 프롬프트 구성
   const sel = (key) => {
@@ -839,13 +841,14 @@ ${sel('sending')}
 `
   const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
   if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
+  if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
 const DAWN_STYLE_SYSTEM = '절대로 "사랑하는 여러분", "함께", "~해 봅시다", "~하십시오", "~하세요" 같은 구어체·청중 호칭 표현을 사용하지 마세요. 모든 내용은 문어체(해설체)로, 독자가 혼자 읽으며 이해할 수 있는 산문으로 서술하세요.'
 
-export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}) {
+export async function generateDawnCombined(passage, emphasis, lang, bible, seriesCtx, stepSelectedItems, onChunk, userKeyword = '', customStepTexts = {}, memory = '') {
 
   const sel = (key) => {
     const items = DAWN_STEP_ITEMS[key] || []
@@ -905,23 +908,26 @@ ${sel('hymn')}
 `
   const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
   if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
+  if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk, DAWN_STYLE_SYSTEM)
 }
 
-export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk, selectedItems = null, userKeyword = '') {
+export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk, selectedItems = null, userKeyword = '', memory = '') {
 
   let prompt = WORSHIP_STEP_PROMPTS[stepKey]?.(date, season, lectionary, lang, bible, selectedItems)
+  if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }
 
-export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '') {
+export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, seriesCtx, onChunk, selectedItems = null, userKeyword = '', memory = '') {
 
   const promptFn = DAWN_STEP_PROMPTS[stepKey]
   if (!promptFn) throw new Error('Unknown step key: ' + stepKey)
   const base = promptFn(passage, lang, bible, seriesCtx, selectedItems)
   let prompt = emphasis ? base + `\n\n강조하고 싶은 주제: ${emphasis}` : base
+  if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   const extra = ['exposition', 'core_message', 'meditation', 'application'].includes(stepKey) ? DAWN_STYLE_SYSTEM : ''
   return streamCompletion(prompt, onChunk, extra)

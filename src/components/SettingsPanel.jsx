@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
+import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
 import { exportAllData, importAllData, db } from '../db'
+import { getAllMemories, deleteMemory } from '../memory'
 import { supabase } from '../supabase'
 import { driveListRevisions } from '../googleDrive'
 import { dropboxLoginUrl, dropboxConfigured } from '../dropbox'
@@ -9,8 +10,8 @@ import { icloudSignIn, icloudSignOut, icloudConfigured } from '../icloud'
 
 const TRIAL_DAYS = 30
 
-const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS }
-const TAB_LABELS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교' }
+const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS, cell: CELL_STEPS }
+const TAB_LABELS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교', cell: '교재작성' }
 
 function getDefaultKeywords() {
   const result = []
@@ -32,6 +33,7 @@ function getDefaultKeywords() {
 export default function SettingsPanel({ settings, onChange, onClose, rootHandle, onPickFolder, driveToken, driveSyncing, driveLastSync, driveAuthError, onManualDriveLoad, onDriveRestoreRevision, dropboxTokens, onedriveTokens, icloudReady, onDropboxDisconnect, onOnedriveDisconnect, onIcloudDisconnect }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
+  const [memories, setMemories] = useState(getAllMemories)
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
   const [driveLoadStatus, setDriveLoadStatus] = useState(null)
@@ -651,6 +653,35 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                     <span style={{ fontSize: 12, color: 'var(--text)', wordBreak: 'break-all' }}>{item.value}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {memories.length > 0 && (
+            <div style={sectionStyle}>
+              <div style={labelStyle}>{lang === 'ko' ? '학습된 메모리' : 'Learned Memory'}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {memories.map(({ tab, stepKey, list }) => {
+                  const steps = ALL_STEPS[tab] || []
+                  const step = steps.find(s => s.key === stepKey)
+                  const stepLabel = step ? (step.label?.ko || step.label) : stepKey
+                  return list.map((m, idx) => (
+                    <div key={`${tab}_${stepKey}_${idx}`} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {TAB_LABELS[tab] || tab} · {stepLabel} · {m.date}
+                        </span>
+                        <button
+                          onClick={() => {
+                            deleteMemory(tab, stepKey, idx)
+                            setMemories(getAllMemories())
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}
+                        >×</button>
+                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--text)', wordBreak: 'break-all' }}>{m.text}</span>
+                    </div>
+                  ))
+                })}
               </div>
             </div>
           )}
