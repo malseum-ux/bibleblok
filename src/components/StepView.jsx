@@ -429,6 +429,25 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }
 
+  async function handleStepSlashCommand({ instruction, contextBefore, contextAfter }) {
+    if (!item) return
+    resultHistory.forceSnapshot()
+    setRefining(true)
+    const fallback = resultHistory.text
+    let generated = ''
+    try {
+      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+        generated = chunk
+        resultHistory.onChange(contextBefore + chunk + contextAfter)
+      })
+      resultHistory.onChange(contextBefore + generated + contextAfter)
+    } catch {
+      resultHistory.onChange(fallback)
+    } finally {
+      setRefining(false)
+    }
+  }
+
   async function handleDraftSlashCommand({ instruction, contextBefore, contextAfter }) {
     if (!item) return
     draftHistory.forceSnapshot()
@@ -978,6 +997,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               value={resultHistory.text}
               onChange={resultHistory.onChange}
               baseFontSize={fontSize}
+              onEnterCommand={handleStepSlashCommand}
             />
           ) : (
             <div
