@@ -1135,6 +1135,11 @@ function AppInner() {
                 isMobile={isMobile}
                 onSaveItem={handleSave}
                 onExport={() => handleExportItem(selected.id)}
+                sermons={[...sermons, ...dawns]}
+                onGoToSermon={(sermonId, isSermon) => {
+                  switchTab(isSermon ? 'sermon' : 'dawn')
+                  setSelected({ id: sermonId, step: 0 })
+                }}
               />
             </div>
           )}

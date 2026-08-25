@@ -111,7 +111,7 @@ function stripHtml(html) {
   return div.textContent || ''
 }
 
-export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onExport }) {
+export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onExport, sermons = [], onGoToSermon }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [stepContents, setStepContents] = useState({})
   const [finalContents, setFinalContents] = useState({})
@@ -435,6 +435,29 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
             )
           })}
         </div>
+
+        {/* 같은 본문 설교 뱃지 */}
+        {(() => {
+          if (!item?.passage) return null
+          const normalize = (s) => (s || '').replace(/\s/g, '').toLowerCase()
+          const cellPassage = normalize(item.passage)
+          const matched = sermons.find(s => normalize(s.passage) === cellPassage || normalize(s.passage).includes(cellPassage) || cellPassage.includes(normalize(s.passage)))
+          if (!matched) return null
+          const isSermon = !matched.date || sermons.some(s => s.id === matched.id && s.passage)
+          const label = matched.title || matched.passage
+          return (
+            <div
+              onClick={() => onGoToSermon?.(matched.id, !matched.category?.includes('새벽'))}
+              title="같은 본문의 설교가 있습니다. 클릭하면 이동합니다."
+              style={{ flexShrink: 0, padding: '0 12px', borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700 }}>설교</span>
+                <span style={{ fontSize: 11, color: 'var(--accent)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+              </div>
+            </div>
+          )
+        })()}
 
         <div style={{ flexShrink: 0, padding: '0 14px', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
           <button
