@@ -58,6 +58,11 @@ export const SERMON_STEP_ITEMS = {
     { key: 'social', label: '사회 적용', text: '- 사회 적용: 지금까지의 해설을 바탕으로 사회와 세상을 향해 이 본문이 요구하는 실천을 구체적으로 제시' },
     { key: 'practical', label: '구체적 실천', text: '- 구체적 실천: 지금까지의 해설에서 도출한 이번 주 바로 실천할 수 있는 구체적 행동 3~5가지 제시' },
   ],
+  deep_questions: [
+    { key: 'inductive', label: '귀납법적 질문', text: '- 귀납법적 질문과 해설: 본문의 구체적 사실과 관찰에서 출발해 교훈을 도출하는 질문 3~5개와 각 질문에 대한 해설' },
+    { key: 'deductive', label: '연역법적 질문', text: '- 연역법적 질문과 해설: 교훈의 핵심 명제에서 출발해 구체적 삶의 상황에 적용하는 질문 3~5개와 각 질문에 대한 해설' },
+    { key: 'dialectical', label: '변증법적 질문', text: '- 변증법적 질문과 해설(정반합): 교훈에 대한 긍정 명제(정)와 그에 맞서는 반론(반), 그 긴장을 통합하는 새로운 이해(합)로 구성된 질문 3~5개와 각 질문에 대한 해설' },
+  ],
 }
 
 export const WORSHIP_STEP_ITEMS = {
@@ -242,6 +247,16 @@ A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세�
 
 ${buildItems(SERMON_STEP_ITEMS.application, selectedKeys)}
 `,
+  deep_questions: (passage, lang, bible, selectedKeys = null) => `
+당신은 설교학 및 성경 교육 전문가입니다. 다음 본문의 교훈을 회중이 스스로 발견하고 깊이 내면화할 수 있도록 세 가지 논리적 방식의 질문과 해설을 작성해 주세요.
+A4 용지 3~4매 분량(약 2,500~4,000자)으로 상세하게 작성해 주세요.
+
+본문: ${passage}
+응답 언어: ${lang === 'ko' ? '한국어' : 'English'}
+기본 번역본: ${bible || '개역개정성경'}
+
+${buildItems(SERMON_STEP_ITEMS.deep_questions, selectedKeys)}
+`,
 }
 
 const SERMON_STEP_PROMPTS_WITH_EMPHASIS = {
@@ -271,6 +286,9 @@ const SERMON_STEP_PROMPTS_WITH_EMPHASIS = {
     (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
   application: (passage, emphasis, lang, bible, selectedKeys) =>
     SERMON_STEP_PROMPTS.application(passage, lang, bible, selectedKeys) +
+    (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
+  deep_questions: (passage, emphasis, lang, bible, selectedKeys) =>
+    SERMON_STEP_PROMPTS.deep_questions(passage, lang, bible, selectedKeys) +
     (emphasis ? `\n\n설교자가 강조하고 싶은 주제: ${emphasis}` : ''),
 }
 

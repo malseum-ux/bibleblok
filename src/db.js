@@ -53,6 +53,25 @@ db.version(5).stores({
   customStepItems: '++id, tab, stepKey',
 })
 
+// 심층질문(index 6) 삽입으로 인해 기존 적용(6)·예화(7)·찬송(8)을 7·8·9로 이동
+db.version(6).stores({
+  sermons: '++id, date, category, title, passage, emphasis, createdAt',
+  sermonSteps: '++id, [sermonId+stepIndex], sermonId',
+  worships: '++id, date, season, createdAt',
+  worshipSteps: '++id, [worshipId+stepIndex], worshipId',
+  dawns: '++id, date, createdAt',
+  dawnSteps: '++id, [dawnId+stepIndex], dawnId',
+  folders: '++id, tab, parentId',
+  customStepItems: '++id, tab, stepKey',
+}).upgrade(async tx => {
+  const steps = await tx.table('sermonSteps').toArray()
+  for (const s of steps) {
+    if (s.stepIndex >= 6) {
+      await tx.table('sermonSteps').update(s.id, { stepIndex: s.stepIndex + 1 })
+    }
+  }
+})
+
 // Custom step items
 export async function getCustomStepItems(tab, stepKey) {
   const all = await db.customStepItems
