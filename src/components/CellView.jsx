@@ -5,6 +5,14 @@ import { saveCellStep, getCellSteps } from '../db'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
 
+const CELL_SUBTITLES = {
+  sharing: '삶으로 나누는 말씀',
+  theological: '뿌리에서 열매까지',
+  literary: '이야기 속으로',
+  psychological: '말씀 앞에 나를 내려놓기',
+  communal: '함께 세상으로',
+}
+
 function useTextHistory(initialValue, resetKey) {
   const [text, setText] = useState(initialValue)
   const [canUndo, setCanUndo] = useState(false)
@@ -265,12 +273,16 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
     const prevContent = aiContent
     const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
-    let accumulated = prevContent + SEP
+    const subtitle = CELL_SUBTITLES[step.key] || ''
+    const titleLine = `# ${step.label.ko} — ${subtitle}\n\n`
+    let accumulated = prevContent + SEP + titleLine
+
+    setAiContent(accumulated)
 
     try {
       await generateCellMaterial(
         item.passage, bible, lang, step.key,
-        (text) => { accumulated = prevContent + SEP + text; setAiContent(accumulated) },
+        (text) => { accumulated = prevContent + SEP + titleLine + text; setAiContent(accumulated) },
         selectedItems, effectiveKeyword
       ).then(async () => {
         setAiContent(accumulated)
