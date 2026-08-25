@@ -108,7 +108,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -722,6 +722,31 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
             )
           })}
         </div>
+
+        {/* 같은 본문 교재 뱃지 */}
+        {(() => {
+          if (!item?.passage) return null
+          const normalize = (s) => (s || '').replace(/\s/g, '').toLowerCase()
+          const sermonPassage = normalize(item.passage)
+          const matched = cells.find(c => {
+            const cp = normalize(c.passage)
+            return cp === sermonPassage || cp.includes(sermonPassage) || sermonPassage.includes(cp)
+          })
+          if (!matched) return null
+          const label = matched.title || matched.passage
+          return (
+            <div
+              onClick={() => onGoToCell?.(matched.id)}
+              title="같은 본문의 나눔 교재가 있습니다. 클릭하면 이동합니다."
+              style={{ flexShrink: 0, padding: '0 12px', borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700 }}>교재</span>
+                <span style={{ fontSize: 11, color: 'var(--accent)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* 기본정보 + 저장 버튼 - 우측 고정 */}
         <div style={{ flexShrink: 0, padding: '0 14px', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>

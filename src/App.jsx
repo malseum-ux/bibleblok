@@ -1119,6 +1119,8 @@ function AppInner() {
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
                 onGenerated={(itemId) => saveItemToFs(itemId)}
                 onExport={() => handleExportItem(selected.id)}
+                cells={cells}
+                onGoToCell={(cellId) => { switchTab('cell'); setSelected({ id: cellId, step: 0 }) }}
               />
             </div>
           )}
