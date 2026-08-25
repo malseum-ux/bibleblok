@@ -972,46 +972,30 @@ function AppInner() {
           />
         )}
 
-        {/* 데스크탑 사이드바 드래그 핸들 */}
-        {!isMobile && (
+        {/* 데스크탑 사이드바 너비 조절 핸들 */}
+        {!isMobile && sidebarVisible && (
           <div
             onPointerDown={(e) => {
               if (e.button !== 0) return
               const startX = e.clientX
               const startW = sidebarWidth
-              let moved = false
               const onMove = (me) => {
-                if (Math.abs(me.clientX - startX) > 4) moved = true
-                if (!moved) return
                 const newW = Math.min(Math.max(startW + (me.clientX - startX), 140), 520)
                 setSidebarWidth(newW)
-                if (!sidebarVisible) setSidebarVisible(true)
-              }
-              const onUp = () => {
-                document.removeEventListener('pointermove', onMove)
-                if (!moved) setSidebarVisible(v => !v)
               }
               document.addEventListener('pointermove', onMove)
-              document.addEventListener('pointerup', onUp, { once: true })
+              document.addEventListener('pointerup', () => document.removeEventListener('pointermove', onMove), { once: true })
             }}
-            title={sidebarVisible ? '사이드바 감추기 (드래그로 너비 조절)' : '사이드바 보이기'}
             style={{
-              width: 12,
+              width: 5,
               flexShrink: 0,
-              background: 'var(--bg-sidebar)',
-              borderRight: '1px solid var(--border)',
-              borderLeft: sidebarVisible ? 'none' : '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              paddingTop: '28vh',
-              cursor: sidebarVisible ? 'col-resize' : 'pointer',
-              userSelect: 'none',
+              background: 'var(--border)',
+              cursor: 'col-resize',
+              transition: 'background 0.15s',
             }}
-          >
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', userSelect: 'none', lineHeight: 1 }}>
-              {sidebarVisible ? '◀' : '▶'}
-            </span>
-          </div>
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--border)'}
+          />
         )}
 
         {/* 모바일 사이드바 오버레이 */}

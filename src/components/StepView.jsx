@@ -138,6 +138,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const [dragOverId, setDragOverId] = useState(null)
   const [infoOpen, setInfoOpen] = useState(false)
   const [leftPct, setLeftPct] = useState(50)
+  const [stepPanelVisible, setStepPanelVisible] = useState(true)
   const [mobilePanel, setMobilePanel] = useState('result')
   const draftTimer = useRef(null)
   const resultEditTimer = useRef(null)
@@ -815,9 +816,9 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
 
         {/* 좌: AI 생성 내용 */}
         <div ref={resultPanelRef} style={{
-          width: tab === 'sermon' && !isMobile ? `${leftPct}%` : '100%',
+          width: tab === 'sermon' && !isMobile ? (stepPanelVisible ? `${leftPct}%` : '0%') : '100%',
           flexShrink: 0,
-          display: isMobile && tab === 'sermon' && mobilePanel === 'draft' ? 'none' : 'flex',
+          display: (isMobile && tab === 'sermon' && mobilePanel === 'draft') || (tab === 'sermon' && !isMobile && !stepPanelVisible) ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}>
@@ -1092,17 +1093,38 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
         {/* 드래그 핸들 (설교 탭, 데스크탑만) */}
         {tab === 'sermon' && !isMobile && (
           <div
-            onPointerDown={startSplitDrag}
             style={{
-              width: 5,
+              width: 16,
               flexShrink: 0,
-              background: 'var(--border)',
-              cursor: 'col-resize',
-              transition: 'background 0.15s',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--bg-sidebar)',
+              borderLeft: '1px solid var(--border)',
+              borderRight: '1px solid var(--border)',
+              position: 'relative',
+              cursor: stepPanelVisible ? 'col-resize' : 'default',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'var(--border)'}
-          />
+            onPointerDown={e => stepPanelVisible && startSplitDrag(e)}
+          >
+            <button
+              onClick={() => setStepPanelVisible(v => !v)}
+              title={stepPanelVisible ? '단계 패널 감추기' : '단계 패널 보이기'}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: 10,
+                padding: '4px 2px',
+                lineHeight: 1,
+                userSelect: 'none',
+              }}
+            >
+              {stepPanelVisible ? '◀' : '▶'}
+            </button>
+          </div>
         )}
 
         {/* 우: 설교문 초안 (설교 탭만) */}
