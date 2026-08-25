@@ -109,7 +109,7 @@ export async function getCellSteps(cellId) {
 }
 
 export async function saveCellStep(cellId, stepIndex, content, finalContent) {
-  const existing = await db.cellSteps.where({ cellId, stepIndex }).first()
+  const existing = await db.cellSteps.where('[cellId+stepIndex]').equals([cellId, stepIndex]).first()
   if (existing) {
     await db.cellSteps.update(existing.id, { content, finalContent })
   } else {
