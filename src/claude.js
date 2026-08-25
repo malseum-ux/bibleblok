@@ -352,10 +352,13 @@ ${sections}`
   },
 }
 
-export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, selectedKeys = null, userKeyword = '') {
+export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, selectedKeys = null, userKeyword = '', sermonContext = '') {
   const promptFn = CELL_MATERIAL_PROMPTS[stepKey]
   if (!promptFn) throw new Error('Unknown cell step key: ' + stepKey)
   let prompt = promptFn(passage, bible, selectedKeys)
+  if (sermonContext) {
+    prompt += `\n\n[설교 연구 참고 자료]\n아래는 같은 본문으로 작성된 설교 연구 내용입니다. 이 자료를 충분히 반영하여 교재를 작성해 주세요. 설교자의 본문 이해와 신학적 관점, 강조점을 교재 곳곳에 녹여주세요.\n\n${sermonContext}`
+  }
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
 }

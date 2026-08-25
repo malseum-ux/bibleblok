@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { CELL_STEPS } from '../constants'
 import { CELL_STEP_ITEMS, generateCellMaterial, executeInlineCommand, stopCurrentGeneration } from '../claude'
-import { saveCellStep, getCellSteps } from '../db'
+import { saveCellStep, getCellSteps, getSermonSteps } from '../db'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
 
@@ -279,11 +279,28 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
     setAiContent(accumulated)
 
+    const normalize = (s) => (s || '').replace(/\s/g, '').toLowerCase()
+    const cellPassage = normalize(item.passage)
+    const matchedSermon = sermons.find(s => {
+      const sp = normalize(s.passage)
+      return sp === cellPassage || sp.includes(cellPassage) || cellPassage.includes(sp)
+    })
+    let sermonContext = ''
+    if (matchedSermon) {
+      const steps = await getSermonSteps(matchedSermon.id)
+      const parts = steps
+        .filter(s => s.content)
+        .sort((a, b) => a.stepIndex - b.stepIndex)
+        .map(s => s.content.replace(/<[^>]+>/g, '').trim())
+        .filter(Boolean)
+      if (parts.length > 0) sermonContext = parts.join('\n\n---\n\n')
+    }
+
     try {
       await generateCellMaterial(
         item.passage, bible, lang, step.key,
         (text) => { accumulated = prevContent + SEP + titleLine + text; setAiContent(accumulated) },
-        selectedItems, effectiveKeyword
+        selectedItems, effectiveKeyword, sermonContext
       ).then(async () => {
         setAiContent(accumulated)
         resultHistory.reset(accumulated)
