@@ -700,8 +700,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                     {s.index + 1}
                   </div>
                   <span style={{ fontSize: 18, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap' }}>
-                    {s.label.ko}
-                    {s.label.en !== s.label.ko && (
+                    {lang === 'en' ? s.label.en : s.label.ko}
+                    {lang !== 'en' && s.label.en !== s.label.ko && (
                       <span style={{ fontSize: 13, fontWeight: 400, color: isActive ? 'var(--accent)' : 'var(--text-muted)', marginLeft: 6, opacity: 0.8 }}>
                         {s.label.en}
                       </span>
@@ -733,11 +733,11 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           return (
             <div
               onClick={() => onGoToCell?.(matched.id)}
-              title="같은 본문의 나눔 교재가 있습니다. 클릭하면 이동합니다."
+              title={lang === 'en' ? 'A cell material with the same passage exists. Click to go.' : '같은 본문의 나눔 교재가 있습니다. 클릭하면 이동합니다.'}
               style={{ flexShrink: 0, padding: '0 12px', borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700 }}>교재</span>
+                <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700 }}>{lang === 'en' ? 'Cell' : '교재'}</span>
                 <span style={{ fontSize: 11, color: 'var(--accent)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
               </div>
             </div>
@@ -760,7 +760,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               whiteSpace: 'nowrap',
             }}
           >
-            기본정보 {infoOpen ? '▲' : '▼'}
+            {lang === 'en' ? `Info ${infoOpen ? '▲' : '▼'}` : `기본정보 ${infoOpen ? '▲' : '▼'}`}
           </button>
           <button
             onClick={handleManualSave}
@@ -777,11 +777,11 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               transition: 'all 0.2s',
             }}
           >
-            {manualSaved ? '저장됨' : '저장'}
+            {manualSaved ? (lang === 'en' ? 'Saved' : '저장됨') : (lang === 'en' ? 'Save' : '저장')}
           </button>
           <button
             onClick={onExport}
-            title="이 항목을 .json 파일로 내보내기 (에어드롭·공유용)"
+            title={lang === 'en' ? 'Export this item as .json (for AirDrop / sharing)' : '이 항목을 .json 파일로 내보내기 (에어드롭·공유용)'}
             style={{
               background: 'transparent',
               color: 'var(--text-muted)',
@@ -794,7 +794,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               whiteSpace: 'nowrap',
             }}
           >
-            내보내기
+            {lang === 'en' ? 'Export' : '내보내기'}
           </button>
         </div>
       </div>
@@ -813,7 +813,10 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
       {/* 모바일 설교탭: 결과/초안 전환 탭 */}
       {isMobile && tab === 'sermon' && (
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-sidebar)' }}>
-          {[['result', 'AI 결과'], ['draft', '설교 초안']].map(([key, label]) => (
+          {(lang === 'en'
+            ? [['result', 'AI Result'], ['draft', 'Sermon Draft']]
+            : [['result', 'AI 결과'], ['draft', '설교 초안']]
+          ).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setMobilePanel(key)}
@@ -1000,14 +1003,14 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                           value={newCustomLabel}
                           onChange={e => setNewCustomLabel(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') handleAddCustomItem(); if (e.key === 'Escape') { setEditingCustom(false); setNewCustomLabel('') } }}
-                          placeholder="새 항목"
+                          placeholder={lang === 'en' ? 'New item' : '새 항목'}
                           style={{ width: 90, fontSize: 13, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
                         />
                       )}
 
                       {!editingCustom
-                        ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>편집</button>
-                        : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>완료</button>
+                        ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>{lang === 'en' ? 'Edit' : '편집'}</button>
+                        : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>{lang === 'en' ? 'Done' : '완료'}</button>
                       }
                     </div>
 
@@ -1015,7 +1018,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                       type="text"
                       value={userKeyword}
                       onChange={e => setUserKeyword(e.target.value)}
-                      placeholder="추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)"
+                      placeholder={lang === 'en' ? 'Additional keywords or instructions (e.g. youth audience, Easter theme)' : '추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)'}
                       style={{
                         width: '100%',
                         fontSize: 13,
@@ -1131,7 +1134,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           >
             <button
               onClick={() => setStepPanelVisible(v => !v)}
-              title={stepPanelVisible ? '단계 패널 감추기' : '단계 패널 보이기'}
+              title={lang === 'en' ? (stepPanelVisible ? 'Hide step panel' : 'Show step panel') : (stepPanelVisible ? '단계 패널 감추기' : '단계 패널 보이기')}
               style={{
                 background: 'transparent',
                 border: 'none',

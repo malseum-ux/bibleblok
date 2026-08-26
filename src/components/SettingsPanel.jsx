@@ -315,12 +315,12 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
             <div style={labelStyle}>{lang === 'ko' ? '클라우드 동기화' : 'Cloud Sync'}</div>
             {driveSyncing && (
               <div style={{ fontSize: 11, color: 'var(--accent)', marginBottom: 8 }}>
-                동기화 중...{driveLastSync ? ` (마지막: ${new Date(driveLastSync).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                {lang === 'en' ? 'Syncing...' : '동기화 중...'}{driveLastSync ? ` (${lang === 'en' ? 'last: ' : '마지막: '}${new Date(driveLastSync).toLocaleTimeString(lang === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
               </div>
             )}
             {driveAuthError && (
               <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8, lineHeight: 1.6 }}>
-                Google Drive 연결이 만료되었습니다. 아래 재연결 버튼을 눌러 주세요.
+                {lang === 'en' ? 'Google Drive connection expired. Click Reconnect below.' : 'Google Drive 연결이 만료되었습니다. 아래 재연결 버튼을 눌러 주세요.'}
               </div>
             )}
             <div style={{ marginBottom: 10 }}>
@@ -335,8 +335,8 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   lineHeight: 1.6,
                   color: '#92400e',
                 }}>
-                  Google Drive 연동이 필요합니다.<br />
-                  아래 버튼으로 Google 계정에 연결하세요.
+                  {lang === 'en' ? 'Google Drive connection required.' : 'Google Drive 연동이 필요합니다.'}<br />
+                  {lang === 'en' ? 'Connect your Google account below.' : '아래 버튼으로 Google 계정에 연결하세요.'}
                   <button
                     onClick={() => supabase.auth.signInWithOAuth({
                       provider: 'google',
@@ -359,7 +359,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                       fontWeight: 600,
                     }}
                   >
-                    Google Drive 연동하기
+                    {lang === 'en' ? 'Connect Google Drive' : 'Google Drive 연동하기'}
                   </button>
                 </div>
               )}
@@ -377,11 +377,13 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   marginBottom: 6, textDecoration: 'underline',
                 }}
               >
-                로컬 DB 확인
+                {lang === 'en' ? 'Check Local DB' : '로컬 DB 확인'}
               </button>
               {dbCounts && (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
-                  DB: 설교 {dbCounts.sermons}개 / 새벽 {dbCounts.dawns}개 / 단계내용 {dbCounts.steps}개
+                  {lang === 'en'
+                    ? `DB: ${dbCounts.sermons} sermons / ${dbCounts.dawns} dawn / ${dbCounts.steps} steps`
+                    : `DB: 설교 ${dbCounts.sermons}개 / 새벽 ${dbCounts.dawns}개 / 단계내용 ${dbCounts.steps}개`}
                 </div>
               )}
               <button
@@ -404,7 +406,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   opacity: driveLoadStatus === 'loading' || !driveToken ? 0.5 : 1,
                 }}
               >
-                {driveLoadStatus === 'loading' ? 'Drive 확인 중...' : 'Drive에서 지금 불러오기'}
+                {driveLoadStatus === 'loading' ? (lang === 'en' ? 'Checking Drive...' : 'Drive 확인 중...') : (lang === 'en' ? 'Load from Drive' : 'Drive에서 지금 불러오기')}
               </button>
               {driveLoadStatus && driveLoadStatus !== 'loading' && (
                 <div style={{
@@ -417,12 +419,14 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   border: `1px solid ${driveLoadStatus.success ? '#bbf7d0' : '#fecaca'}`,
                   color: driveLoadStatus.success ? '#16a34a' : '#dc2626',
                 }}>
-                  {driveLoadStatus.success && `불러오기 완료! 설교 ${driveLoadStatus.counts.sermons}개, 새벽설교 ${driveLoadStatus.counts.dawns}개, 단계내용 ${driveLoadStatus.counts.steps}개`}
-                  {driveLoadStatus.error === 'NO_TOKEN' && 'Google 토큰이 없습니다. 위 버튼으로 연동해 주세요.'}
-                  {driveLoadStatus.error === 'AUTH_ERROR' && 'Google 토큰이 만료되었습니다. 재연동이 필요합니다.'}
-                  {driveLoadStatus.error === 'NO_FILE' && 'Drive에 저장된 파일이 없습니다. 맥에서 먼저 저장해 주세요.'}
-                  {driveLoadStatus.error === 'EMPTY_FILE' && 'Drive 파일이 비어 있습니다. 맥 앱에서 데이터가 있는지 확인 후 저장해 주세요.'}
-                  {driveLoadStatus.error === 'IMPORT_FAILED' && `가져오기 실패: ${driveLoadStatus.message}`}
+                  {driveLoadStatus.success && (lang === 'en'
+                    ? `Loaded! ${driveLoadStatus.counts.sermons} sermons, ${driveLoadStatus.counts.dawns} dawn, ${driveLoadStatus.counts.steps} steps`
+                    : `불러오기 완료! 설교 ${driveLoadStatus.counts.sermons}개, 새벽설교 ${driveLoadStatus.counts.dawns}개, 단계내용 ${driveLoadStatus.counts.steps}개`)}
+                  {driveLoadStatus.error === 'NO_TOKEN' && (lang === 'en' ? 'No Google token. Connect via the button above.' : 'Google 토큰이 없습니다. 위 버튼으로 연동해 주세요.')}
+                  {driveLoadStatus.error === 'AUTH_ERROR' && (lang === 'en' ? 'Google token expired. Reconnect required.' : 'Google 토큰이 만료되었습니다. 재연동이 필요합니다.')}
+                  {driveLoadStatus.error === 'NO_FILE' && (lang === 'en' ? 'No file found in Drive. Save from Mac first.' : 'Drive에 저장된 파일이 없습니다. 맥에서 먼저 저장해 주세요.')}
+                  {driveLoadStatus.error === 'EMPTY_FILE' && (lang === 'en' ? 'Drive file is empty. Check Mac app data and save.' : 'Drive 파일이 비어 있습니다. 맥 앱에서 데이터가 있는지 확인 후 저장해 주세요.')}
+                  {driveLoadStatus.error === 'IMPORT_FAILED' && (lang === 'en' ? `Import failed: ${driveLoadStatus.message}` : `가져오기 실패: ${driveLoadStatus.message}`)}
                 </div>
               )}
             </div>
@@ -445,15 +449,15 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                     textDecoration: 'underline', opacity: revisionsLoading ? 0.6 : 1,
                   }}
                 >
-                  {revisionsLoading ? '버전 이력 불러오는 중...' : '버전 이력 보기'}
+                  {revisionsLoading ? (lang === 'en' ? 'Loading history...' : '버전 이력 불러오는 중...') : (lang === 'en' ? 'View version history' : '버전 이력 보기')}
                 </button>
                 {revisions === null && !revisionsLoading ? null : revisions?.error ? (
                   <div style={{ fontSize: 11, color: '#dc2626', marginTop: 4 }}>
-                    이력을 불러올 수 없습니다.
+                    {lang === 'en' ? 'Could not load history.' : '이력을 불러올 수 없습니다.'}
                   </div>
                 ) : revisions?.length === 0 ? (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                    저장된 버전이 없습니다.
+                    {lang === 'en' ? 'No saved versions.' : '저장된 버전이 없습니다.'}
                   </div>
                 ) : revisions && (
                   <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -465,10 +469,10 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                         color: restoreStatus.success ? '#16a34a' : '#dc2626',
                         marginBottom: 4,
                       }}>
-                        {restoreStatus.success && '복구 완료! 데이터가 해당 버전으로 교체되었습니다.'}
-                        {restoreStatus.error === 'LOAD_FAILED' && '버전 데이터를 불러오지 못했습니다.'}
-                        {restoreStatus.error === 'AUTH_ERROR' && '토큰이 만료되었습니다. 재연동 후 시도해 주세요.'}
-                        {restoreStatus.error === 'IMPORT_FAILED' && `가져오기 실패: ${restoreStatus.message}`}
+                        {restoreStatus.success && (lang === 'en' ? 'Restored! Data replaced with this version.' : '복구 완료! 데이터가 해당 버전으로 교체되었습니다.')}
+                        {restoreStatus.error === 'LOAD_FAILED' && (lang === 'en' ? 'Could not load version data.' : '버전 데이터를 불러오지 못했습니다.')}
+                        {restoreStatus.error === 'AUTH_ERROR' && (lang === 'en' ? 'Token expired. Reconnect and try again.' : '토큰이 만료되었습니다. 재연동 후 시도해 주세요.')}
+                        {restoreStatus.error === 'IMPORT_FAILED' && (lang === 'en' ? `Import failed: ${restoreStatus.message}` : `가져오기 실패: ${restoreStatus.message}`)}
                       </div>
                     )}
                     {[...revisions].reverse().map((rev, i) => {
@@ -489,7 +493,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                         }}>
                           <div style={{ fontSize: 11, color: 'var(--text)' }}>
                             {label}
-                            {i === 0 && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>최신</span>}
+                            {i === 0 && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>{lang === 'en' ? 'latest' : '최신'}</span>}
                             {kb && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>{kb}</span>}
                           </div>
                           <button
@@ -509,7 +513,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                               flexShrink: 0,
                             }}
                           >
-                            {i === 0 ? '최신으로 불러오기' : '이 버전으로 복구'}
+                            {i === 0 ? (lang === 'en' ? 'Load latest' : '최신으로 불러오기') : (lang === 'en' ? 'Restore this version' : '이 버전으로 복구')}
                           </button>
                         </div>
                       )
@@ -526,7 +530,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   label: 'Google Drive',
                   connected: !!driveToken && !driveAuthError,
                   configured: true,
-                  connectLabel: driveAuthError ? '재연결' : '연동',
+                  connectLabel: driveAuthError ? (lang === 'en' ? 'Reconnect' : '재연결') : (lang === 'en' ? 'Connect' : '연동'),
                   onConnect: () => supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
@@ -536,7 +540,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                     },
                   }),
                   onDisconnect: null,
-                  note: (!!driveToken && !driveAuthError) ? null : driveAuthError ? '재연결 필요' : 'Google 로그인 시 자동 연동',
+                  note: (!!driveToken && !driveAuthError) ? null : driveAuthError ? (lang === 'en' ? 'Reconnect required' : '재연결 필요') : (lang === 'en' ? 'Auto-linked on Google sign-in' : 'Google 로그인 시 자동 연동'),
                 },
                 {
                   id: 'dropbox',
@@ -545,7 +549,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   configured: dropboxConfigured(),
                   onConnect: async () => { window.location.href = await dropboxLoginUrl() },
                   onDisconnect: onDropboxDisconnect,
-                  note: dropboxConfigured() ? null : '앱 등록 필요',
+                  note: dropboxConfigured() ? null : (lang === 'en' ? 'App registration required' : '앱 등록 필요'),
                 },
                 {
                   id: 'onedrive',
@@ -554,7 +558,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   configured: onedriveConfigured(),
                   onConnect: async () => { window.location.href = await onedriveLoginUrl() },
                   onDisconnect: onOnedriveDisconnect,
-                  note: onedriveConfigured() ? null : '앱 등록 필요',
+                  note: onedriveConfigured() ? null : (lang === 'en' ? 'App registration required' : '앱 등록 필요'),
                 },
                 {
                   id: 'icloud',
@@ -563,7 +567,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   configured: icloudConfigured(),
                   onConnect: () => icloudSignIn(),
                   onDisconnect: async () => { await icloudSignOut(); onIcloudDisconnect?.() },
-                  note: icloudConfigured() ? null : 'Apple Developer 설정 필요',
+                  note: icloudConfigured() ? null : (lang === 'en' ? 'Apple Developer setup required' : 'Apple Developer 설정 필요'),
                 },
               ].map(({ id, label, connected, configured, onConnect, onDisconnect, note, connectLabel }) => (
                 <div key={id} style={{
@@ -589,7 +593,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                         onClick={onDisconnect}
                         style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer' }}
                       >
-                        해제
+                        {lang === 'en' ? 'Disconnect' : '해제'}
                       </button>
                     )
                   ) : (
@@ -668,8 +672,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
             <div style={labelStyle}>{lang === 'ko' ? '학습된 메모리' : 'Learned Memory'}</div>
             {memories.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                아직 저장된 메모리가 없습니다.<br />
-                키워드 입력창에 내용을 입력하고 "기억해줘"를 붙이면 자동으로 쌓입니다.
+                {lang === 'en' ? <>No memories saved yet.<br />Type a keyword and add "remember this" to accumulate.</> : <>아직 저장된 메모리가 없습니다.<br />키워드 입력창에 내용을 입력하고 "기억해줘"를 붙이면 자동으로 쌓입니다.</>}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

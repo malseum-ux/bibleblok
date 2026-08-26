@@ -19,7 +19,9 @@ export default function ItemDetail({ tab, item, onSave, lang, defaultCategory, o
       {/* 기본정보 토글 버튼 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isFormOpen ? 16 : 0 }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: 'var(--text-heading)' }}>
-          {tab === 'sermon' ? '설교 작성' : tab === 'worship' ? '예배인도문 작성' : '새벽 설교 작성'}
+          {lang === 'en'
+            ? (tab === 'sermon' ? 'Sermon' : tab === 'worship' ? 'Worship Order' : 'Dawn Prayer')
+            : (tab === 'sermon' ? '설교 작성' : tab === 'worship' ? '예배인도문 작성' : '새벽 설교 작성')}
         </h2>
         {!isNew && (
           <button
@@ -35,7 +37,7 @@ export default function ItemDetail({ tab, item, onSave, lang, defaultCategory, o
               cursor: 'pointer',
             }}
           >
-            기본정보 {isFormOpen ? '▲' : '▼'}
+            {lang === 'en' ? `Info ${isFormOpen ? '▲' : '▼'}` : `기본정보 ${isFormOpen ? '▲' : '▼'}`}
           </button>
         )}
       </div>
@@ -88,7 +90,7 @@ export default function ItemDetail({ tab, item, onSave, lang, defaultCategory, o
                 }}>
                   {step.index + 1}
                 </div>
-                <span style={{ fontSize: 13, color: 'var(--text)' }}>{step.label.ko}</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>{lang === 'en' ? step.label.en : step.label.ko}</span>
               </div>
             ))}
           </div>

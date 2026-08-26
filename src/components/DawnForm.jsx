@@ -54,7 +54,7 @@ export default function DawnForm({ dawn, onSave, lang, defaultCategory }) {
         </div>
         <div>
           <label style={labelStyle}>{lang === 'ko' ? '본문' : 'Passage'}</label>
-          <input type="text" style={inputStyle} placeholder="예: 창세기 1:1-5" value={form.passage} onChange={e => set('passage', e.target.value)} />
+          <input type="text" style={inputStyle} placeholder={lang === 'en' ? 'e.g. Gen 1:1-5' : '예: 창세기 1:1-5'} value={form.passage} onChange={e => set('passage', e.target.value)} />
         </div>
       </div>
       <div>

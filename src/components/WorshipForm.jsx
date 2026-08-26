@@ -268,7 +268,7 @@ export default function WorshipForm({ worship, onSave, lang }) {
               whiteSpace: 'nowrap',
             }}
           >
-            {loadingLectionary ? '조회 중...' : 'AI 조회'}
+            {loadingLectionary ? (lang === 'en' ? 'Loading...' : '조회 중...') : (lang === 'en' ? 'AI Fill' : 'AI 조회')}
           </button>
           <div style={{ width: 32 }} />
           <button
