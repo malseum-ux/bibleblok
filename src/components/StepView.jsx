@@ -1060,12 +1060,12 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               {content ? (
                 content.trimStart().startsWith('<') ? (
                   <div
-                    className="rich-view"
+                    className="plain-view"
                     onMouseUp={() => {
                       const sel = window.getSelection()?.toString().trim()
                       lastSelectionRef.current = sel || ''
                     }}
-                    dangerouslySetInnerHTML={{ __html: content }}
+                    dangerouslySetInnerHTML={{ __html: content.replace(/<p>(\s|<br\s*\/?>)*<\/p>/gi, '') }}
                     style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}
                   />
                 ) : (
