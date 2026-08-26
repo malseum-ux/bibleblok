@@ -656,9 +656,14 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
               </div>
             </div>
           )}
-          {memories.length > 0 && (
-            <div style={sectionStyle}>
-              <div style={labelStyle}>{lang === 'ko' ? '학습된 메모리' : 'Learned Memory'}</div>
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '학습된 메모리' : 'Learned Memory'}</div>
+            {memories.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                아직 저장된 메모리가 없습니다.<br />
+                키워드 입력창에 내용을 입력하고 "기억해줘"를 붙이면 자동으로 쌓입니다.
+              </div>
+            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {memories.map(({ tab, stepKey, list }) => {
                   const steps = ALL_STEPS[tab] || []
@@ -683,8 +688,8 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   ))
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </>
