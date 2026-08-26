@@ -702,9 +702,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                 aiContent.trimStart().startsWith('<') ? (
                   <div className="rich-view" dangerouslySetInnerHTML={{ __html: aiContent }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
                 ) : (
-                  <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
-                    {aiContent.split('\n').map((line, i, arr) => (
-                      <Fragment key={i}>{line}{i < arr.length - 1 && <br />}</Fragment>
+                  <div className="rich-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                    {aiContent.split('\n').map((line, i) => (
+                      <p key={i}>{line || <br />}</p>
                     ))}
                   </div>
                 )
@@ -790,9 +790,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                   finalHistory.text.trimStart().startsWith('<') ? (
                     <div className="rich-view" dangerouslySetInnerHTML={{ __html: finalHistory.text }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
                   ) : (
-                    <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
-                      {finalHistory.text.split('\n').map((line, i, arr) => (
-                        <Fragment key={i}>{line}{i < arr.length - 1 && <br />}</Fragment>
+                    <div className="rich-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                      {finalHistory.text.split('\n').map((line, i) => (
+                        <p key={i}>{line || <br />}</p>
                       ))}
                     </div>
                   )

@@ -1070,17 +1070,15 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   />
                 ) : (
                   <div
+                    className="rich-view"
                     onMouseUp={() => {
                       const sel = window.getSelection()?.toString().trim()
                       lastSelectionRef.current = sel || ''
                     }}
                     style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}
                   >
-                    {content.split('\n').map((line, i, arr) => (
-                      <Fragment key={i}>
-                        {line}
-                        {i < arr.length - 1 && <br />}
-                      </Fragment>
+                    {content.split('\n').map((line, i) => (
+                      <p key={i}>{line || <br />}</p>
                     ))}
                   </div>
                 )
