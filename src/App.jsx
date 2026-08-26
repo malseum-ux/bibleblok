@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import AuthGate, { useGoogleToken, useUserEmail } from './components/AuthGate'
+import AuthGate, { useGoogleToken, useUserEmail, useRefreshGoogleToken } from './components/AuthGate'
 import AdminPanel from './components/AdminPanel'
 import { supabase } from './supabase'
 import { driveSave, driveLoad, driveLoadRevision } from './googleDrive'
@@ -33,22 +33,9 @@ function loadTokens(key) {
 
 const ADMIN_EMAIL = 'malseum@gmail.com'
 
-async function refreshDriveToken() {
-  const { data } = await supabase.auth.refreshSession()
-  const token = data?.session?.provider_token
-  if (token) {
-    localStorage.setItem('gd_token', token)
-    localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
-    if (data.session.provider_refresh_token) {
-      localStorage.setItem('gd_refresh_token', data.session.provider_refresh_token)
-    }
-    return token
-  }
-  return null
-}
-
 function AppInner() {
   const driveToken = useGoogleToken()
+  const refreshDriveToken = useRefreshGoogleToken()
   const userEmail = useUserEmail()
   const isAdmin = userEmail === ADMIN_EMAIL
   const [adminOpen, setAdminOpen] = useState(false)

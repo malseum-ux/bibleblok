@@ -6,9 +6,10 @@ const TRIAL_DAYS = 30
 
 export const UserEmailContext = createContext(null)
 const SessionContext = createContext(null)
-export const GoogleTokenContext = createContext(null)
+export const GoogleTokenContext = createContext({ token: null, refresh: async () => null })
 export function useUserEmail() { return useContext(UserEmailContext) }
-export function useGoogleToken() { return useContext(GoogleTokenContext) }
+export function useGoogleToken() { return useContext(GoogleTokenContext).token }
+export function useRefreshGoogleToken() { return useContext(GoogleTokenContext).refresh }
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(undefined)
@@ -20,15 +21,38 @@ export default function AuthGate({ children }) {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    function applyToken(token, refreshToken) {
-      if (!token) return
-      setGoogleToken(token)
-      localStorage.setItem('gd_token', token)
-      localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
-      if (refreshToken) localStorage.setItem('gd_refresh_token', refreshToken)
-    }
+  function applyToken(token, refreshToken) {
+    if (!token) return
+    setGoogleToken(token)
+    localStorage.setItem('gd_token', token)
+    localStorage.setItem('gd_token_expiry', String(Date.now() + 55 * 60 * 1000))
+    if (refreshToken) localStorage.setItem('gd_refresh_token', refreshToken)
+  }
 
+  async function refreshToken() {
+    const { data } = await supabase.auth.refreshSession()
+    const token = data?.session?.provider_token
+    if (token) {
+      applyToken(token, data.session.provider_refresh_token)
+      return token
+    }
+    return null
+  }
+
+  // 토큰 만료 5분 전 자동 갱신 타이머
+  useEffect(() => {
+    if (!googleToken) return
+    const expiry = parseInt(localStorage.getItem('gd_token_expiry') || '0', 10)
+    const delay = expiry - Date.now() - 5 * 60 * 1000
+    if (delay <= 0) {
+      refreshToken()
+      return
+    }
+    const t = setTimeout(refreshToken, delay)
+    return () => clearTimeout(t)
+  }, [googleToken])
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       if (data.session?.provider_token) {
@@ -170,7 +194,7 @@ export default function AuthGate({ children }) {
     return (
       <SessionContext.Provider value={session}>
         <UserEmailContext.Provider value={session.user.email}>
-          <GoogleTokenContext.Provider value={googleToken}>
+          <GoogleTokenContext.Provider value={{ token: googleToken, refresh: refreshToken }}>
             {children}
           </GoogleTokenContext.Provider>
         </UserEmailContext.Provider>
