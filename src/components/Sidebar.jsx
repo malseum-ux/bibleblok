@@ -30,6 +30,7 @@ export default function Sidebar({
   fsFiles = [],
   onFsFileOpen,
   onImport,
+  lang = 'ko',
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -61,7 +62,9 @@ export default function Sidebar({
     setSortMode(m => m === 'date-desc' ? 'date-asc' : m === 'date-asc' ? 'name-asc' : 'date-desc')
   }
 
-  const sortLabel = sortMode === 'date-desc' ? '날짜↓' : sortMode === 'date-asc' ? '날짜↑' : '이름'
+  const sortLabel = lang === 'en'
+    ? (sortMode === 'date-desc' ? 'Date↓' : sortMode === 'date-asc' ? 'Date↑' : 'Name')
+    : (sortMode === 'date-desc' ? '날짜↓' : sortMode === 'date-asc' ? '날짜↑' : '이름')
 
   // 드래그 상태 — ref로 최신값 보장, state는 UI 렌더링용
   const dragRef = useRef({ active: false, timer: null, type: null, id: null, label: null, dropTarget: undefined })
@@ -71,7 +74,7 @@ export default function Sidebar({
   function getLabel(item) {
     const tabForLabel = searchItems !== null ? searchItemsTab : tab
     const date = fmtDate(item.date)
-    const name = tabForLabel === 'worship' ? '예배인도' : (item.title || item.passage || '제목 없음')
+    const name = tabForLabel === 'worship' ? (lang === 'en' ? 'Worship' : '예배인도') : (item.title || item.passage || (lang === 'en' ? 'Untitled' : '제목 없음'))
     return date ? `${date} ${name}` : name
   }
 
@@ -194,7 +197,9 @@ export default function Sidebar({
 
   const isSearching = searchItems !== null
 
-  const tabLabel = tab === 'sermon' ? '설교 목록' : tab === 'worship' ? '예배 목록' : '새벽 목록'
+  const tabLabel = lang === 'en'
+    ? (tab === 'sermon' ? 'Sermons' : tab === 'worship' ? 'Worship' : tab === 'cell' ? 'Cell Material' : 'Dawn Prayer')
+    : (tab === 'sermon' ? '설교 목록' : tab === 'worship' ? '예배 목록' : tab === 'cell' ? '교재 목록' : '새벽 목록')
   const selectedFolderName = selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : null
 
   const btnStyle = {
@@ -263,7 +268,7 @@ export default function Sidebar({
             </span>
           </span>
           <button
-            title="폴더 이동"
+            title={lang === 'en' ? 'Move to folder' : '폴더 이동'}
             onClick={e => { e.stopPropagation(); setMovingItemId(isMoving ? null : item.id) }}
             style={{ ...btnStyle, fontSize: 10 }}
           >
@@ -435,7 +440,7 @@ export default function Sidebar({
         </span>
         <button
           onClick={cycleSortMode}
-          title="정렬 방식 변경"
+          title={lang === 'en' ? 'Change sort order' : '정렬 방식 변경'}
           style={{ ...btnStyle, opacity: 0.7, fontSize: 10, padding: '0 4px', letterSpacing: '-0.03em' }}
         >
           {sortLabel}
@@ -444,10 +449,10 @@ export default function Sidebar({
           <>
             <label
               htmlFor="sidebar-file-import"
-              title="파일 가져오기 (.json)"
+              title={lang === 'en' ? 'Import file (.json)' : '파일 가져오기 (.json)'}
               style={{ ...btnStyle, opacity: 0.7, fontSize: 10, padding: '0 4px', letterSpacing: '-0.02em', cursor: 'pointer' }}
             >
-              가져오기
+              {lang === 'en' ? 'Import' : '가져오기'}
             </label>
             <input
               id="sidebar-file-import"
@@ -460,7 +465,7 @@ export default function Sidebar({
         )}
         <button
           onClick={() => setCreatingFolder(true)}
-          title={selectedFolderName ? `"${selectedFolderName}" 안에 하위폴더 생성` : '새 폴더'}
+          title={selectedFolderName ? (lang === 'en' ? `Create subfolder in "${selectedFolderName}"` : `"${selectedFolderName}" 안에 하위폴더 생성`) : (lang === 'en' ? 'New folder' : '새 폴더')}
           style={{ ...btnStyle, opacity: 0.7, fontSize: 15, padding: '0 3px' }}
         >
           +
@@ -471,7 +476,7 @@ export default function Sidebar({
         <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {selectedFolderName && (
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              "{selectedFolderName}" 하위폴더
+              {lang === 'en' ? `Subfolder of "${selectedFolderName}"` : `"${selectedFolderName}" 하위폴더`}
             </span>
           )}
           <div style={{ display: 'flex', gap: 4 }}>
@@ -480,7 +485,7 @@ export default function Sidebar({
               value={newFolderName}
               onChange={e => setNewFolderName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') setCreatingFolder(false) }}
-              placeholder="폴더 이름"
+              placeholder={lang === 'en' ? 'Folder name' : '폴더 이름'}
               style={{
                 flex: 1,
                 fontSize: 12,
@@ -525,13 +530,15 @@ export default function Sidebar({
               borderRadius: 4,
               padding: '4px 8px',
             }}>
-              {dropDisplay === null ? '여기에 드롭 → 루트로 이동' : '폴더 없음'}
+              {dropDisplay === null ? (lang === 'en' ? 'Drop here → Move to root' : '여기에 드롭 → 루트로 이동') : (lang === 'en' ? 'No folder' : '폴더 없음')}
             </div>
           )}
 
           {rootItems.length === 0 && folders.length === 0 && (
             <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', opacity: 0.6 }}>
-              {tab === 'sermon' ? '+ 버튼으로 설교를 추가하세요' : tab === 'worship' ? '+ 버튼으로 예배를 추가하세요' : '+ 버튼으로 새벽 기도를 추가하세요'}
+              {lang === 'en'
+                ? (tab === 'sermon' ? 'Use + to add a sermon' : tab === 'worship' ? 'Use + to add a worship service' : tab === 'cell' ? 'Use + to add cell material' : 'Use + to add a dawn prayer')
+                : (tab === 'sermon' ? '+ 버튼으로 설교를 추가하세요' : tab === 'worship' ? '+ 버튼으로 예배를 추가하세요' : tab === 'cell' ? '+ 버튼으로 교재를 추가하세요' : '+ 버튼으로 새벽 기도를 추가하세요')}
             </div>
           )}
 
@@ -549,7 +556,7 @@ export default function Sidebar({
               borderTop: '1px dashed var(--border)',
               margin: '4px 8px',
             }}>
-              {dropDisplay === null ? '루트로 이동' : '폴더로 드래그'}
+              {dropDisplay === null ? (lang === 'en' ? 'Move to root' : '루트로 이동') : (lang === 'en' ? 'Drag to folder' : '폴더로 드래그')}
             </div>
           )}
         </div>

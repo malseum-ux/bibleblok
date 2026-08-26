@@ -841,7 +841,9 @@ function AppInner() {
                 if (e.key === 'Enter' && searchMode === 'sermon-content') handleContentSearch(e.target.value)
                 if (e.key === 'Escape') closeSearch()
               }}
-              placeholder={searchMode === 'sermon-content' ? '설교내용 검색 후 Enter...' : searchMode === 'worship' ? '날짜 검색...' : '설교 제목 검색...'}
+              placeholder={lang === 'en'
+                ? (searchMode === 'sermon-content' ? 'Search content, press Enter...' : searchMode === 'worship' ? 'Search by date...' : 'Search sermon title...')
+                : (searchMode === 'sermon-content' ? '설교내용 검색 후 Enter...' : searchMode === 'worship' ? '날짜 검색...' : '설교 제목 검색...')}
               style={{
                 width: 220,
                 fontSize: 13,
@@ -992,6 +994,7 @@ function AppInner() {
             fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
             onFsFileOpen={handleFsFileOpen}
             onImport={!isFileSystemSupported() ? handleFileImport : null}
+            lang={lang}
           />
         )}
 
@@ -1103,7 +1106,7 @@ function AppInner() {
 
           {!selected && tab === 'cell' && (
             <div style={{ flex: 1, overflow: 'auto', padding: '32px 24px', maxWidth: 560 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-heading)', marginBottom: 20 }}>새 나눔 교재 만들기</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-heading)', marginBottom: 20 }}>{lang === 'en' ? 'Create New Cell Material' : '새 나눔 교재 만들기'}</div>
               <CellForm cell={null} onSave={handleCreateNew} lang={lang} />
             </div>
           )}

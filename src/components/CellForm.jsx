@@ -21,7 +21,7 @@ export default function CellForm({ cell, onSave, lang }) {
         <input
           value={passage}
           onChange={e => setPassage(e.target.value)}
-          placeholder="예: 요한복음 8:1-11"
+          placeholder={lang === 'en' ? 'e.g. John 8:1-11' : '예: 요한복음 8:1-11'}
           style={inputStyle}
           required
         />
@@ -31,7 +31,7 @@ export default function CellForm({ cell, onSave, lang }) {
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
-          placeholder="나눔 교재 제목"
+          placeholder={lang === 'en' ? 'Cell material title' : '나눔 교재 제목'}
           style={inputStyle}
         />
       </div>

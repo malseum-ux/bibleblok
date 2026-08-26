@@ -879,7 +879,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                           cursor: 'pointer',
                         }}
                       >
-                        지시 항목 {displaySelected.length + (tab === 'sermon' ? selectedCustomKeys : (stepSelectedCustomKeys[step?.key] ?? customItems.map(i => i.id))).length}/{currentItems.length + customItems.length}
+                        {lang === 'en' ? 'Instructions' : '지시 항목'} {displaySelected.length + (tab === 'sermon' ? selectedCustomKeys : (stepSelectedCustomKeys[step?.key] ?? customItems.map(i => i.id))).length}/{currentItems.length + customItems.length}
                       </button>
                     )}
                     <div style={{ flex: 1 }} />
@@ -901,7 +901,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                           cursor: 'pointer',
                           transition: 'all 0.2s',
                         }}
-                      >{resultCopied ? '복사됨' : '복사'}</button>
+                      >{resultCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}</button>
                     )}
                     {content && !loading && onFontSizeChange && (
                       <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
@@ -1212,7 +1212,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                         transition: 'all 0.2s',
                       }}
                     >
-                      {draftCopied ? '복사됨' : '복사'}
+                      {draftCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
                     </button>
                     <button
                       onClick={refineSermonDraft}
