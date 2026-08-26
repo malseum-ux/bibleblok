@@ -31,10 +31,19 @@ export const LANGUAGES = [
   { code: 'en', label: 'English' },
 ]
 
-export const BIBLE_VERSIONS = [
+export const BIBLE_VERSIONS_KO = [
   { code: '개역개정성경', label: '개역개정' },
   { code: '공동번역성경', label: '공동번역' },
   { code: '새한글성경', label: '새한글성경' },
+]
+
+export const BIBLE_VERSIONS_EN = [
+  { code: 'ESV', label: 'ESV' },
+  { code: 'NIV', label: 'NIV' },
+  { code: 'NKJV', label: 'NKJV' },
+  { code: 'NASB', label: 'NASB' },
+  { code: 'NLT', label: 'NLT' },
+  { code: 'KJV', label: 'KJV' },
 ]
 
 export const DAWN_STEPS = [

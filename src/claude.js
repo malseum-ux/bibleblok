@@ -1,6 +1,18 @@
 import { getHymnListText } from './hymns.js'
 import { checkUsage, incrementUsage } from './usage.js'
 
+const CITATION_POLICY_EN = `
+[Scripture Citation Policy]
+- Direct Bible quotations must not exceed 500 verses total per document
+- Always include the version abbreviation after each quote (e.g., ESV, NIV)
+- Do not reproduce entire chapters verbatim
+- Paraphrase or summarize where extended passages are needed`
+
+function withCitationPolicy(prompt, lang) {
+  if (lang !== 'en') return prompt
+  return prompt + CITATION_POLICY_EN
+}
+
 export const SERMON_STEP_ITEMS = {
   narrative: [
     { key: 'context', label: '전후 문맥', text: '- 본문의 전후 문맥' },
@@ -270,7 +282,7 @@ A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, customText = '', userKeyword = '', sermonContext = '', memory = '') {
   const promptFn = CELL_MATERIAL_PROMPTS[stepKey]
   if (!promptFn) throw new Error('Unknown cell step key: ' + stepKey)
-  let prompt = promptFn(passage, bible)
+  let prompt = withCitationPolicy(promptFn(passage, bible), lang)
   if (customText) prompt += `\n\n[구성 지시항목 — 아래 항목을 반드시 포함하여 작성하세요]\n${customText}`
   if (sermonContext) {
     prompt += `\n\n[설교 연구 참고 자료]\n아래는 같은 본문으로 작성된 설교 연구 내용입니다. 이 자료를 충분히 반영하여 교재를 작성해 주세요. 설교자의 본문 이해와 신학적 관점, 강조점을 교재 곳곳에 녹여주세요.\n\n${sermonContext}`
@@ -679,6 +691,7 @@ export async function generateSermonStep(stepKey, passage, emphasis, lang, bible
     ? prompt + `\n\n${seriesCtx}\n\n[강해설교 연속성 지침]\n- 위 이전 설교들의 본문 흐름과 신학적 주제를 반드시 파악하세요.\n- 이번 본문이 시리즈 전체에서 어떤 위치에 있는지 의식하며 작성하세요.\n- 이전 설교에서 다룬 내용을 반복하지 말고, 자연스럽게 그 위에 쌓아가세요.\n- 회중이 앞 설교의 흐름을 기억하며 이번 말씀을 들을 수 있도록 연결 고리를 살려 주세요.`
     : prompt
   fullPrompt += `\n\n[문체 지침]\n모든 내용은 "~이다", "~한다" 형식의 평서체(이다체)로 작성하세요. "~입니다", "~합니다" 등의 존댓말은 사용하지 마세요.\n\n[중복 지양 지침]\n이 결과는 설교 준비의 여러 단계 중 하나입니다. 본문 소개나 배경 설명을 서론으로 반복하지 마세요. 이 단계 고유의 내용에 바로 집중하여 작성하세요.`
+  fullPrompt = withCitationPolicy(fullPrompt, lang)
   if (customText) fullPrompt += `\n${customText}`
   if (memory) fullPrompt += `\n\n${memory}`
   if (userKeyword) fullPrompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
@@ -757,6 +770,7 @@ ${sel('sending')}
 `
   const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
   if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
+  prompt = withCitationPolicy(prompt, lang)
   if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
@@ -824,6 +838,7 @@ ${sel('hymn')}
 `
   const extraCustom = Object.values(customStepTexts).filter(Boolean).join('\n')
   if (extraCustom) prompt += `\n\n[추가 지시항목]\n${extraCustom}`
+  prompt = withCitationPolicy(prompt, lang)
   if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk, DAWN_STYLE_SYSTEM)
@@ -832,6 +847,7 @@ ${sel('hymn')}
 export async function generateWorshipStep(stepKey, date, season, lectionary, lang, bible, onChunk, selectedItems = null, userKeyword = '', memory = '') {
 
   let prompt = WORSHIP_STEP_PROMPTS[stepKey]?.(date, season, lectionary, lang, bible, selectedItems)
+  prompt = withCitationPolicy(prompt, lang)
   if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   return streamCompletion(prompt, onChunk)
@@ -843,6 +859,7 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   if (!promptFn) throw new Error('Unknown step key: ' + stepKey)
   const base = promptFn(passage, lang, bible, seriesCtx, selectedItems)
   let prompt = emphasis ? base + `\n\n강조하고 싶은 주제: ${emphasis}` : base
+  prompt = withCitationPolicy(prompt, lang)
   if (memory) prompt += `\n\n${memory}`
   if (userKeyword) prompt += `\n\n[필수 반영 — 아래 키워드/지시를 결과에 반드시 명확하게 담으세요]: ${userKeyword}`
   const extra = ['exposition', 'core_message', 'meditation', 'application'].includes(stepKey) ? DAWN_STYLE_SYSTEM : ''

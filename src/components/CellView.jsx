@@ -547,20 +547,20 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
             onClick={() => setInfoOpen(v => !v)}
             style={{ ...btnBase, background: infoOpen ? 'var(--accent)' : 'transparent', color: infoOpen ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (infoOpen ? 'var(--accent)' : 'var(--border)') }}
           >
-            기본정보 {infoOpen ? '▲' : '▼'}
+            {lang === 'en' ? `Info ${infoOpen ? '▲' : '▼'}` : `기본정보 ${infoOpen ? '▲' : '▼'}`}
           </button>
           <button
             onClick={handleSave}
             style={{ ...btnBase, background: saved ? 'var(--accent)' : 'transparent', color: saved ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (saved ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
           >
-            {saved ? '저장됨' : '저장'}
+            {saved ? (lang === 'en' ? 'Saved' : '저장됨') : (lang === 'en' ? 'Save' : '저장')}
           </button>
           <button
             onClick={onExport}
-            title="이 항목을 .json 파일로 내보내기 (에어드롭·공유용)"
+            title={lang === 'en' ? 'Export as .json file' : '이 항목을 .json 파일로 내보내기 (에어드롭·공유용)'}
             style={{ ...btnBase, background: 'transparent', color: 'var(--text-muted)' }}
           >
-            내보내기
+            {lang === 'en' ? 'Export' : '내보내기'}
           </button>
         </div>
       </div>
@@ -584,7 +584,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               onClick={() => setInstructionsOpen(v => !v)}
               style={{ ...btnBase, background: instructionsOpen ? 'var(--accent)' : 'transparent', color: instructionsOpen ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)') }}
             >
-              지시 항목 {selectedCustomKeys.length}/{customItems.length}
+              {lang === 'en' ? 'Instructions' : '지시 항목'} {selectedCustomKeys.length}/{customItems.length}
             </button>
             <div style={{ flex: 1 }} />
             {displayAi && !loading && (
@@ -592,7 +592,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                 onClick={() => { navigator.clipboard.writeText(stripHtml(displayAi)); setAiCopied(true); setTimeout(() => setAiCopied(false), 1500) }}
                 style={{ ...btnBase, background: aiCopied ? 'var(--accent)' : 'transparent', color: aiCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (aiCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
               >
-                {aiCopied ? '복사됨' : '복사'}
+                {aiCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
               </button>
             )}
             {displayAi && !loading && onFontSizeChange && (
@@ -605,7 +605,11 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               onClick={loading ? stopCurrentGeneration : generate}
               style={{ background: loading ? '#dc2626' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
             >
-              {loading ? '중지' : aiContent ? '다시 생성' : 'AI 생성'}
+              {loading
+                ? (lang === 'en' ? 'Stop' : '중지')
+                : aiContent
+                  ? (lang === 'en' ? 'Regenerate' : '다시 생성')
+                  : (lang === 'en' ? 'Generate' : 'AI 생성')}
             </button>
           </div>
 
@@ -654,20 +658,20 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                     value={newCustomLabel}
                     onChange={e => setNewCustomLabel(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleAddCustomItem(); if (e.key === 'Escape') { setEditingCustom(false); setNewCustomLabel('') } }}
-                    placeholder="새 항목"
+                    placeholder={lang === 'en' ? 'New item' : '새 항목'}
                     style={{ width: 90, fontSize: 13, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
                   />
                 )}
 
                 {!editingCustom
-                  ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>편집</button>
-                  : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>완료</button>
+                  ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>{lang === 'en' ? 'Edit' : '편집'}</button>
+                  : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>{lang === 'en' ? 'Done' : '완료'}</button>
                 }
               </div>
               <input
                 value={userKeyword}
                 onChange={e => setUserKeyword(e.target.value)}
-                placeholder="추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)"
+                placeholder={lang === 'en' ? 'Additional keywords or instructions (e.g. Youth group, Easter)' : '추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)'}
                 style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
@@ -707,8 +711,8 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               ) : !loading && (
                 <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, textAlign: 'center', marginTop: 60 }}>
                   {item?.passage
-                    ? `AI 생성 버튼을 눌러 ${step.label.ko}을 생성합니다.`
-                    : '기본정보에서 성경 본문을 먼저 입력하세요.'}
+                    ? (lang === 'en' ? `Click Generate to create ${step.label.en}.` : `AI 생성 버튼을 눌러 ${step.label.ko}을 생성합니다.`)
+                    : (lang === 'en' ? 'Enter a Bible passage in Info first.' : '기본정보에서 성경 본문을 먼저 입력하세요.')}
                 </div>
               )}
             </div>
@@ -721,7 +725,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                 onClick={applyToFinal}
                 style={{ width: '100%', padding: '8px 0', fontSize: 13, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: applied ? 'var(--accent)' : 'var(--accent-light)', color: applied ? '#fff' : 'var(--accent)', transition: 'all 0.2s' }}
               >
-                {applied ? '반영됨' : '교재작성 반영'}
+                {applied ? (lang === 'en' ? 'Applied' : '반영됨') : (lang === 'en' ? 'Apply to Material' : '교재작성 반영')}
               </button>
             </div>
           )}
@@ -743,14 +747,14 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
             {/* 우 헤더 */}
             <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, background: 'var(--bg-sidebar)' }}>
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-heading)' }}>{step.label.ko} 작성</span>
+              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-heading)' }}>{lang === 'en' ? step.label.en : step.label.ko}</span>
               <div style={{ flex: 1 }} />
               {hasFinalContent && (
                 <button
                   onClick={() => { navigator.clipboard.writeText(stripHtml(finalHistory.text)); setFinalCopied(true); setTimeout(() => setFinalCopied(false), 1500) }}
                   style={{ ...btnBase, background: finalCopied ? 'var(--accent)' : 'transparent', color: finalCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (finalCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
                 >
-                  {finalCopied ? '복사됨' : '복사'}
+                  {finalCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
                 </button>
               )}
               {hasFinalContent && onFontSizeChange && (
@@ -794,7 +798,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                   )
                 ) : (
                   <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
-                    클릭하여 {step.label.ko}을 작성하거나, 왼쪽에서 AI로 생성 후 "교재작성 반영" 버튼을 누르세요
+                    {lang === 'en'
+                      ? `Click to write ${step.label.en}, or generate with AI on the left and click "Apply to Material".`
+                      : `클릭하여 ${step.label.ko}을 작성하거나, 왼쪽에서 AI로 생성 후 "교재작성 반영" 버튼을 누르세요`}
                   </div>
                 )}
               </div>

@@ -770,7 +770,10 @@ function AppInner() {
         {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>SermonBlok</span>}
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
-          {[['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성']].map(([t, label]) => (
+          {(lang === 'en'
+            ? [['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material']]
+            : [['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성']]
+          ).map(([t, label]) => (
             <button
               key={t}
               onClick={() => switchTab(t)}
@@ -798,7 +801,7 @@ function AppInner() {
             whiteSpace: 'nowrap',
             flexShrink: 0,
           }}>
-            이번 달 {usageInfo.count}/{usageInfo.limit}회
+            {lang === 'en' ? `${usageInfo.count}/${usageInfo.limit} this month` : `이번 달 ${usageInfo.count}/${usageInfo.limit}회`}
           </div>
         )}
 
@@ -806,7 +809,10 @@ function AppInner() {
         {searchOpen && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-              {[['sermon-title', '설교제목'], ['sermon-content', '설교내용'], ['worship', '예배인도']].map(([mode, label], i) => (
+              {(lang === 'en'
+                ? [['sermon-title', 'Sermon Title'], ['sermon-content', 'Sermon Content'], ['worship', 'Worship']]
+                : [['sermon-title', '설교제목'], ['sermon-content', '설교내용'], ['worship', '예배인도']]
+              ).map(([mode, label], i) => (
                 <button
                   key={mode}
                   onClick={() => { setSearchMode(mode); setSearchResults(null); setSearchQuery('') }}

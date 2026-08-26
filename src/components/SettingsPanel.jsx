@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { LANGUAGES, BIBLE_VERSIONS, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
+import { LANGUAGES, BIBLE_VERSIONS_KO, BIBLE_VERSIONS_EN, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
 import { exportAllData, importAllData, db } from '../db'
 import { getAllMemories, deleteMemory } from '../memory'
 import { supabase } from '../supabase'
@@ -11,7 +11,10 @@ import { icloudSignIn, icloudSignOut, icloudConfigured } from '../icloud'
 const TRIAL_DAYS = 30
 
 const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS, cell: CELL_STEPS }
-const TAB_LABELS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교', cell: '교재작성' }
+const TAB_LABELS = {
+  ko: { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교', cell: '교재작성' },
+  en: { sermon: 'Sermon', worship: 'Worship', dawn: 'Dawn Prayer', cell: 'Cell Material' },
+}
 
 function getDefaultKeywords() {
   const result = []
@@ -91,7 +94,12 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
   }
 
   function set(key, value) {
-    onChange({ ...settings, [key]: value })
+    if (key === 'lang') {
+      const defaultBible = value === 'en' ? 'ESV' : '개역개정성경'
+      onChange({ ...settings, lang: value, bible: defaultBible })
+    } else {
+      onChange({ ...settings, [key]: value })
+    }
   }
 
   const sectionStyle = {
@@ -271,7 +279,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
           <div style={sectionStyle}>
             <div style={labelStyle}>{lang === 'ko' ? '성경 번역본' : 'Bible Version'}</div>
             <OptionGroup
-              items={BIBLE_VERSIONS}
+              items={lang === 'en' ? BIBLE_VERSIONS_EN : BIBLE_VERSIONS_KO}
               value={settings.bible}
               onSelect={v => set('bible', v)}
               getCode={b => b.code}
@@ -632,7 +640,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {TAB_LABELS[item.tab] || item.tab} · {item.stepLabel}
+                        {TAB_LABELS[lang]?.[item.tab] || item.tab} · {item.stepLabel}
                       </span>
                       <button
                         onClick={() => {
@@ -673,7 +681,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                     <div key={`${tab}_${stepKey}_${idx}`} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          {TAB_LABELS[tab] || tab} · {stepLabel} · {m.date}
+                          {TAB_LABELS[lang]?.[tab] || tab} · {stepLabel} · {m.date}
                         </span>
                         <button
                           onClick={() => {
