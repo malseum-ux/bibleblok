@@ -72,7 +72,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
     a.download = fileName
     a.click()
     URL.revokeObjectURL(url)
-    setExportStatus('다운로드 폴더에 저장됨')
+    setExportStatus(lang === 'en' ? 'Saved to Downloads' : '다운로드 폴더에 저장됨')
     setTimeout(() => setExportStatus(null), 3000)
   }
 
@@ -249,7 +249,9 @@ export default function SettingsPanel({ settings, onChange, onClose, rootHandle,
                 <div style={{ fontSize: 12, color: '#dc2626' }}>{importStatus.slice(6)}</div>
               )}
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {rootHandle ? `로컬 폴더 설정됨 → "${rootHandle.name}"에 저장` : '로컬 폴더 미설정 → 다운로드 폴더에 저장'}
+                {lang === 'en'
+                  ? (rootHandle ? `Local folder set → saving to "${rootHandle.name}"` : 'No local folder set → saving to Downloads')
+                  : (rootHandle ? `로컬 폴더 설정됨 → "${rootHandle.name}"에 저장` : '로컬 폴더 미설정 → 다운로드 폴더에 저장')}
               </div>
             </div>
           </div>
