@@ -1065,7 +1065,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                       const sel = window.getSelection()?.toString().trim()
                       lastSelectionRef.current = sel || ''
                     }}
-                    dangerouslySetInnerHTML={{ __html: content.replace(/<p>(\s|<br\s*\/?>)*<\/p>/gi, '') }}
+                    dangerouslySetInnerHTML={{ __html: content.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '') }}
                     style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}
                   />
                 ) : (
