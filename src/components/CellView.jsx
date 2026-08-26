@@ -432,7 +432,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     const existing = finalHistory.text
     const addHtml = aiContent.trimStart().startsWith('<')
       ? aiContent
-      : aiContent.split('\n').map(l => l === '' ? '<p><br></p>' : `<p>${l}</p>`).join('')
+      : aiContent.split('\n').filter(l => l.trim() !== '').map(l => `<p>${l}</p>`).join('')
     const separator = existing.trim() ? '<p><br></p>' : ''
     const newText = existing + separator + addHtml
     finalHistory.onChange(newText)

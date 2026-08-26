@@ -401,7 +401,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     // textToAdd를 HTML 단락으로 변환하여 기존 초안에 붙임 (기존 서식 유지)
     const addHtml = textToAdd.trimStart().startsWith('<')
       ? textToAdd
-      : textToAdd.split('\n').map(l => l === '' ? '<p><br></p>' : `<p>${l}</p>`).join('')
+      : textToAdd.split('\n').filter(l => l.trim() !== '').map(l => `<p>${l}</p>`).join('')
     const separator = stripHtml(existingHtml).trim() ? '<p><br></p>' : ''
     handleDraftChange(existingHtml + separator + addHtml)
   }

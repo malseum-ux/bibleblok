@@ -86,7 +86,7 @@ body {
 }
 .ProseMirror p + p,
 .rich-view p + p {
-  margin-top: 0.2em;
+  margin-top: 0.75em;
 }
 /* AI 평문 텍스트 표시 영역 — 빈 줄 없이 CSS margin으로만 간격 처리 */
 .plain-view p {
