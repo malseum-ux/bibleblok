@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { CELL_STEPS } from '../constants'
-import { CELL_STEP_ITEMS, generateCellMaterial, executeInlineCommand, stopCurrentGeneration } from '../claude'
-import { saveCellStep, getCellSteps, getSermonSteps } from '../db'
+import { generateCellMaterial, executeInlineCommand, stopCurrentGeneration } from '../claude'
+import { saveCellStep, getCellSteps, getSermonSteps, getCustomStepItems, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
 import { addMemory, buildMemoryPrompt } from '../memory'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
@@ -125,7 +125,12 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const [editing, setEditing] = useState(false)
   const [draftEditing, setDraftEditing] = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
-  const [selectedItems, setSelectedItems] = useState([])
+  const [customItems, setCustomItems] = useState([])
+  const [selectedCustomKeys, setSelectedCustomKeys] = useState([])
+  const [editingCustom, setEditingCustom] = useState(false)
+  const [newCustomLabel, setNewCustomLabel] = useState('')
+  const [draggedId, setDraggedId] = useState(null)
+  const [dragOverId, setDragOverId] = useState(null)
   const [userKeyword, setUserKeyword] = useState('')
   const [aiCopied, setAiCopied] = useState(false)
   const [finalCopied, setFinalCopied] = useState(false)
@@ -141,8 +146,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const prevStepRef = useRef(0)
 
   const step = CELL_STEPS[currentStep] || CELL_STEPS[0]
-  const currentItemsDefs = CELL_STEP_ITEMS[step?.key] || []
-  const hasItems = currentItemsDefs.length >= 2
+  const hasItems = customItems.length > 0
 
   useEffect(() => {
     if (!item?.id) return
@@ -167,7 +171,6 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     setAiContent(ai)
     resultHistory.reset(ai)
     finalHistory.reset(fin)
-    setSelectedItems(currentItemsDefs.map(i => i.key))
     setInstructionsOpen(false)
     setError(null)
 
@@ -176,6 +179,22 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
       setDraftEditing(false)
     }
   }, [currentStep, stepContents]) // eslint-disable-line
+
+  // 단계 변경 시 커스텀 항목 로드
+  useEffect(() => {
+    if (!step?.key) return
+    getCustomStepItems('cell', step.key).then(items => {
+      setCustomItems(items)
+      setSelectedCustomKeys(prev => {
+        const allIds = items.map(i => i.id)
+        const kept = prev.filter(id => allIds.includes(id))
+        const added = allIds.filter(id => !prev.includes(id))
+        return [...kept, ...added]
+      })
+    })
+    setEditingCustom(false)
+    setNewCustomLabel('')
+  }, [step?.key])
 
   useEffect(() => {
     if (!step?.key) return
@@ -244,10 +263,39 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     return () => document.removeEventListener('mousedown', handleClick)
   }, [draftEditing])
 
-  function toggleItem(key) {
-    setSelectedItems(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+  function toggleCustomItem(id) {
+    setSelectedCustomKeys(prev =>
+      prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
     )
+  }
+
+  async function handleAddCustomItem() {
+    if (!newCustomLabel.trim()) return
+    await addCustomStepItem('cell', step.key, newCustomLabel.trim())
+    const items = await getCustomStepItems('cell', step.key)
+    setCustomItems(items)
+    setSelectedCustomKeys(prev => [...prev, items[items.length - 1].id])
+    setNewCustomLabel('')
+  }
+
+  async function handleDeleteCustomItem(id) {
+    await deleteCustomStepItem(id)
+    const items = await getCustomStepItems('cell', step.key)
+    setCustomItems(items)
+    setSelectedCustomKeys(prev => prev.filter(k => k !== id))
+  }
+
+  async function handleDrop(targetId) {
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return }
+    const items = [...customItems]
+    const fromIdx = items.findIndex(i => i.id === draggedId)
+    const toIdx = items.findIndex(i => i.id === targetId)
+    const [moved] = items.splice(fromIdx, 1)
+    items.splice(toIdx, 0, moved)
+    await setCustomStepItemOrders(items.map(i => i.id))
+    setCustomItems(items)
+    setDraggedId(null)
+    setDragOverId(null)
   }
 
   function startSplitDrag(e) {
@@ -306,12 +354,16 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     }
 
     const memory = step?.key ? buildMemoryPrompt('cell', step.key) : ''
+    const customText = customItems
+      .filter(i => selectedCustomKeys.includes(i.id))
+      .map(i => i.text)
+      .join('\n')
 
     try {
       await generateCellMaterial(
         item.passage, bible, lang, step.key,
         (text) => { accumulated = prevContent + SEP + titleLine + text; setAiContent(accumulated) },
-        selectedItems, effectiveKeyword, sermonContext, memory
+        customText, effectiveKeyword, sermonContext, memory
       ).then(async () => {
         setAiContent(accumulated)
         resultHistory.reset(accumulated)
@@ -528,14 +580,12 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
           {/* 좌 헤더 */}
           <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {hasItems && (
-              <button
-                onClick={() => setInstructionsOpen(v => !v)}
-                style={{ ...btnBase, background: instructionsOpen ? 'var(--accent)' : 'transparent', color: instructionsOpen ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)') }}
-              >
-                지시 항목 {selectedItems.length}/{currentItemsDefs.length}
-              </button>
-            )}
+            <button
+              onClick={() => setInstructionsOpen(v => !v)}
+              style={{ ...btnBase, background: instructionsOpen ? 'var(--accent)' : 'transparent', color: instructionsOpen ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)') }}
+            >
+              지시 항목 {selectedCustomKeys.length}/{customItems.length}
+            </button>
             <div style={{ flex: 1 }} />
             {displayAi && !loading && (
               <button
@@ -560,20 +610,59 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
           </div>
 
           {/* 지시 항목 패널 (키워드 입력 포함) */}
-          {!editing && instructionsOpen && hasItems && (
+          {!editing && instructionsOpen && (
             <div style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', background: 'var(--bg-sidebar)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                {currentItemsDefs.map(ci => (
-                  <label key={ci.key} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(ci.key)}
-                      onChange={() => toggleItem(ci.key)}
-                      style={{ accentColor: 'var(--accent)', cursor: 'pointer', width: 14, height: 14 }}
-                    />
-                    {ci.label}
-                  </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                {customItems.map(ci => (
+                  editingCustom ? (
+                    <div
+                      key={ci.id}
+                      draggable
+                      onDragStart={e => { e.dataTransfer.setData('text/plain', String(ci.id)); setDraggedId(ci.id) }}
+                      onDragOver={e => { e.preventDefault(); setDragOverId(ci.id) }}
+                      onDrop={e => { e.preventDefault(); handleDrop(ci.id) }}
+                      onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        background: dragOverId === ci.id ? 'var(--accent)' : 'rgba(99,102,241,0.12)',
+                        color: dragOverId === ci.id ? '#fff' : 'var(--accent)',
+                        border: `1px solid ${draggedId === ci.id ? 'transparent' : 'var(--accent)'}`,
+                        borderRadius: 14, padding: '3px 10px',
+                        fontSize: 13, cursor: 'grab', userSelect: 'none',
+                        opacity: draggedId === ci.id ? 0.4 : 1,
+                      }}
+                    >
+                      ≡ {ci.label}
+                      <span onPointerDown={e => { e.stopPropagation(); handleDeleteCustomItem(ci.id) }} style={{ cursor: 'pointer', opacity: 0.7, fontSize: 15, lineHeight: 1 }}>×</span>
+                    </div>
+                  ) : (
+                    <label key={ci.id} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--accent)', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomKeys.includes(ci.id)}
+                        onChange={() => toggleCustomItem(ci.id)}
+                        style={{ accentColor: 'var(--accent)', cursor: 'pointer', width: 14, height: 14 }}
+                      />
+                      {ci.label}
+                    </label>
+                  )
                 ))}
+
+                {editingCustom && (
+                  <input
+                    autoFocus
+                    value={newCustomLabel}
+                    onChange={e => setNewCustomLabel(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddCustomItem(); if (e.key === 'Escape') { setEditingCustom(false); setNewCustomLabel('') } }}
+                    placeholder="새 항목"
+                    style={{ width: 90, fontSize: 13, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
+                  />
+                )}
+
+                {!editingCustom
+                  ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>편집</button>
+                  : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>완료</button>
+                }
               </div>
               <input
                 value={userKeyword}

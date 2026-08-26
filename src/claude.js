@@ -135,57 +135,8 @@ export const DAWN_STEP_ITEMS = {
   ],
 }
 
-export const CELL_STEP_ITEMS = {
-  sharing: [
-    { key: 'opening', label: '마음 열기 (5분)', text: '- 마음 열기 (5분): 본문 핵심 주제와 연결된 일상 경험 질문 1개, 인도자가 먼저 짧게 자신의 이야기를 꺼낼 수 있도록 안내 포함, 인도자 해설 포함' },
-    { key: 'reading', label: '말씀 읽기 (5분)', text: '- 말씀 읽기 (5분): 본문 전체 낭독 안내, 핵심 한 줄 요약 (신학 언어 없이), 낭독 후 침묵 안내 포함, 인도자 해설 포함' },
-    { key: 'observation', label: '나눔 질문 — 관찰', text: '- 나눔 질문 관찰 (25분 내): 본문에서 직접 보이는 것·느껴지는 것에 대한 질문 + 인도자 해설' },
-    { key: 'interpretation', label: '나눔 질문 — 해석', text: '- 나눔 질문 해석 (25분 내): 이것이 우리에게 무엇을 말하는가에 대한 질문 + 인도자 해설' },
-    { key: 'application_q', label: '나눔 질문 — 적용', text: '- 나눔 질문 적용 (25분 내): 지금 내 삶과 관계에서 어떻게 연결되는가에 대한 질문 + 인도자 해설' },
-    { key: 'this_week', label: '이번 주 한 가지 (5분)', text: '- 이번 주 한 가지 (5분): 구체적이고 작은 실천 결단 문장 (빈칸 채우기 형식), 추상적 결단 금지, 인도자 해설 포함' },
-    { key: 'prayer', label: '함께 기도 (10분)', text: '- 함께 기도 (10분): 나눔에서 나온 내용을 담은 기도 예시문, 본문과 오늘 나눔 구체적으로 반영, 인도자 해설 포함' },
-  ],
-  theological: [
-    { key: 'intro', label: '도입 — 본문의 자리 (10분)', text: '- 도입 — 본문의 자리 (10분): 역사적·문화적·사회적 배경, 본문이 놓인 긴장과 맥락, 이야기처럼 읽히는 형식, 인도자 해설 포함' },
-    { key: 'original_word', label: '본문 정독 + 원어 해설 (10분)', text: '- 본문 정독 + 원어 해설 (10분): 본문 전체 낭독 안내, 본문 주제를 깊게 하는 단어 원어 해설 (원문 표기 + 발음 + 의미 + 본문 주제 연결), 인도자 해설 포함' },
-    { key: 'inductive', label: '귀납적 탐구 (20분)', text: '- 귀납적 탐구 (20분): 본문의 구체적 사실에서 출발해 교훈을 스스로 발견하는 질문 3~5개 ("본문에서 찾아보세요" 형식), 각 질문마다 인도자 해설' },
-    { key: 'dialectical', label: '신학적 대화 — 정반합 (25분)', text: '- 신학적 대화 — 정반합 (25분): 본문의 핵심 신학적 긴장을 정(핵심 주장)·반(현실적 반론)·합(말씀이 열어주는 이해) 구조로 제시, 나눔 질문 2~3개, 인도자 해설 (신학적 긴장, 위험한 방향 명시) 포함' },
-    { key: 'application', label: '삶의 적용 (15분)', text: '- 삶의 적용 (15분): 개인 적용·공동체 적용·사회 적용 질문 각 1개, 구체적이고 실천 가능, 인도자 해설 포함' },
-    { key: 'prayer', label: '마무리 기도 (10분)', text: '- 마무리 기도 (10분): 오늘 탐구하고 나눈 내용을 담은 기도 예시문, 신학적 내용과 삶의 적용이 자연스럽게 녹아있어야 함, 인도자 해설 포함' },
-  ],
-  literary: [
-    { key: 'intro', label: '도입 — 이야기의 문 앞에서 (5분)', text: '- 도입 — 이야기의 문 앞에서 (5분): 본문의 문학적 장르 소개, 이 이야기가 독자를 어떻게 끌어당기는지 한두 문장, 짧고 강하게, 인도자 해설 포함' },
-    { key: 'reading', label: '본문 읽기 (10분)', text: '- 본문 읽기 (10분): 본문에 맞는 읽기 방식 제안 (내러티브/시편/서신서별), 읽기 전 안내 문장 포함, 인도자 해설 포함' },
-    { key: 'literary_obs', label: '문학적 관찰 (15분)', text: '- 문학적 관찰 (15분): 반복·대조·아이러니·점층·장면 전환·침묵·화자 시점 변화 등 문학적 기법 분석, 각 기법이 메시지에 기여하는 방식 설명 (인물 심리는 다음 섹션에서), 나눔 질문 1~2개, 인도자 해설 포함' },
-    { key: 'characters', label: '등장인물 탐구 (20분)', text: '- 등장인물 탐구 (20분): 주요 인물의 심리·동기·변화 분석 (인물 없으면 화자/청중 분석), 억지 연결 절대 금지, 나눔 질문 2~3개, 인도자 해설 포함' },
-    { key: 'climax', label: '이야기의 절정과 전환 (15분)', text: '- 이야기의 절정과 전환 (15분): 극적 긴장이 최고조에 달하는 순간, 이야기 안에서 무엇이 뒤집히는지 이야기 언어로 표현, 독자에게 무엇을 요청하는지, 나눔 질문 1~2개, 인도자 해설 포함' },
-    { key: 'my_story', label: '내 이야기와 만나기 (15분)', text: '- 내 이야기와 만나기 (15분): 개인/공동체/사회 적용 질문 각 1개, 구체적이고 실천 가능, 인도자 해설 포함' },
-    { key: 'prayer', label: '마무리 기도 (10분)', text: '- 마무리 기도 (10분): 오늘 따라간 이야기를 담은 기도 예시문, 이야기의 주요 장면과 흐름이 자연스럽게 녹아있어야 함, 인도자 해설 포함' },
-  ],
-  psychological: [
-    { key: 'intro', label: '도입 — 말씀 앞에 서기 (10분)', text: '- 도입 — 말씀 앞에 서기 (10분): 이 본문이 인간의 어떤 내면을 비추는지 소개, 심리학적 탐구가 아닌 말씀의 빛 아래 자신을 보는 시간임을 먼저 말함, 판단 없는 안전한 공간 선언, 인도자 해설 (방어적 반응 예상, 신뢰 수준 낮은 그룹 조절 방법) 포함' },
-    { key: 'lens', label: '본문 읽기 + 심리학적 렌즈 (10분)', text: '- 본문 읽기 + 심리학적 렌즈 소개 (10분): 본문 낭독, 자연스럽게 연결되는 심리학 개념 1~2가지 일상 언어로 소개 (말씀과 함께), 인도자 해설 포함' },
-    { key: 'inner', label: '등장인물의 내면 (20분)', text: '- 등장인물의 내면 (20분): 주요 인물의 심리적 내면 분석 (인물 없으면 화자의 감정·심리 분석), 신뢰 수준별 질문 2종류, "이 인물의 패턴이 우리 안에도 있습니다" 전환 문장, 인도자 해설 (전문 상담 연계 기준 포함) 포함' },
-    { key: 'self_reflection', label: '내 마음 들여다보기 (20분)', text: '- 내 마음 들여다보기 (20분): 자기 성찰 질문 3~4개 (신뢰 수준별 2종류), 성찰이 자기 정죄가 되지 않도록, 말씀이 정죄가 아닌 비춤임을 상기, 인도자 해설 (트라우마 드러날 경우 전문 상담 연계 안내) 포함' },
-    { key: 'restoration', label: '관계 회복으로 (15분)', text: '- 관계 회복으로 (15분): 나 자신과의 관계·가까운 관계·더 넓은 관계 방향 제시, 오늘 당장 결단이 아닌 방향 탐색임 명시, 구체적이고 작은 한 걸음, 인도자 해설 포함' },
-    { key: 'prayer', label: '치유의 기도 (15분)', text: '- 치유의 기도 (15분): 개인 묵상 5분 안내, 치유·회복·은혜를 담은 기도 예시문 낭독 5분, 마무리 기도 5분, 자기 정죄가 아닌 치유와 수용의 언어, 인도자 해설 포함' },
-  ],
-  communal: [
-    { key: 'intro', label: '도입 — 말씀과 세상의 접점 (10분)', text: '- 도입 — 말씀과 세상의 접점 (10분): 이 본문이 공동체와 사회에 대해 무엇을 말하는지, 당시 사회적 맥락 간략 소개, 말씀이 공동체를 형성하고 세상으로 나아가는 방향임을 먼저 말함, 인도자 해설 포함' },
-    { key: 'lens', label: '본문 읽기 + 사회학적 렌즈 (10분)', text: '- 본문 읽기 + 사회학적 렌즈 소개 (10분): 본문 낭독, 자연스럽게 연결되는 사회학적 개념 1~2가지 일상 언어로 소개 (말씀과 함께), 인도자 해설 포함' },
-    { key: 'community_in_text', label: '본문 속 공동체 탐구 (20분)', text: '- 본문 속 공동체 탐구 (20분): 권력·소외·규칙이 누구를 위해 작동하는지 분석, 어떤 새로운 공동체 원리가 드러나는지, 나눔 질문 2~3개, 인도자 해설 포함' },
-    { key: 'our_community', label: '우리 공동체 들여다보기 (15분)', text: '- 우리 공동체 들여다보기 (15분): 우리 공동체 안의 중심/가장자리·규칙·소외된 자의 자리 탐구, 나눔 질문 2개, 인도자 해설 포함' },
-    { key: 'going_out', label: '세상으로 나아가기 (20분)', text: '- 세상으로 나아가기 (20분): 지역 사회·사회적 참여·연대 방향, 구체적이고 실천 가능한 가장 작은 한 걸음, 혐오·배제·특정 정치 성향으로 흐르지 않도록 (혐오와 배제가 연대 언어로 포장되어 들어오지 않도록 명시), 인도자 해설 포함' },
-    { key: 'prayer', label: '파송의 기도 (15분)', text: '- 파송의 기도 (15분): 공동체 다짐 5분 (각자 한 단어/문장 나누기 + 인도자가 공동체 방향 한 문장으로 모으기), 파송 기도문 5분, 파송 선언 5분, 인도자 해설 포함' },
-  ],
-}
-
 const CELL_MATERIAL_PROMPTS = {
-  sharing: (passage, bible, selectedKeys) => {
-    const items = CELL_STEP_ITEMS.sharing
-    const selected = selectedKeys ? items.filter(i => selectedKeys.includes(i.key)) : items
-    const sections = selected.map(i => i.text).join('\n')
-    return `당신은 소그룹 나눔 교재 전문가입니다.
+  sharing: (passage, bible) => `당신은 소그룹 나눔 교재 전문가입니다.
 아래 성경 본문으로 "나눔 교재 — 삶으로 나누는 말씀"을 작성해 주세요.
 
 본문: ${passage}
@@ -215,17 +166,9 @@ const CELL_MATERIAL_PROMPTS = {
 각 섹션마다 인도자를 위한 해설을 작성하세요.
 해설은 반드시 목적·이유·진행 팁을 포함하세요.
 이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.
-해설은 별도 구분선 없이 각 섹션 직후에 작성하세요.
+해설은 별도 구분선 없이 각 섹션 직후에 작성하세요.`,
 
-[구성 — 아래 항목을 작성하세요]
-${sections}`
-  },
-
-  theological: (passage, bible, selectedKeys) => {
-    const items = CELL_STEP_ITEMS.theological
-    const selected = selectedKeys ? items.filter(i => selectedKeys.includes(i.key)) : items
-    const sections = selected.map(i => i.text).join('\n')
-    return `당신은 소그룹 나눔 교재 전문가이자 성경 신학자입니다.
+  theological: (passage, bible) => `당신은 소그룹 나눔 교재 전문가이자 성경 신학자입니다.
 아래 성경 본문으로 "신학적 교재 — 뿌리에서 열매까지"를 작성해 주세요.
 A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 
@@ -246,17 +189,9 @@ A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 각 섹션마다 인도자를 위한 해설을 작성하세요.
 해설은 반드시 목적·이유·진행 팁을 포함하세요.
 이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.
-신학적 대화 섹션 해설에는 반드시 위험한 방향(이단적 결론, 극단적 해석)을 명시하세요.
+신학적 대화 섹션 해설에는 반드시 위험한 방향(이단적 결론, 극단적 해석)을 명시하세요.`,
 
-[구성 — 아래 항목을 작성하세요]
-${sections}`
-  },
-
-  literary: (passage, bible, selectedKeys) => {
-    const items = CELL_STEP_ITEMS.literary
-    const selected = selectedKeys ? items.filter(i => selectedKeys.includes(i.key)) : items
-    const sections = selected.map(i => i.text).join('\n')
-    return `당신은 소그룹 나눔 교재 전문가이자 문학 비평가입니다.
+  literary: (passage, bible) => `당신은 소그룹 나눔 교재 전문가이자 문학 비평가입니다.
 아래 성경 본문으로 "문학적 교재 — 이야기 속으로"를 작성해 주세요.
 A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 
@@ -277,17 +212,9 @@ A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 [인도자 해설 작성 기준]
 각 섹션마다 인도자를 위한 해설을 작성하세요.
 해설은 반드시 목적·이유·진행 팁을 포함하세요.
-이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.
+이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.`,
 
-[구성 — 아래 항목을 작성하세요]
-${sections}`
-  },
-
-  psychological: (passage, bible, selectedKeys) => {
-    const items = CELL_STEP_ITEMS.psychological
-    const selected = selectedKeys ? items.filter(i => selectedKeys.includes(i.key)) : items
-    const sections = selected.map(i => i.text).join('\n')
-    return `당신은 소그룹 나눔 교재 전문가이자 심리학적 통찰을 가진 목회자입니다.
+  psychological: (passage, bible) => `당신은 소그룹 나눔 교재 전문가이자 심리학적 통찰을 가진 목회자입니다.
 아래 성경 본문으로 "심리학적 교재 — 말씀 앞에 나를 내려놓기"를 작성해 주세요.
 A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 
@@ -311,17 +238,9 @@ A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 [인도자 해설 작성 기준]
 각 섹션마다 인도자를 위한 해설을 작성하세요.
 해설은 반드시 목적·이유·진행 팁을 포함하세요.
-이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.
+이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.`,
 
-[구성 — 아래 항목을 작성하세요]
-${sections}`
-  },
-
-  communal: (passage, bible, selectedKeys) => {
-    const items = CELL_STEP_ITEMS.communal
-    const selected = selectedKeys ? items.filter(i => selectedKeys.includes(i.key)) : items
-    const sections = selected.map(i => i.text).join('\n')
-    return `당신은 소그룹 나눔 교재 전문가이자 사회학적 통찰을 가진 목회자입니다.
+  communal: (passage, bible) => `당신은 소그룹 나눔 교재 전문가이자 사회학적 통찰을 가진 목회자입니다.
 아래 성경 본문으로 "공동체적 교재 — 함께 세상으로"를 작성해 주세요.
 A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 
@@ -345,17 +264,14 @@ A4 3~4매 분량(약 3,000~4,500자)으로 작성해 주세요.
 각 섹션마다 인도자를 위한 해설을 작성하세요.
 해설은 반드시 목적·이유·진행 팁을 포함하세요.
 이 본문에서만 일어날 수 있는 반응과 상황을 예상해서 쓰세요.
-정치적으로 민감한 방향으로 흐를 수 있는 위험을 반드시 명시하세요.
-
-[구성 — 아래 항목을 작성하세요]
-${sections}`
-  },
+정치적으로 민감한 방향으로 흐를 수 있는 위험을 반드시 명시하세요.`,
 }
 
-export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, selectedKeys = null, userKeyword = '', sermonContext = '', memory = '') {
+export async function generateCellMaterial(passage, bible, lang, stepKey, onChunk, customText = '', userKeyword = '', sermonContext = '', memory = '') {
   const promptFn = CELL_MATERIAL_PROMPTS[stepKey]
   if (!promptFn) throw new Error('Unknown cell step key: ' + stepKey)
-  let prompt = promptFn(passage, bible, selectedKeys)
+  let prompt = promptFn(passage, bible)
+  if (customText) prompt += `\n\n[구성 지시항목 — 아래 항목을 반드시 포함하여 작성하세요]\n${customText}`
   if (sermonContext) {
     prompt += `\n\n[설교 연구 참고 자료]\n아래는 같은 본문으로 작성된 설교 연구 내용입니다. 이 자료를 충분히 반영하여 교재를 작성해 주세요. 설교자의 본문 이해와 신학적 관점, 강조점을 교재 곳곳에 녹여주세요.\n\n${sermonContext}`
   }
