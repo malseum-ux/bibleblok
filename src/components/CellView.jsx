@@ -702,9 +702,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                 aiContent.trimStart().startsWith('<') ? (
                   <div className="rich-view" dangerouslySetInnerHTML={{ __html: aiContent }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
                 ) : (
-                  <div className="rich-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
-                    {aiContent.split('\n').map((line, i) => (
-                      <p key={i}>{line || <br />}</p>
+                  <div className="plain-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                    {aiContent.split('\n').filter(l => l.trim() !== '').map((line, i) => (
+                      <p key={i}>{line}</p>
                     ))}
                   </div>
                 )
