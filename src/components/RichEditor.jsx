@@ -2,7 +2,6 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
 import TextAlign from '@tiptap/extension-text-align'
-import Underline from '@tiptap/extension-underline'
 import { useEffect, useState, useCallback, useRef } from 'react'
 
 const FONT_SIZES = ['0.75em', '0.85em', '1em', '1.2em', '1.5em', '2em']
@@ -42,7 +41,6 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
       Color,
       FontSize.configure({ types: ['textStyle'] }),
       TextAlign.configure({ types: ['paragraph'] }),
-      Underline,
     ],
     content: toHtml(value),
     onUpdate: ({ editor }) => {
