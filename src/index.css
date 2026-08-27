@@ -80,11 +80,14 @@ body {
 
 /* TipTap 에디터 및 결과 표시 영역 단락 간격 */
 .ProseMirror p,
-.rich-view p {
-  margin: 0;
-}
+.rich-view p,
 .plain-view p {
-  margin: 0;
+  margin: 0 0 0.55em 0;
+}
+.ProseMirror p:last-child,
+.rich-view p:last-child,
+.plain-view p:last-child {
+  margin-bottom: 0;
 }
 .ProseMirror {
   outline: none;
