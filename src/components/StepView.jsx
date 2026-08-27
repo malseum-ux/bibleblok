@@ -556,22 +556,28 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   }
 
   async function handleManualSave() {
-    clearTimeout(draftTimer.current)
-    if (stripHtml(draftHistory.text).trim()) {
-      if (tab === 'dawn') await updateDawn(item.id, { draft: draftHistory.text })
-      else if (tab === 'sermon') await updateSermon(item.id, { draft: draftHistory.text })
+    try {
+      clearTimeout(draftTimer.current)
+      if (stripHtml(draftHistory.text).trim()) {
+        if (tab === 'dawn') await updateDawn(item.id, { draft: draftHistory.text })
+        else if (tab === 'sermon') await updateSermon(item.id, { draft: draftHistory.text })
+      }
+      const saveContent = editing ? resultHistory.text : content
+      if (saveContent.trim()) {
+        clearTimeout(resultEditTimer.current)
+        if (tab === 'sermon') await saveSermonStep(item.id, currentStep, saveContent)
+        else if (tab === 'worship') await saveWorshipStep(item.id, 0, saveContent)
+        else await saveDawnStep(item.id, 0, saveContent)
+        setStepContents(prev => ({ ...prev, [tab === 'sermon' ? currentStep : 0]: saveContent }))
+        if (editing) setContent(saveContent)
+      }
+      await onGenerated?.(item.id)
+      onItemUpdate?.()
+      setManualSaved(true)
+      setTimeout(() => setManualSaved(false), 1500)
+    } catch (e) {
+      alert('저장 실패: ' + e.message)
     }
-    if (content.trim()) {
-      clearTimeout(resultEditTimer.current)
-      if (tab === 'sermon') await saveSermonStep(item.id, currentStep, content)
-      else if (tab === 'worship') await saveWorshipStep(item.id, 0, content)
-      else await saveDawnStep(item.id, 0, content)
-      setStepContents(prev => ({ ...prev, [tab === 'sermon' ? currentStep : 0]: content }))
-    }
-    await onGenerated?.(item.id)
-    onItemUpdate?.()
-    setManualSaved(true)
-    setTimeout(() => setManualSaved(false), 1500)
   }
 
   useEffect(() => {

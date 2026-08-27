@@ -48,7 +48,7 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
     onUpdate: ({ editor }) => {
       if (isSyncingRef.current) return
       const html = editor.getHTML()
-      lastEmittedRef.current = html
+      lastEmittedRef.current = toHtml(html)
       onChange(html)
     },
     editorProps: {
