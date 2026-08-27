@@ -136,7 +136,7 @@ export default function Sidebar({
       const folderEl = el?.closest('[data-drop-folder]')
       const rootEl = el?.closest('[data-drop-root]')
       const newTarget = folderEl
-        ? parseInt(folderEl.dataset.dropFolder)
+        ? folderEl.dataset.dropFolder
         : rootEl ? null : undefined
       dr.dropTarget = newTarget
       setDropDisplay(newTarget)

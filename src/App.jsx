@@ -161,8 +161,12 @@ function AppInner() {
   }
 
   async function handleMoveItem(itemId, folderId) {
-    await moveItemToFolder(tab, itemId, folderId)
-    tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : tab === 'dawn' ? await loadDawns() : await loadCells()
+    try {
+      await moveItemToFolder(tab, itemId, folderId)
+      tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : tab === 'dawn' ? await loadDawns() : await loadCells()
+    } catch (e) {
+      alert((lang === 'ko' ? '이동 실패: ' : 'Move failed: ') + e.message)
+    }
   }
 
   function handleFolderSelect(folder) {
@@ -192,23 +196,27 @@ function AppInner() {
   const selectedItem = items.find(i => i.id === selected?.id)
 
   async function handleCreateNew(formData) {
-    const data = { ...formData, folderId: selectedFolder?.id || null }
-    if (tab === 'sermon') {
-      const id = await createSermon(data)
-      await loadSermons()
-      setSelected({ id, step: null })
-    } else if (tab === 'worship') {
-      const id = await createWorship(data)
-      await loadWorships()
-      setSelected({ id, step: null })
-    } else if (tab === 'dawn') {
-      const id = await createDawn(data)
-      await loadDawns()
-      setSelected({ id, step: null })
-    } else {
-      const id = await createCell(data)
-      await loadCells()
-      setSelected({ id, step: null })
+    try {
+      const data = { ...formData, folderId: selectedFolder?.id || null }
+      if (tab === 'sermon') {
+        const id = await createSermon(data)
+        await loadSermons()
+        setSelected({ id, step: null })
+      } else if (tab === 'worship') {
+        const id = await createWorship(data)
+        await loadWorships()
+        setSelected({ id, step: null })
+      } else if (tab === 'dawn') {
+        const id = await createDawn(data)
+        await loadDawns()
+        setSelected({ id, step: null })
+      } else {
+        const id = await createCell(data)
+        await loadCells()
+        setSelected({ id, step: null })
+      }
+    } catch (e) {
+      alert((lang === 'ko' ? '저장 실패: ' : 'Save failed: ') + e.message)
     }
   }
 
@@ -223,10 +231,14 @@ function AppInner() {
 
   async function handleSave(form) {
     if (!selected?.id) return
-    if (tab === 'sermon') { await updateSermon(selected.id, form); await loadSermons() }
-    else if (tab === 'worship') { await updateWorship(selected.id, form); await loadWorships() }
-    else if (tab === 'dawn') { await updateDawn(selected.id, form); await loadDawns() }
-    else { await updateCell(selected.id, form); await loadCells() }
+    try {
+      if (tab === 'sermon') { await updateSermon(selected.id, form); await loadSermons() }
+      else if (tab === 'worship') { await updateWorship(selected.id, form); await loadWorships() }
+      else if (tab === 'dawn') { await updateDawn(selected.id, form); await loadDawns() }
+      else { await updateCell(selected.id, form); await loadCells() }
+    } catch (e) {
+      alert((lang === 'ko' ? '저장 실패: ' : 'Save failed: ') + e.message)
+    }
   }
 
   async function handleExportItem(itemId) {
