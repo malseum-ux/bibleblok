@@ -10,7 +10,7 @@ const COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed'
 function toHtml(value) {
   if (!value) return ''
   if (value.trimStart().startsWith('<'))
-    return value.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '')
+    return value
   return value
     .replace(/\n{2,}/g, '\n')
     .split('\n')
@@ -48,7 +48,7 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
     onUpdate: ({ editor }) => {
       if (isSyncingRef.current) return
       const html = editor.getHTML()
-      lastEmittedRef.current = toHtml(html)
+      lastEmittedRef.current = html
       onChange(html)
     },
     editorProps: {
