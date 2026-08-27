@@ -82,7 +82,7 @@ body {
 .ProseMirror p,
 .rich-view p,
 .plain-view p {
-  margin: 0 0 0.55em 0;
+  margin: 0 0 1em 0;
 }
 .ProseMirror p:last-child,
 .rich-view p:last-child,

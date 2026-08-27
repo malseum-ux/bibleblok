@@ -106,7 +106,9 @@ function useTextHistory(initialValue, resetKey) {
     pushSnapshot(textRef.current)
   }
 
-  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
+  function getLatest() { return textRef.current }
+
+  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot, getLatest }
 }
 
 export default function StepView({ tab, item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
@@ -608,9 +610,9 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }, [content, loading])
 
-  // 매 렌더마다 최신 resultHistory.text를 참조하도록 유지
+  // 매 렌더마다 최신 값을 참조하도록 유지 (textRef.current: React state보다 항상 동기적으로 최신)
   finishEditRef.current = () => {
-    setContent(resultHistory.text)
+    setContent(resultHistory.getLatest())
     setEditing(false)
   }
 
