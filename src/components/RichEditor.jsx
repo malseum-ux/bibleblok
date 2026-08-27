@@ -12,8 +12,10 @@ function toHtml(value) {
   if (value.trimStart().startsWith('<'))
     return value.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '')
   return value
+    .replace(/\n{2,}/g, '\n')
     .split('\n')
-    .map(line => line === '' ? '<p><br></p>' : `<p>${line}</p>`)
+    .filter(line => line.trim() !== '')
+    .map(line => `<p>${line}</p>`)
     .join('')
 }
 
@@ -46,7 +48,7 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
     onUpdate: ({ editor }) => {
       if (isSyncingRef.current) return
       const html = editor.getHTML()
-      lastEmittedRef.current = html
+      lastEmittedRef.current = toHtml(html)
       onChange(html)
     },
     editorProps: {
