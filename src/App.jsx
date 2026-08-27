@@ -1,13 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import AuthGate, { useGoogleToken, useUserEmail, useRefreshGoogleToken } from './components/AuthGate'
+import { useState, useEffect } from 'react'
+import AuthGate, { useUserEmail } from './components/AuthGate'
 import AdminPanel from './components/AdminPanel'
-import { supabase } from './supabase'
-import { driveSave, driveLoad, driveLoadRevision } from './googleDrive'
-import { dropboxExchangeCode, dropboxSave, dropboxLoad } from './dropbox'
-import { onedriveExchangeCode, onedriveSave, onedriveLoad } from './onedrive'
-import { icloudSave, icloudLoad, icloudConfigured, icloudSetupAuth } from './icloud'
-import { exportAllData, importAllData, mergeFromCloud, db } from './db'
-import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from './constants'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
   createWorship, getWorships, updateWorship, deleteWorship,
@@ -16,10 +9,11 @@ import {
   getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder, renameFolder,
   getSermonSteps, getWorshipSteps, getDawnSteps,
   saveSermonStep, saveWorshipStep, saveDawnStep,
+  exportAllData, importAllData, migrateLocalToSupabase,
 } from './db'
+import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from './constants'
 import { getSettings, saveSettings, applyTheme } from './settings'
 import { fetchUsage } from './usage'
-import { isFileSystemSupported, loadRootHandle, pickRootDirectory, clearRootHandle, verifyPermission, saveItemToDirectory, deleteItemFromDirectory, listTabFiles, readFileContent, parseJsonFile, parseSblMeta, buildFileBaseName, buildJsonContent, deleteFileFromDir } from './fileSystem'
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
@@ -27,37 +21,14 @@ import CellView from './components/CellView'
 import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
 
-function loadTokens(key) {
-  try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
-}
-
 const ADMIN_EMAIL = 'malseum@gmail.com'
 
 function AppInner() {
-  const driveToken = useGoogleToken()
-  const refreshDriveToken = useRefreshGoogleToken()
   const userEmail = useUserEmail()
   const isAdmin = userEmail === ADMIN_EMAIL
+
   const [adminOpen, setAdminOpen] = useState(false)
-  const [driveSyncing, setDriveSyncing] = useState(false)
-  const [driveLastSync, setDriveLastSync] = useState(null)
-  const [driveAuthError, setDriveAuthError] = useState(false)
-  const [cloudSyncKey, setCloudSyncKey] = useState(0)
-  const driveReady = useRef(false)
-  const driveSaveTimer = useRef(null)
-
-  const [dropboxTokens, setDropboxTokens] = useState(() => loadTokens('dropbox_tokens'))
-  const [onedriveTokens, setOnedriveTokens] = useState(() => loadTokens('onedrive_tokens'))
-  const [icloudReady, setIcloudReady] = useState(false)
-  const [saveKick, setSaveKick] = useState(0)
   const [usageInfo, setUsageInfo] = useState(null)
-
-  useEffect(() => {
-    async function loadUsage() { setUsageInfo(await fetchUsage()) }
-    loadUsage()
-    window.addEventListener('usageUpdated', loadUsage)
-    return () => window.removeEventListener('usageUpdated', loadUsage)
-  }, [])
 
   const [tab, setTab] = useState('sermon')
   const [settings, setSettings] = useState(getSettings)
@@ -78,15 +49,15 @@ function AppInner() {
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14, cell: 14 })
-  const [rootHandle, setRootHandle] = useState(null)
-  const [fsFiles, setFsFiles] = useState([])
-  const [sblViewer, setSblViewer] = useState(null)
+
+  // 이전(migration) 상태
+  const [migrationNeeded, setMigrationNeeded] = useState(false)
+  const [migrating, setMigrating] = useState(false)
+  const [migrationResult, setMigrationResult] = useState(null)
 
   const lang = settings.lang
 
-  useEffect(() => {
-    applyTheme(settings.theme)
-  }, [settings.theme])
+  useEffect(() => { applyTheme(settings.theme) }, [settings.theme])
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 900)
@@ -94,166 +65,38 @@ function AppInner() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
-  // Dropbox/OneDrive OAuth 콜백 처리
   useEffect(() => {
-    const code = sessionStorage.getItem('oauth_pending_code')
-    const state = sessionStorage.getItem('oauth_pending_state')
-    if (!code || !state) return
-    sessionStorage.removeItem('oauth_pending_code')
-    sessionStorage.removeItem('oauth_pending_state')
+    async function loadUsage() { setUsageInfo(await fetchUsage()) }
+    loadUsage()
+    window.addEventListener('usageUpdated', loadUsage)
+    return () => window.removeEventListener('usageUpdated', loadUsage)
+  }, [])
 
-    if (state === 'dropbox') {
-      dropboxExchangeCode(code).then(tokens => {
-        if (!tokens) return
-        localStorage.setItem('dropbox_tokens', JSON.stringify(tokens))
-        setDropboxTokens(tokens)
-      })
-    } else if (state === 'onedrive') {
-      onedriveExchangeCode(code).then(tokens => {
-        if (!tokens) return
-        localStorage.setItem('onedrive_tokens', JSON.stringify(tokens))
-        setOnedriveTokens(tokens)
-      })
+  // 로컬 IndexedDB 이전 필요 여부 확인
+  useEffect(() => {
+    if (localStorage.getItem('sb_migrated')) return
+    // IndexedDB에 sermonblok DB가 있고 데이터가 있으면 이전 배너 표시
+    const req = indexedDB.open('sermonblok')
+    req.onsuccess = (e) => {
+      const localDb = e.target.result
+      if (!localDb.objectStoreNames.contains('sermons')) { localDb.close(); return }
+      try {
+        const tx = localDb.transaction(['sermons', 'dawns'], 'readonly')
+        let count = 0
+        let done = 0
+        const check = () => { if (++done === 2 && count > 0) setMigrationNeeded(true); localDb.close() }
+        tx.objectStore('sermons').count().onsuccess = (ev) => { count += ev.target.result; check() }
+        tx.objectStore('dawns').count().onsuccess = (ev) => { count += ev.target.result; check() }
+      } catch { localDb.close() }
     }
   }, [])
 
-  // iCloud 초기화
+  // 초기 데이터 로드 (Supabase에서)
   useEffect(() => {
-    if (!icloudConfigured()) return
-    icloudSetupAuth(
-      () => setIcloudReady(true),
-      () => setIcloudReady(false)
-    ).then(signedIn => setIcloudReady(signedIn))
-  }, [])
-
-  // 초기 데이터 불러오기: 로컬 먼저 즉시 표시 → 클라우드 백그라운드 동기화
-  useEffect(() => {
-    driveReady.current = false
-    ;(async () => {
-      // 1단계: 로컬 IndexedDB에서 즉시 표시
-      await loadSermons()
-      await loadWorships()
-      await loadDawns()
-      await loadCells()
-      // 2단계: 클라우드에서 최신 데이터 가져오기 (백그라운드)
-      const candidates = []
-      if (driveToken) {
-        let r = await driveLoad(driveToken)
-        if (r?.error === 'AUTH_ERROR') {
-          const newToken = await refreshDriveToken()
-          if (newToken) {
-            r = await driveLoad(newToken)
-          }
-        }
-        if (r?.error === 'AUTH_ERROR' || (r?.error && !r.data)) {
-          setDriveAuthError(true)
-        } else if (r) {
-          candidates.push(r)
-          setDriveAuthError(false)
-        }
-      }
-      if (dropboxTokens) {
-        const r = await dropboxLoad(dropboxTokens)
-        if (r) candidates.push(r)
-      }
-      if (onedriveTokens) {
-        const r = await onedriveLoad(onedriveTokens)
-        if (r) candidates.push(r)
-      }
-      if (icloudReady) {
-        const r = await icloudLoad()
-        if (r) candidates.push(r)
-      }
-      if (candidates.length > 0) {
-        const latest = candidates.reduce((a, b) => a.updatedAt > b.updatedAt ? a : b)
-
-        const [localSermonCount, localDawnCount] = await Promise.all([
-          db.sermons.count(),
-          db.dawns.count(),
-        ])
-        const localIsEmpty = localSermonCount === 0 && localDawnCount === 0
-
-        try {
-          if (localIsEmpty) {
-            // 로컬이 비어있으면 전체 교체 (새 기기 첫 설정)
-            await importAllData(latest.data)
-          } else {
-            // 로컬에 데이터가 있으면 클라우드에만 있는 항목을 추가 (병합)
-            await mergeFromCloud(latest.data)
-          }
-          await loadSermons()
-          await loadWorships()
-          await loadDawns()
-          setCloudSyncKey(v => v + 1)
-          localStorage.setItem('drive_last_sync', String(latest.updatedAt))
-        } catch (e) {
-          console.error('cloud sync failed:', e)
-        }
-      }
-      driveReady.current = true
-      // 로드 완료 후 로컬 데이터를 Drive에 저장 (Drive 저장 실패 후 새로고침 시 복구)
-      setSaveKick(v => v + 1)
-    })()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [driveToken])
-
-  // 데이터 변경 시 연결된 모든 클라우드에 자동 저장 (debounce 2초)
-  useEffect(() => {
-    if (!driveReady.current) return
-    const hasCloud = driveToken || dropboxTokens || onedriveTokens || icloudReady
-    if (!hasCloud) return
-    if (driveSaveTimer.current) clearTimeout(driveSaveTimer.current)
-    driveSaveTimer.current = setTimeout(async () => {
-      setDriveSyncing(true)
-      const data = await exportAllData()
-      const [driveResult, ...rest] = await Promise.all([
-        driveToken ? driveSave(driveToken, data) : Promise.resolve(false),
-        dropboxTokens ? dropboxSave(dropboxTokens, data) : Promise.resolve(false),
-        onedriveTokens ? onedriveSave(onedriveTokens, data) : Promise.resolve(false),
-        icloudReady ? icloudSave(data) : Promise.resolve(false),
-      ])
-      if (driveResult === 'AUTH_ERROR') {
-        const newToken = await refreshDriveToken()
-        if (newToken) {
-          const retried = await driveSave(newToken, data)
-          if (retried === 'AUTH_ERROR' || retried === false) {
-            setDriveAuthError(true)
-          } else {
-            setDriveAuthError(false)
-            if (typeof retried === 'number') {
-              setDriveLastSync(retried)
-              localStorage.setItem('drive_last_sync', String(retried))
-            }
-          }
-        } else {
-          setDriveAuthError(true)
-        }
-      } else if (driveResult !== false) {
-        setDriveAuthError(false)
-      }
-      // Drive 저장 성공 시: Google 서버가 부여한 modifiedTime을 그대로 기록
-      // (로컬 시계와 서버 시계 차이로 인한 오작동 방지)
-      if (typeof driveResult === 'number') {
-        setDriveLastSync(driveResult)
-        localStorage.setItem('drive_last_sync', String(driveResult))
-      } else if (rest.some(Boolean)) {
-        const syncTime = Date.now()
-        setDriveLastSync(syncTime)
-        localStorage.setItem('drive_last_sync', String(syncTime))
-      }
-      setDriveSyncing(false)
-    }, 2000)
-  // saveKick: 로드 완료 후 Drive 저장을 강제 실행하기 위한 트리거
-  }, [sermons, worships, dawns, driveToken, dropboxTokens, onedriveTokens, icloudReady, saveKick])
-
-  useEffect(() => {
-    if (isFileSystemSupported()) {
-      loadRootHandle().then(async handle => {
-        if (!handle) return
-        const ok = await verifyPermission(handle)
-        if (ok) setRootHandle(handle)
-      })
-    }
+    loadSermons()
+    loadWorships()
+    loadDawns()
+    loadCells()
   }, [])
 
   useEffect(() => {
@@ -261,124 +104,27 @@ function AppInner() {
     setSelectedFolder(null)
   }, [tab])
 
-  useEffect(() => {
-    if (!rootHandle) { setFsFiles([]); return }
+  async function loadSermons() { setSermons(await getSermons()) }
+  async function loadWorships() { setWorships(await getWorships()) }
+  async function loadDawns() { setDawns(await getDawns()) }
+  async function loadCells() { setCells(await getCells()) }
+  async function loadFolders() { setFolders(await getFolders(tab)) }
 
-    async function syncLocalFiles() {
-      // 1단계: 중복 항목 제거 (같은 날짜+제목/본문)
-      for (const t of ['sermon', 'worship', 'dawn']) {
-        const all = t === 'sermon' ? await getSermons()
-          : t === 'worship' ? await getWorships()
-          : await getDawns()
-        const seen = new Map()
-        for (const item of [...all].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
-          const key = `${item.date}_${item.title || ''}_${item.passage || ''}`
-          if (seen.has(key)) {
-            if (t === 'sermon') await deleteSermon(item.id)
-            else if (t === 'worship') await deleteWorship(item.id)
-            else await deleteDawn(item.id)
-          } else {
-            seen.set(key, true)
-          }
-        }
-      }
-
-      // 2단계: 현재 탭 파일 목록 업데이트 (사이드바 표시용)
-      const currentFiles = await listTabFiles(rootHandle, tab)
-      setFsFiles(currentFiles)
-
-      // 3단계: 세 탭 모두 orphan 파일 가져오기
-      const imported = { sermon: false, worship: false, dawn: false }
-
-      for (const t of ['sermon', 'worship', 'dawn']) {
-        const files = t === tab ? currentFiles : await listTabFiles(rootHandle, t)
-        const dbItems = t === 'sermon' ? await getSermons()
-          : t === 'worship' ? await getWorships()
-          : await getDawns()
-        const existingBaseNames = new Set(dbItems.map(i => buildFileBaseName(t, i)))
-        const orphans = files.filter(f => !existingBaseNames.has(f.name.replace(/\.(json|sbl)$/, '')))
-
-        for (const file of orphans) {
-          const text = await readFileContent(file.handle)
-          if (!text) continue
-
-          let itemData, steps = {}
-          if (file.type === 'json') {
-            const parsed = parseJsonFile(text)
-            if (!parsed) continue
-            itemData = parsed.item
-            steps = parsed.steps
-          } else {
-            const meta = parseSblMeta(text)
-            if (!meta.date && !meta.title && !meta.passage) continue
-            const lines = text.split('\n')
-            const sepIdx = lines.findIndex(l => l.startsWith('━'))
-            const headerEnd = (lines.findIndex((l, i) => i > 0 && l === '') + 1) || 5
-            const bodyText = (sepIdx > -1 ? lines.slice(headerEnd, sepIdx) : lines.slice(headerEnd)).join('\n').trim()
-            const draftText = sepIdx > -1 ? lines.slice(sepIdx + 2).join('\n').trim() : ''
-            itemData = {
-              date: meta.date || null, title: meta.title || null,
-              passage: meta.passage || null, season: meta.season || null,
-              category: meta.category || null, emphasis: null,
-              draft: draftText || bodyText || null,
-            }
-          }
-
-          let newId
-          if (t === 'sermon') {
-            newId = await createSermon({ ...itemData, folderId: null })
-            for (const [idx, content] of Object.entries(steps)) {
-              if (content) await saveSermonStep(newId, Number(idx), content)
-            }
-            imported.sermon = true
-          } else if (t === 'worship') {
-            newId = await createWorship({ ...itemData, folderId: null })
-            for (const [idx, content] of Object.entries(steps)) {
-              if (content) await saveWorshipStep(newId, Number(idx), content)
-            }
-            imported.worship = true
-          } else {
-            newId = await createDawn({ ...itemData, folderId: null })
-            for (const [idx, content] of Object.entries(steps)) {
-              if (content) await saveDawnStep(newId, Number(idx), content)
-            }
-            imported.dawn = true
-          }
-
-          // .sbl 파일은 .json으로 변환 후 원본 삭제 (다음 sync에서 중복 방지)
-          if (file.type === 'sbl') {
-            await saveItemToDirectory(rootHandle, t, itemData, steps)
-            await deleteFileFromDir(rootHandle, t, file.name)
-          }
-        }
-      }
-
-      if (imported.sermon) await loadSermons()
-      if (imported.worship) await loadWorships()
-      if (imported.dawn) await loadDawns()
+  async function handleMigrate() {
+    setMigrating(true)
+    try {
+      const result = await migrateLocalToSupabase()
+      localStorage.setItem('sb_migrated', '1')
+      setMigrationResult({ success: true, count: result.count })
+      setMigrationNeeded(false)
+      await loadSermons()
+      await loadWorships()
+      await loadDawns()
+      await loadCells()
+    } catch (e) {
+      setMigrationResult({ error: e.message })
     }
-
-    syncLocalFiles()
-  }, [rootHandle, tab])
-
-  async function loadSermons() {
-    setSermons(await getSermons())
-  }
-
-  async function loadWorships() {
-    setWorships(await getWorships())
-  }
-
-  async function loadDawns() {
-    setDawns(await getDawns())
-  }
-
-  async function loadCells() {
-    setCells(await getCells())
-  }
-
-  async function loadFolders() {
-    setFolders(await getFolders(tab))
+    setMigrating(false)
   }
 
   async function handleCreateFolder(name) {
@@ -419,154 +165,26 @@ function AppInner() {
     tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : tab === 'dawn' ? await loadDawns() : await loadCells()
   }
 
-  async function handlePickFolder() {
-    const handle = await pickRootDirectory()
-    if (handle) setRootHandle(handle)
-  }
-
-  async function handleFsFileOpen(file) {
-    const text = await readFileContent(file.handle)
-    if (!text) return
-
-    if (file.type === 'sbl') {
-      const meta = parseSblMeta(text)
-      const title = meta.title || meta.passage || file.name.replace(/\.sbl$/, '')
-      setSblViewer({ title, content: text })
-      return
-    }
-
-    const parsed = parseJsonFile(text)
-    if (!parsed) return
-
-    const { item: itemData, steps } = parsed
-
-    const currentItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
-    const existing = currentItems.find(i =>
-      i.date === itemData.date &&
-      ((itemData.title && i.title === itemData.title) || (itemData.passage && i.passage === itemData.passage))
-    )
-
-    if (existing) {
-      setSelected({ id: existing.id, step: 0 })
-      if (isMobile) setSidebarVisible(false)
-      return
-    }
-
-    let newId
-    if (tab === 'sermon') {
-      newId = await createSermon({ ...itemData, folderId: null })
-      for (const [idx, content] of Object.entries(steps)) {
-        if (content) await saveSermonStep(newId, Number(idx), content)
-      }
-      await loadSermons()
-    } else if (tab === 'worship') {
-      newId = await createWorship({ ...itemData, folderId: null })
-      for (const [idx, content] of Object.entries(steps)) {
-        if (content) await saveWorshipStep(newId, Number(idx), content)
-      }
-      await loadWorships()
-    } else {
-      newId = await createDawn({ ...itemData, folderId: null })
-      for (const [idx, content] of Object.entries(steps)) {
-        if (content) await saveDawnStep(newId, Number(idx), content)
-      }
-      await loadDawns()
-    }
-
-    setSelected({ id: newId, step: 0 })
-    if (isMobile) setSidebarVisible(false)
+  function handleFolderSelect(folder) {
+    setSelectedFolder(folder)
+    setSelected(null)
   }
 
   async function handleFileImport(e) {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-    const text = await file.text()
-    const parsed = parseJsonFile(text)
-    if (!parsed) { alert('올바르지 않은 파일입니다.'); return }
-    const { tab: fileTab, item: itemData, steps } = parsed
-    const targetTab = fileTab || tab
-    const allItems = targetTab === 'sermon' ? sermons : targetTab === 'worship' ? worships : dawns
-    const existing = allItems.find(i =>
-      i.date === itemData.date &&
-      ((itemData.title && i.title === itemData.title) || (itemData.passage && i.passage === itemData.passage))
-    )
-    if (existing) {
-      if (targetTab !== tab) switchTab(targetTab)
-      setSelected({ id: existing.id, step: 0 })
-      if (isMobile) setSidebarVisible(false)
-      return
-    }
-    let newId
-    if (targetTab === 'sermon') {
-      newId = await createSermon({ ...itemData, folderId: null })
-      for (const [idx, content] of Object.entries(steps)) {
-        if (content) await saveSermonStep(newId, Number(idx), content)
-      }
+    try {
+      const text = await file.text()
+      const json = JSON.parse(text)
+      if (!json.version || !json.data) { alert('올바르지 않은 파일입니다.'); return }
+      await importAllData(json)
       await loadSermons()
-    } else if (targetTab === 'worship') {
-      newId = await createWorship({ ...itemData, folderId: null })
-      for (const [idx, content] of Object.entries(steps)) {
-        if (content) await saveWorshipStep(newId, Number(idx), content)
-      }
       await loadWorships()
-    } else {
-      newId = await createDawn({ ...itemData, folderId: null })
-      for (const [idx, content] of Object.entries(steps)) {
-        if (content) await saveDawnStep(newId, Number(idx), content)
-      }
       await loadDawns()
-    }
-    if (targetTab !== tab) switchTab(targetTab)
-    setSelected({ id: newId, step: 0 })
-    if (isMobile) setSidebarVisible(false)
-  }
-
-  async function handleExportItem(itemId) {
-    const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
-    const item = allItems.find(i => i.id === itemId)
-    if (!item) return
-    const steps = tab === 'sermon'
-      ? await getSermonSteps(itemId)
-      : tab === 'worship'
-      ? await getWorshipSteps(itemId)
-      : await getDawnSteps(itemId)
-    const stepsMap = {}
-    steps.forEach(s => { stepsMap[s.stepIndex] = s.content })
-    const jsonContent = buildJsonContent(tab, item, stepsMap)
-    const blob = new Blob([jsonContent], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${buildFileBaseName(tab, item)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function handleClearFolder() {
-    await clearRootHandle()
-    setRootHandle(null)
-  }
-
-  async function saveItemToFs(itemId, targetTab) {
-    if (!rootHandle) return
-    const t = targetTab || tab
-    const allItems = t === 'sermon' ? await getSermons() : t === 'worship' ? await getWorships() : await getDawns()
-    const item = allItems.find(i => i.id === itemId)
-    if (!item) return
-    const steps = t === 'sermon'
-      ? await getSermonSteps(itemId)
-      : t === 'worship'
-      ? await getWorshipSteps(itemId)
-      : await getDawnSteps(itemId)
-    const stepsMap = {}
-    steps.forEach(s => { stepsMap[s.stepIndex] = s.content })
-    await saveItemToDirectory(rootHandle, t, item, stepsMap)
-  }
-
-  function handleFolderSelect(folder) {
-    setSelectedFolder(folder)
-    setSelected(null)
+      await loadCells()
+      await loadFolders()
+    } catch { alert('파일을 불러오지 못했습니다.') }
   }
 
   const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : tab === 'dawn' ? dawns : cells
@@ -596,42 +214,39 @@ function AppInner() {
 
   async function handleDelete(id) {
     if (!confirm(lang === 'ko' ? '삭제하시겠습니까?' : 'Delete?')) return
-    if (tab === 'sermon') {
-      await deleteSermon(id)
-      await loadSermons()
-    } else if (tab === 'worship') {
-      await deleteWorship(id)
-      await loadWorships()
-    } else if (tab === 'dawn') {
-      await deleteDawn(id)
-      await loadDawns()
-    } else {
-      await deleteCell(id)
-      await loadCells()
-    }
+    if (tab === 'sermon') { await deleteSermon(id); await loadSermons() }
+    else if (tab === 'worship') { await deleteWorship(id); await loadWorships() }
+    else if (tab === 'dawn') { await deleteDawn(id); await loadDawns() }
+    else { await deleteCell(id); await loadCells() }
     if (selected?.id === id) setSelected(null)
-    if (rootHandle) {
-      const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
-      const item = allItems.find(i => i.id === id)
-      if (item) await deleteItemFromDirectory(rootHandle, tab, item)
-    }
   }
 
   async function handleSave(form) {
     if (!selected?.id) return
-    if (tab === 'sermon') {
-      await updateSermon(selected.id, form)
-      await loadSermons()
-    } else if (tab === 'worship') {
-      await updateWorship(selected.id, form)
-      await loadWorships()
-    } else if (tab === 'dawn') {
-      await updateDawn(selected.id, form)
-      await loadDawns()
-    } else {
-      await updateCell(selected.id, form)
-      await loadCells()
-    }
+    if (tab === 'sermon') { await updateSermon(selected.id, form); await loadSermons() }
+    else if (tab === 'worship') { await updateWorship(selected.id, form); await loadWorships() }
+    else if (tab === 'dawn') { await updateDawn(selected.id, form); await loadDawns() }
+    else { await updateCell(selected.id, form); await loadCells() }
+  }
+
+  async function handleExportItem(itemId) {
+    const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
+    const item = allItems.find(i => i.id === itemId)
+    if (!item) return
+    const stepsData = tab === 'sermon'
+      ? await getSermonSteps(itemId)
+      : tab === 'worship'
+      ? await getWorshipSteps(itemId)
+      : await getDawnSteps(itemId)
+    const stepsMap = {}
+    stepsData.forEach(s => { stepsMap[s.stepIndex] = s.content })
+    const blob = new Blob([JSON.stringify({ version: 2, tab, item, steps: stepsMap }, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${item.date || 'item'}-${item.title || item.passage || 'export'}.json`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function switchTab(t) {
@@ -676,58 +291,11 @@ function AppInner() {
       if (basic.includes(q)) { matched.push(item); continue }
       if (item.draft?.toLowerCase().includes(q)) { matched.push(item); continue }
       const isSermon = sermons.some(s => s.id === item.id)
-      const steps = isSermon ? await getSermonSteps(item.id) : await getDawnSteps(item.id)
-      if (steps.some(s => s.content?.toLowerCase().includes(q))) matched.push(item)
+      const stepsData = isSermon ? await getSermonSteps(item.id) : await getDawnSteps(item.id)
+      if (stepsData.some(s => s.content?.toLowerCase().includes(q))) matched.push(item)
     }
     setSearchResults(matched)
     setSearchLoading(false)
-  }
-
-  async function handleManualDriveLoad() {
-    if (!driveToken) return { error: 'NO_TOKEN' }
-    const r = await driveLoad(driveToken)
-    if (r?.error === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
-    if (!r) return { error: 'NO_FILE' }
-
-    const dd = r.data?.data
-    const counts = {
-      sermons: dd?.sermons?.length || 0,
-      dawns: dd?.dawns?.length || 0,
-      steps: (dd?.sermonSteps?.length || 0) + (dd?.dawnSteps?.length || 0) + (dd?.worshipSteps?.length || 0),
-    }
-
-    if (counts.sermons === 0 && counts.dawns === 0) {
-      return { error: 'EMPTY_FILE' }
-    }
-
-    try {
-      await importAllData(r.data)
-      localStorage.setItem('drive_last_sync', String(r.updatedAt || Date.now()))
-    } catch (e) {
-      return { error: 'IMPORT_FAILED', message: e.message }
-    }
-    await loadSermons()
-    await loadWorships()
-    await loadDawns()
-    await loadFolders()
-    return { success: true, counts }
-  }
-
-  async function handleDriveRestoreRevision(revisionId) {
-    if (!driveToken) return { error: 'NO_TOKEN' }
-    const data = await driveLoadRevision(driveToken, revisionId)
-    if (!data) return { error: 'LOAD_FAILED' }
-    if (data.error === 'AUTH_ERROR') return { error: 'AUTH_ERROR' }
-    try {
-      await importAllData(data)
-    } catch (e) {
-      return { error: 'IMPORT_FAILED', message: e.message }
-    }
-    await loadSermons()
-    await loadWorships()
-    await loadDawns()
-    await loadFolders()
-    return { success: true }
   }
 
   function handleSettingsChange(next) {
@@ -735,8 +303,7 @@ function AppInner() {
     saveSettings(next)
   }
 
-  const content = (
-    <>
+  return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <header style={{
         height: 48,
@@ -767,12 +334,8 @@ function AppInner() {
               style={{
                 background: tab === t ? 'var(--accent)' : 'transparent',
                 color: tab === t ? '#fff' : 'var(--text-muted)',
-                border: 'none',
-                borderRadius: 5,
-                padding: '4px 12px',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
+                border: 'none', borderRadius: 5,
+                padding: '4px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
               }}
             >
               {label}
@@ -785,14 +348,12 @@ function AppInner() {
           <div style={{
             fontSize: 12,
             color: usageInfo.count >= usageInfo.limit ? '#dc2626' : 'var(--text-muted)',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
+            whiteSpace: 'nowrap', flexShrink: 0,
           }}>
             {lang === 'en' ? `${usageInfo.count}/${usageInfo.limit} this month` : `이번 달 ${usageInfo.count}/${usageInfo.limit}회`}
           </div>
         )}
 
-        {/* 검색창 */}
         {searchOpen && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
@@ -808,11 +369,8 @@ function AppInner() {
                     color: searchMode === mode ? '#fff' : 'var(--text-muted)',
                     border: 'none',
                     borderRight: i < 2 ? '1px solid var(--border)' : 'none',
-                    padding: '4px 10px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
+                    padding: '4px 10px', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
                   }}
                 >
                   {label}
@@ -832,67 +390,42 @@ function AppInner() {
                 ? (searchMode === 'sermon-content' ? 'Search content, press Enter...' : searchMode === 'worship' ? 'Search by date...' : 'Search sermon title...')
                 : (searchMode === 'sermon-content' ? '설교내용 검색 후 Enter...' : searchMode === 'worship' ? '날짜 검색...' : '설교 제목 검색...')}
               style={{
-                width: 220,
-                fontSize: 13,
-                padding: '5px 10px',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                outline: 'none',
+                width: 220, fontSize: 13, padding: '5px 10px',
+                border: '1px solid var(--border)', borderRadius: 6,
+                background: 'var(--bg)', color: 'var(--text)', outline: 'none',
               }}
             />
-            {searchLoading && (
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>검색 중...</span>
-            )}
-            <button
-              onClick={closeSearch}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
-            >
-              ✕
+            {searchLoading && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>검색 중...</span>}
+            <button onClick={closeSearch} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>
+              ×
             </button>
           </div>
         )}
 
-        {/* 찾기 버튼 */}
         <button
           onClick={() => setSearchOpen(v => !v)}
           title="찾기"
           style={{
             background: searchOpen ? 'var(--accent-light)' : 'none',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            width: 32,
-            height: 32,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            border: '1px solid var(--border)', borderRadius: 6,
+            width: 32, height: 32, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: searchOpen ? 'var(--accent)' : 'var(--text-muted)',
           }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
         </button>
-
 
         {isAdmin && (
           <button
             onClick={() => setAdminOpen(true)}
             title="사용자 관리"
             style={{
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              width: 32,
-              height: 32,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)',
+              background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+              width: 32, height: 32, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
             }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -908,16 +441,9 @@ function AppInner() {
           onClick={() => setSettingsOpen(true)}
           title={lang === 'ko' ? '설정' : 'Settings'}
           style={{
-            background: 'none',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            width: 32,
-            height: 32,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-muted)',
+            background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+            width: 32, height: 32, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
           }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -934,26 +460,7 @@ function AppInner() {
           settings={settings}
           onChange={handleSettingsChange}
           onClose={() => setSettingsOpen(false)}
-          rootHandle={rootHandle}
-          onPickFolder={handlePickFolder}
-          driveToken={driveToken}
-          driveSyncing={driveSyncing}
-          driveLastSync={driveLastSync}
-          driveAuthError={driveAuthError}
-          onManualDriveLoad={handleManualDriveLoad}
-          onDriveRestoreRevision={handleDriveRestoreRevision}
-          dropboxTokens={dropboxTokens}
-          onedriveTokens={onedriveTokens}
-          icloudReady={icloudReady}
-          onDropboxDisconnect={() => {
-            localStorage.removeItem('dropbox_tokens')
-            setDropboxTokens(null)
-          }}
-          onOnedriveDisconnect={() => {
-            localStorage.removeItem('onedrive_tokens')
-            setOnedriveTokens(null)
-          }}
-          onIcloudDisconnect={() => setIcloudReady(false)}
+          onImport={handleFileImport}
         />
       )}
 
@@ -978,14 +485,11 @@ function AppInner() {
             width={sidebarWidth}
             searchItems={searchResults}
             searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
-            fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
-            onFsFileOpen={handleFsFileOpen}
-            onImport={!isFileSystemSupported() ? handleFileImport : null}
             lang={lang}
           />
         )}
 
-        {/* 데스크탑 사이드바 너비 조절 핸들 */}
+        {/* 사이드바 너비 조절 핸들 */}
         {!isMobile && sidebarVisible && (
           <div
             onPointerDown={(e) => {
@@ -993,19 +497,12 @@ function AppInner() {
               const startX = e.clientX
               const startW = sidebarWidth
               const onMove = (me) => {
-                const newW = Math.min(Math.max(startW + (me.clientX - startX), 140), 520)
-                setSidebarWidth(newW)
+                setSidebarWidth(Math.min(Math.max(startW + (me.clientX - startX), 140), 520))
               }
               document.addEventListener('pointermove', onMove)
               document.addEventListener('pointerup', () => document.removeEventListener('pointermove', onMove), { once: true })
             }}
-            style={{
-              width: 5,
-              flexShrink: 0,
-              background: 'var(--border)',
-              cursor: 'col-resize',
-              transition: 'background 0.15s',
-            }}
+            style={{ width: 5, flexShrink: 0, background: 'var(--border)', cursor: 'col-resize', transition: 'background 0.15s' }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
             onMouseLeave={e => e.currentTarget.style.background = 'var(--border)'}
           />
@@ -1014,10 +511,7 @@ function AppInner() {
         {/* 모바일 사이드바 오버레이 */}
         {isMobile && sidebarVisible && (
           <>
-            <div
-              onClick={() => setSidebarVisible(false)}
-              style={{ position: 'fixed', inset: 0, top: 48, background: 'rgba(0,0,0,0.4)', zIndex: 49 }}
-            />
+            <div onClick={() => setSidebarVisible(false)} style={{ position: 'fixed', inset: 0, top: 48, background: 'rgba(0,0,0,0.4)', zIndex: 49 }} />
             <div style={{ position: 'fixed', top: 48, left: 0, bottom: 0, width: 280, zIndex: 50, display: 'flex', flexDirection: 'column' }}>
               <Sidebar
                 tab={tab}
@@ -1037,44 +531,60 @@ function AppInner() {
                 width={280}
                 searchItems={searchResults}
                 searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
-                fsFiles={fsFiles.filter(f => !new Set(items.map(i => buildFileBaseName(tab, i))).has(f.name.replace(/\.(json|sbl)$/, '')))}
-                onFsFileOpen={handleFsFileOpen}
-                onImport={!isFileSystemSupported() ? handleFileImport : null}
+                lang={lang}
               />
             </div>
           </>
         )}
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
-          {!driveToken && !driveAuthError && !!localStorage.getItem('drive_last_sync') && (
+
+          {/* 로컬 데이터 이전 배너 */}
+          {migrationNeeded && (
             <div style={{
-              background: 'rgba(245, 158, 11, 0.1)',
-              borderBottom: '1px solid rgba(245, 158, 11, 0.35)',
-              padding: '7px 16px',
-              fontSize: 12,
+              background: 'rgba(83, 74, 183, 0.08)',
+              borderBottom: '1px solid rgba(83, 74, 183, 0.3)',
+              padding: '10px 16px',
+              fontSize: 13,
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 12,
               flexShrink: 0,
             }}>
-              <span style={{ color: '#d97706', fontWeight: 600 }}>Drive 연결 끊김</span>
-              <span style={{ color: 'var(--text-muted)' }}>재로그인하면 데이터 손실 없이 Drive가 다시 연결됩니다.</span>
+              <span style={{ color: '#534AB7', fontWeight: 600 }}>기존 데이터 이전</span>
+              <span style={{ color: 'var(--text-muted)' }}>이전에 작성한 설교가 이 기기에 남아 있습니다. 클라우드로 이전하면 모든 기기에서 사용할 수 있습니다.</span>
               <button
-                onClick={() => supabase.auth.signOut()}
+                onClick={handleMigrate}
+                disabled={migrating}
                 style={{
-                  marginLeft: 'auto',
-                  background: '#534AB7',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 4,
-                  padding: '3px 10px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  flexShrink: 0,
+                  marginLeft: 'auto', background: '#534AB7', color: '#fff',
+                  border: 'none', borderRadius: 5, padding: '5px 14px',
+                  fontSize: 12, fontWeight: 600, cursor: migrating ? 'not-allowed' : 'pointer',
+                  flexShrink: 0, opacity: migrating ? 0.7 : 1,
                 }}
               >
-                재로그인
+                {migrating ? '이전 중...' : '클라우드로 이전'}
               </button>
+              <button
+                onClick={() => { localStorage.setItem('sb_migrated', '1'); setMigrationNeeded(false) }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, padding: '0 4px', flexShrink: 0 }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* 이전 결과 메시지 */}
+          {migrationResult && (
+            <div style={{
+              padding: '8px 16px', fontSize: 12, flexShrink: 0,
+              background: migrationResult.success ? 'rgba(22, 163, 74, 0.08)' : 'rgba(220, 38, 38, 0.08)',
+              color: migrationResult.success ? '#16a34a' : '#dc2626',
+              borderBottom: '1px solid var(--border)',
+            }}>
+              {migrationResult.success
+                ? `이전 완료! ${migrationResult.count}개 항목이 클라우드에 저장되었습니다.`
+                : `이전 실패: ${migrationResult.error}`}
             </div>
           )}
 
@@ -1093,7 +603,9 @@ function AppInner() {
 
           {!selected && tab === 'cell' && (
             <div style={{ flex: 1, overflow: 'auto', padding: '32px 24px', maxWidth: 560 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-heading)', marginBottom: 20 }}>{lang === 'en' ? 'Create New Cell Material' : '새 나눔 교재 만들기'}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-heading)', marginBottom: 20 }}>
+                {lang === 'en' ? 'Create New Cell Material' : '새 나눔 교재 만들기'}
+              </div>
               <CellForm cell={null} onSave={handleCreateNew} lang={lang} />
             </div>
           )}
@@ -1101,7 +613,7 @@ function AppInner() {
           {selected?.id && selectedItem && tab !== 'cell' && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <StepView
-                key={`${selected.id}-${cloudSyncKey}`}
+                key={selected.id}
                 tab={tab}
                 item={selectedItem}
                 lang={lang}
@@ -1111,7 +623,7 @@ function AppInner() {
                 isMobile={isMobile}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
-                onGenerated={(itemId) => saveItemToFs(itemId)}
+                onGenerated={() => {}}
                 onExport={() => handleExportItem(selected.id)}
                 cells={cells}
                 onGoToCell={(cellId) => { switchTab('cell'); setSelected({ id: cellId, step: 0 }) }}
@@ -1122,7 +634,7 @@ function AppInner() {
           {selected?.id && selectedItem && tab === 'cell' && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <CellView
-                key={`${selected.id}-${cloudSyncKey}`}
+                key={selected.id}
                 item={selectedItem}
                 lang={lang}
                 bible={settings.bible}
@@ -1140,34 +652,9 @@ function AppInner() {
             </div>
           )}
         </main>
-
       </div>
     </div>
-
-    {sblViewer && (
-
-      <div
-        onClick={() => setSblViewer(null)}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{ background: 'var(--bg)', borderRadius: 8, width: '100%', maxWidth: 700, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}
-        >
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-heading)' }}>{sblViewer.title} (이전 형식 — 읽기 전용)</span>
-            <button onClick={() => setSblViewer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>×</button>
-          </div>
-          <pre style={{ flex: 1, overflow: 'auto', padding: 16, fontSize: 13, whiteSpace: 'pre-wrap', color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>
-            {sblViewer.content}
-          </pre>
-        </div>
-      </div>
-    )}
-    </>
   )
-
-  return content
 }
 
 export default function App() {
