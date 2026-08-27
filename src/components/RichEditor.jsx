@@ -10,7 +10,8 @@ const COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed'
 
 function toHtml(value) {
   if (!value) return ''
-  if (value.trimStart().startsWith('<')) return value
+  if (value.trimStart().startsWith('<'))
+    return value.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '')
   return value
     .split('\n')
     .map(line => line === '' ? '<p><br></p>' : `<p>${line}</p>`)
