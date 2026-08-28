@@ -76,7 +76,7 @@ function AppInner() {
   useEffect(() => {
     if (localStorage.getItem('sb_migrated')) return
     // IndexedDB에 sermonblok DB가 있고 데이터가 있으면 이전 배너 표시
-    const req = indexedDB.open('sermonblok')
+    const req = indexedDB.open('bibleblok')
     req.onsuccess = (e) => {
       const localDb = e.target.result
       if (!localDb.objectStoreNames.contains('sermons')) { localDb.close(); return }
@@ -333,7 +333,7 @@ function AppInner() {
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>SermonBlok</span>}
+        {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>BibleBlok</span>}
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
           {(lang === 'en'

@@ -470,7 +470,7 @@ export async function importAllData(json) {
 
 export async function migrateLocalToSupabase() {
   const Dexie = (await import('dexie')).default
-  const localDb = new Dexie('sermonblok')
+  const localDb = new Dexie('bibleblok')
   localDb.version(7).stores({
     sermons: '++id, date, category, title, passage, emphasis, createdAt',
     sermonSteps: '++id, [sermonId+stepIndex], sermonId',

@@ -1,4 +1,4 @@
-const KEY = 'sermonblok-settings'
+const KEY = 'bibleblok-settings'
 
 const DEFAULTS = {
   theme: 'system',

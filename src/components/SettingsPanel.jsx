@@ -38,7 +38,7 @@ export default function SettingsPanel({ settings, onChange, onClose, onImport })
   async function handleExport() {
     const data = await exportAllData()
     const json = JSON.stringify(data, null, 2)
-    const fileName = `sermonblok-backup-${new Date().toISOString().slice(0, 10)}.json`
+    const fileName = `bibleblok-backup-${new Date().toISOString().slice(0, 10)}.json`
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
