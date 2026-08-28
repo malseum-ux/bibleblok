@@ -115,15 +115,12 @@ function stripHtml(html) {
 export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onExport, sermons = [], onGoToSermon }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [stepContents, setStepContents] = useState({})
-  const [finalContents, setFinalContents] = useState({})
   const [aiContent, setAiContent] = useState('')
   const resultHistory = useTextHistory('', `${item?.id}-${currentStep}-result`)
-  const finalHistory = useTextHistory('', `${item?.id}-${currentStep}-final`)
   const [loading, setLoading] = useState(false)
   const [refining, setRefining] = useState(false)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
-  const [draftEditing, setDraftEditing] = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [customItems, setCustomItems] = useState([])
   const [selectedCustomKeys, setSelectedCustomKeys] = useState([])
@@ -133,32 +130,20 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const [dragOverId, setDragOverId] = useState(null)
   const [userKeyword, setUserKeyword] = useState('')
   const [aiCopied, setAiCopied] = useState(false)
-  const [finalCopied, setFinalCopied] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [applied, setApplied] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
-  const [leftPct, setLeftPct] = useState(50)
-  const splitContainerRef = useRef(null)
   const aiDivRef = useRef(null)
   const resultPanelRef = useRef(null)
-  const draftPanelRef = useRef(null)
-  const finalTimer = useRef(null)
   const prevStepRef = useRef(0)
 
   const step = CELL_STEPS[currentStep] || CELL_STEPS[0]
-  const hasItems = customItems.length > 0
 
   useEffect(() => {
     if (!item?.id) return
     getCellSteps(item.id).then(rows => {
       const aiMap = {}
-      const finalMap = {}
-      rows.forEach(s => {
-        aiMap[s.stepIndex] = s.content || ''
-        finalMap[s.stepIndex] = s.finalContent || ''
-      })
+      rows.forEach(s => { aiMap[s.stepIndex] = s.content || '' })
       setStepContents(aiMap)
-      setFinalContents(finalMap)
     })
   }, [item?.id])
 
@@ -167,20 +152,14 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     if (stepChanged) prevStepRef.current = currentStep
 
     const ai = stepContents[currentStep] || ''
-    const fin = finalContents[currentStep] || ''
     setAiContent(ai)
     resultHistory.reset(ai)
-    finalHistory.reset(fin)
     setInstructionsOpen(false)
     setError(null)
 
-    if (stepChanged) {
-      setEditing(false)
-      setDraftEditing(false)
-    }
+    if (stepChanged) setEditing(false)
   }, [currentStep, stepContents]) // eslint-disable-line
 
-  // 단계 변경 시 커스텀 항목 로드
   useEffect(() => {
     if (!step?.key) return
     getCustomStepItems('cell', step.key).then(items => {
@@ -202,40 +181,22 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     setUserKeyword(kw)
   }, [step?.key])
 
-  // 좌측 편집 내용 자동 저장
   useEffect(() => {
     if (!editing) return
-    clearTimeout(finalTimer.current)
-    finalTimer.current = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       const t = resultHistory.text
       setStepContents(prev => ({ ...prev, [currentStep]: t }))
-      if (item?.id) {
-        await saveCellStep(item.id, currentStep, t, finalContents[currentStep] || '')
-      }
+      if (item?.id) await saveCellStep(item.id, currentStep, t, '')
     }, 800)
+    return () => clearTimeout(timer)
   }, [resultHistory.text, editing]) // eslint-disable-line
 
-  // 우측 편집 내용 자동 저장
-  useEffect(() => {
-    if (!draftEditing && !finalHistory.text) return
-    clearTimeout(finalTimer.current)
-    finalTimer.current = setTimeout(async () => {
-      const t = finalHistory.text
-      setFinalContents(prev => ({ ...prev, [currentStep]: t }))
-      if (item?.id) {
-        await saveCellStep(item.id, currentStep, stepContents[currentStep] || '', t)
-      }
-    }, 800)
-  }, [finalHistory.text]) // eslint-disable-line
-
-  // 생성 중 자동 스크롤
   useEffect(() => {
     if (loading && aiDivRef.current) {
       aiDivRef.current.scrollTop = aiDivRef.current.scrollHeight
     }
   }, [aiContent, loading])
 
-  // 좌측 편집 패널 바깥 클릭 시 편집 종료
   useEffect(() => {
     if (!editing) return
     function handleClick(e) {
@@ -244,24 +205,12 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
         const t = resultHistory.text
         setAiContent(t)
         setStepContents(prev => ({ ...prev, [currentStep]: t }))
-        if (item?.id) saveCellStep(item.id, currentStep, t, finalContents[currentStep] || '')
+        if (item?.id) saveCellStep(item.id, currentStep, t, '')
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [editing, currentStep]) // eslint-disable-line
-
-  // 우측 편집 패널 바깥 클릭 시 편집 종료
-  useEffect(() => {
-    if (!draftEditing) return
-    function handleClick(e) {
-      if (draftPanelRef.current && !draftPanelRef.current.contains(e.target)) {
-        setDraftEditing(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [draftEditing])
 
   function toggleCustomItem(id) {
     setSelectedCustomKeys(prev =>
@@ -296,19 +245,6 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     setCustomItems(items)
     setDraggedId(null)
     setDragOverId(null)
-  }
-
-  function startSplitDrag(e) {
-    if (e.button !== 0) return
-    e.preventDefault()
-    const container = splitContainerRef.current
-    const onMove = (me) => {
-      const rect = container.getBoundingClientRect()
-      const pct = ((me.clientX - rect.left) / rect.width) * 100
-      setLeftPct(Math.min(Math.max(pct, 20), 80))
-    }
-    document.addEventListener('pointermove', onMove)
-    document.addEventListener('pointerup', () => document.removeEventListener('pointermove', onMove), { once: true })
   }
 
   async function generate() {
@@ -368,7 +304,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
         setAiContent(accumulated)
         resultHistory.reset(accumulated)
         setStepContents(prev => ({ ...prev, [currentStep]: accumulated }))
-        await saveCellStep(item.id, currentStep, accumulated, finalContents[currentStep] || '')
+        await saveCellStep(item.id, currentStep, accumulated, '')
       })
     } catch (e) {
       if (e.name === 'AbortError') {
@@ -402,50 +338,15 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     }
   }
 
-  async function handleFinalSlashCommand({ instruction, contextBefore, contextAfter }) {
-    if (!item) return
-    finalHistory.forceSnapshot()
-    setRefining(true)
-    const fallback = finalHistory.text
-    let generated = ''
-    try {
-      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
-        generated = chunk
-        finalHistory.onChange(contextBefore + chunk + contextAfter)
-      })
-      finalHistory.onChange(contextBefore + generated + contextAfter)
-    } catch {
-      finalHistory.onChange(fallback)
-    } finally {
-      setRefining(false)
-    }
-  }
-
   function startEdit() {
     resultHistory.reset(aiContent)
     setInstructionsOpen(false)
     setEditing(true)
   }
 
-  function applyToFinal() {
-    if (!aiContent) return
-    const existing = finalHistory.text
-    const addHtml = aiContent.trimStart().startsWith('<')
-      ? aiContent
-      : aiContent.split('\n').filter(l => l.trim() !== '').map(l => `<p>${l}</p>`).join('')
-    const separator = existing.trim() ? '<p><br></p>' : ''
-    const newText = existing + separator + addHtml
-    finalHistory.onChange(newText)
-    setFinalContents(prev => ({ ...prev, [currentStep]: newText }))
-    saveCellStep(item.id, currentStep, aiContent, newText)
-    setApplied(true)
-    setTimeout(() => setApplied(false), 1500)
-  }
-
   async function handleSave() {
-    for (const [idx, fc] of Object.entries(finalContents)) {
-      const ai = stepContents[idx] || ''
-      if (ai || fc) await saveCellStep(item.id, Number(idx), ai, fc || '')
+    for (const [idx, ai] of Object.entries(stepContents)) {
+      if (ai) await saveCellStep(item.id, Number(idx), ai, '')
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
@@ -468,18 +369,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     whiteSpace: 'nowrap',
   }
 
-  const undoBtnStyle = (enabled) => ({
-    background: 'none',
-    border: '1px solid var(--border)',
-    borderRadius: 5,
-    padding: '2px 7px',
-    fontSize: 13,
-    cursor: enabled ? 'pointer' : 'default',
-    color: enabled ? 'var(--text-muted)' : 'var(--border)',
-  })
-
   const displayAi = editing ? resultHistory.text : aiContent
-  const hasFinalContent = !!finalHistory.text
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -489,7 +379,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
         <div className="no-scrollbar" style={{ display: 'flex', overflowX: 'auto', flex: 1, padding: '10px 16px', gap: 0, scrollbarWidth: 'none', alignItems: 'center' }}>
           {CELL_STEPS.map((s, idx) => {
             const isActive = s.index === currentStep
-            const hasDot = stepContents[s.index] || finalContents[s.index]
+            const hasDot = stepContents[s.index]
             return (
               <Fragment key={s.index}>
                 <div
@@ -526,7 +416,6 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
           const cellPassage = normalize(item.passage)
           const matched = sermons.find(s => normalize(s.passage) === cellPassage || normalize(s.passage).includes(cellPassage) || cellPassage.includes(normalize(s.passage)))
           if (!matched) return null
-          const isSermon = !matched.date || sermons.some(s => s.id === matched.id && s.passage)
           const label = matched.title || matched.passage
           return (
             <div
@@ -573,236 +462,143 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
       )}
 
       {/* 본문 영역 */}
-      <div ref={splitContainerRef} style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div ref={resultPanelRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
-        {/* 좌: AI 생성 */}
-        <div ref={resultPanelRef} style={{ width: isMobile ? '100%' : `${leftPct}%`, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-          {/* 좌 헤더 */}
-          <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {/* 툴바 */}
+        <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={() => setInstructionsOpen(v => !v)}
+            style={{ ...btnBase, background: instructionsOpen ? 'var(--accent)' : 'transparent', color: instructionsOpen ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)') }}
+          >
+            {lang === 'en' ? 'Instructions' : '지시 항목'} {selectedCustomKeys.length}/{customItems.length}
+          </button>
+          <div style={{ flex: 1 }} />
+          {displayAi && !loading && (
             <button
-              onClick={() => setInstructionsOpen(v => !v)}
-              style={{ ...btnBase, background: instructionsOpen ? 'var(--accent)' : 'transparent', color: instructionsOpen ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (instructionsOpen ? 'var(--accent)' : 'var(--border)') }}
+              onClick={() => { navigator.clipboard.writeText(stripHtml(displayAi)); setAiCopied(true); setTimeout(() => setAiCopied(false), 1500) }}
+              style={{ ...btnBase, background: aiCopied ? 'var(--accent)' : 'transparent', color: aiCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (aiCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
             >
-              {lang === 'en' ? 'Instructions' : '지시 항목'} {selectedCustomKeys.length}/{customItems.length}
+              {aiCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
             </button>
-            <div style={{ flex: 1 }} />
-            {displayAi && !loading && (
-              <button
-                onClick={() => { navigator.clipboard.writeText(stripHtml(displayAi)); setAiCopied(true); setTimeout(() => setAiCopied(false), 1500) }}
-                style={{ ...btnBase, background: aiCopied ? 'var(--accent)' : 'transparent', color: aiCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (aiCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
-              >
-                {aiCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
-              </button>
-            )}
-            {displayAi && !loading && onFontSizeChange && (
-              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
-                <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
-                <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
-              </div>
-            )}
-            <button
-              onClick={loading ? stopCurrentGeneration : generate}
-              style={{ background: loading ? '#dc2626' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            >
-              {loading
-                ? (lang === 'en' ? 'Stop' : '중지')
-                : aiContent
-                  ? (lang === 'en' ? 'Regenerate' : '다시 생성')
-                  : (lang === 'en' ? 'Generate' : 'AI 생성')}
-            </button>
-          </div>
-
-          {/* 지시 항목 패널 (키워드 입력 포함) */}
-          {!editing && instructionsOpen && (
-            <div style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', background: 'var(--bg-sidebar)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                {customItems.map(ci => (
-                  editingCustom ? (
-                    <div
-                      key={ci.id}
-                      draggable
-                      onDragStart={e => { e.dataTransfer.setData('text/plain', String(ci.id)); setDraggedId(ci.id) }}
-                      onDragOver={e => { e.preventDefault(); setDragOverId(ci.id) }}
-                      onDrop={e => { e.preventDefault(); handleDrop(ci.id) }}
-                      onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        background: dragOverId === ci.id ? 'var(--accent)' : 'rgba(99,102,241,0.12)',
-                        color: dragOverId === ci.id ? '#fff' : 'var(--accent)',
-                        border: `1px solid ${draggedId === ci.id ? 'transparent' : 'var(--accent)'}`,
-                        borderRadius: 14, padding: '3px 10px',
-                        fontSize: 13, cursor: 'grab', userSelect: 'none',
-                        opacity: draggedId === ci.id ? 0.4 : 1,
-                      }}
-                    >
-                      ≡ {ci.label}
-                      <span onPointerDown={e => { e.stopPropagation(); handleDeleteCustomItem(ci.id) }} style={{ cursor: 'pointer', opacity: 0.7, fontSize: 15, lineHeight: 1 }}>×</span>
-                    </div>
-                  ) : (
-                    <label key={ci.id} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--accent)', userSelect: 'none' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomKeys.includes(ci.id)}
-                        onChange={() => toggleCustomItem(ci.id)}
-                        style={{ accentColor: 'var(--accent)', cursor: 'pointer', width: 14, height: 14 }}
-                      />
-                      {ci.label}
-                    </label>
-                  )
-                ))}
-
-                {editingCustom && (
-                  <input
-                    autoFocus
-                    value={newCustomLabel}
-                    onChange={e => setNewCustomLabel(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddCustomItem(); if (e.key === 'Escape') { setEditingCustom(false); setNewCustomLabel('') } }}
-                    placeholder={lang === 'en' ? 'New item' : '새 항목'}
-                    style={{ width: 90, fontSize: 13, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
-                  />
-                )}
-
-                {!editingCustom
-                  ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>{lang === 'en' ? 'Edit' : '편집'}</button>
-                  : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>{lang === 'en' ? 'Done' : '완료'}</button>
-                }
-              </div>
-              <input
-                value={userKeyword}
-                onChange={e => setUserKeyword(e.target.value)}
-                placeholder={lang === 'en' ? 'Additional keywords or instructions (e.g. Youth group, Easter)' : '추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)'}
-                style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-              />
+          )}
+          {displayAi && !loading && onFontSizeChange && (
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
+              <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
+              <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
             </div>
           )}
-
-          {/* AI 결과 영역 */}
-          {editing ? (
-            <RichEditor
-              fixedToolbar
-              editable={!refining}
-              value={resultHistory.text}
-              onChange={resultHistory.onChange}
-              baseFontSize={fontSize}
-              onEnterCommand={handleAiSlashCommand}
-            />
-          ) : (
-            <div
-              ref={aiDivRef}
-              onClick={aiContent && !loading ? startEdit : undefined}
-              style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', cursor: aiContent && !loading ? 'text' : 'default' }}
-            >
-              {error && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
-                  {error}
-                </div>
-              )}
-              {aiContent ? (
-                aiContent.trimStart().startsWith('<') ? (
-                  <div className="plain-view" dangerouslySetInnerHTML={{ __html: aiContent.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '') }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
-                ) : (
-                  <div className="plain-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
-                    {aiContent.split('\n').filter(l => l.trim() !== '').map((line, i) => (
-                      <p key={i}>{line}</p>
-                    ))}
-                  </div>
-                )
-              ) : !loading && (
-                <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, textAlign: 'center', marginTop: 60 }}>
-                  {item?.passage
-                    ? (lang === 'en' ? `Click Generate to create ${step.label.en}.` : `AI 생성 버튼을 눌러 ${step.label.ko}을 생성합니다.`)
-                    : (lang === 'en' ? 'Enter a Bible passage in Info first.' : '기본정보에서 성경 본문을 먼저 입력하세요.')}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 교재작성 반영 버튼 */}
-          {aiContent && !loading && !editing && (
-            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-sidebar)' }}>
-              <button
-                onClick={applyToFinal}
-                style={{ width: '100%', padding: '8px 0', fontSize: 13, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: applied ? 'var(--accent)' : 'var(--accent-light)', color: applied ? '#fff' : 'var(--accent)', transition: 'all 0.2s' }}
-              >
-                {applied ? (lang === 'en' ? 'Applied' : '반영됨') : (lang === 'en' ? 'Apply to Material' : '교재작성 반영')}
-              </button>
-            </div>
-          )}
+          <button
+            onClick={loading ? stopCurrentGeneration : generate}
+            style={{ background: loading ? '#dc2626' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            {loading
+              ? (lang === 'en' ? 'Stop' : '중지')
+              : aiContent
+                ? (lang === 'en' ? 'Regenerate' : '다시 생성')
+                : (lang === 'en' ? 'Generate' : 'AI 생성')}
+          </button>
         </div>
 
-        {/* 드래그 구분선 */}
-        {!isMobile && (
-          <div
-            onPointerDown={startSplitDrag}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'var(--border)'}
-            style={{ width: 5, flexShrink: 0, background: 'var(--border)', cursor: 'col-resize', transition: 'background 0.15s' }}
-          />
+        {/* 지시 항목 패널 */}
+        {!editing && instructionsOpen && (
+          <div style={{ borderBottom: '1px solid var(--border)', padding: '10px 16px', background: 'var(--bg-sidebar)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              {customItems.map(ci => (
+                editingCustom ? (
+                  <div
+                    key={ci.id}
+                    draggable
+                    onDragStart={e => { e.dataTransfer.setData('text/plain', String(ci.id)); setDraggedId(ci.id) }}
+                    onDragOver={e => { e.preventDefault(); setDragOverId(ci.id) }}
+                    onDrop={e => { e.preventDefault(); handleDrop(ci.id) }}
+                    onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      background: dragOverId === ci.id ? 'var(--accent)' : 'rgba(99,102,241,0.12)',
+                      color: dragOverId === ci.id ? '#fff' : 'var(--accent)',
+                      border: `1px solid ${draggedId === ci.id ? 'transparent' : 'var(--accent)'}`,
+                      borderRadius: 14, padding: '3px 10px',
+                      fontSize: 13, cursor: 'grab', userSelect: 'none',
+                      opacity: draggedId === ci.id ? 0.4 : 1,
+                    }}
+                  >
+                    ≡ {ci.label}
+                    <span onPointerDown={e => { e.stopPropagation(); handleDeleteCustomItem(ci.id) }} style={{ cursor: 'pointer', opacity: 0.7, fontSize: 15, lineHeight: 1 }}>×</span>
+                  </div>
+                ) : (
+                  <label key={ci.id} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, color: 'var(--accent)', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCustomKeys.includes(ci.id)}
+                      onChange={() => toggleCustomItem(ci.id)}
+                      style={{ accentColor: 'var(--accent)', cursor: 'pointer', width: 14, height: 14 }}
+                    />
+                    {ci.label}
+                  </label>
+                )
+              ))}
+
+              {editingCustom && (
+                <input
+                  autoFocus
+                  value={newCustomLabel}
+                  onChange={e => setNewCustomLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddCustomItem(); if (e.key === 'Escape') { setEditingCustom(false); setNewCustomLabel('') } }}
+                  placeholder={lang === 'en' ? 'New item' : '새 항목'}
+                  style={{ width: 90, fontSize: 13, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
+                />
+              )}
+
+              {!editingCustom
+                ? <button onClick={() => setEditingCustom(true)} style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', color: 'var(--text-muted)' }}>{lang === 'en' ? 'Edit' : '편집'}</button>
+                : <button onClick={() => { setEditingCustom(false); setNewCustomLabel('') }} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 5, padding: '2px 9px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>{lang === 'en' ? 'Done' : '완료'}</button>
+              }
+            </div>
+            <input
+              value={userKeyword}
+              onChange={e => setUserKeyword(e.target.value)}
+              placeholder={lang === 'en' ? 'Additional keywords or instructions (e.g. Youth group, Easter)' : '추가 키워드나 지시사항 (예: 청년 대상, 부활절 주제)'}
+              style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
         )}
 
-        {/* 우: 교재 작성 */}
-        {!isMobile && (
-          <div ref={draftPanelRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-            {/* 우 헤더 */}
-            <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, background: 'var(--bg-sidebar)' }}>
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-heading)' }}>{lang === 'en' ? step.label.en : step.label.ko}</span>
-              <div style={{ flex: 1 }} />
-              {hasFinalContent && (
-                <button
-                  onClick={() => { navigator.clipboard.writeText(stripHtml(finalHistory.text)); setFinalCopied(true); setTimeout(() => setFinalCopied(false), 1500) }}
-                  style={{ ...btnBase, background: finalCopied ? 'var(--accent)' : 'transparent', color: finalCopied ? '#fff' : 'var(--text-muted)', border: '1px solid ' + (finalCopied ? 'var(--accent)' : 'var(--border)'), transition: 'all 0.2s' }}
-                >
-                  {finalCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
-                </button>
-              )}
-              {hasFinalContent && onFontSizeChange && (
-                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
-                  <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
-                  <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
+        {/* AI 결과 영역 */}
+        {editing ? (
+          <RichEditor
+            fixedToolbar
+            editable={!refining}
+            value={resultHistory.text}
+            onChange={resultHistory.onChange}
+            baseFontSize={fontSize}
+            onEnterCommand={handleAiSlashCommand}
+          />
+        ) : (
+          <div
+            ref={aiDivRef}
+            onClick={aiContent && !loading ? startEdit : undefined}
+            style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', cursor: aiContent && !loading ? 'text' : 'default' }}
+          >
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
+                {error}
+              </div>
+            )}
+            {aiContent ? (
+              aiContent.trimStart().startsWith('<') ? (
+                <div className="plain-view" dangerouslySetInnerHTML={{ __html: aiContent.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '') }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
+              ) : (
+                <div className="plain-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                  {aiContent.split('\n').filter(l => l.trim() !== '').map((line, i) => (
+                    <p key={i}>{line}</p>
+                  ))}
                 </div>
-              )}
-              {hasFinalContent && (
-                <>
-                  <button onClick={finalHistory.undo} disabled={!finalHistory.canUndo} style={undoBtnStyle(finalHistory.canUndo)}>↩</button>
-                  <button onClick={finalHistory.redo} disabled={!finalHistory.canRedo} style={undoBtnStyle(finalHistory.canRedo)}>↪</button>
-                </>
-              )}
-            </div>
-
-            {/* 최종 교재 편집 영역 */}
-            {draftEditing ? (
-              <RichEditor
-                fixedToolbar
-                editable={!refining}
-                value={finalHistory.text}
-                onChange={finalHistory.onChange}
-                baseFontSize={fontSize}
-                onEnterCommand={handleFinalSlashCommand}
-              />
-            ) : (
-              <div
-                onClick={() => setDraftEditing(true)}
-                style={{ flex: 1, overflow: 'auto', padding: '20px 24px', cursor: 'text' }}
-              >
-                {finalHistory.text ? (
-                  finalHistory.text.trimStart().startsWith('<') ? (
-                    <div className="rich-view" dangerouslySetInnerHTML={{ __html: finalHistory.text }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
-                  ) : (
-                    <div className="rich-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
-                      {finalHistory.text.split('\n').map((line, i) => (
-                        <p key={i}>{line || <br />}</p>
-                      ))}
-                    </div>
-                  )
-                ) : (
-                  <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 60 }}>
-                    {lang === 'en'
-                      ? `Click to write ${step.label.en}, or generate with AI on the left and click "Apply to Material".`
-                      : `클릭하여 ${step.label.ko}을 작성하거나, 왼쪽에서 AI로 생성 후 "교재작성 반영" 버튼을 누르세요`}
-                  </div>
-                )}
+              )
+            ) : !loading && (
+              <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.7, textAlign: 'center', marginTop: 60 }}>
+                {item?.passage
+                  ? (lang === 'en' ? `Click Generate to create ${step.label.en}.` : `AI 생성 버튼을 눌러 ${step.label.ko}을 생성합니다.`)
+                  : (lang === 'en' ? 'Enter a Bible passage in Info first.' : '기본정보에서 성경 본문을 먼저 입력하세요.')}
               </div>
             )}
           </div>
