@@ -538,7 +538,7 @@ function AppInner() {
                 onDeleteFolder={handleDeleteFolder}
                 onMoveItem={handleMoveItem}
                 onMoveFolder={handleMoveFolder}
-                onFolderSelect={(folder) => { handleFolderSelect(folder); setSidebarVisible(false) }}
+                onFolderSelect={handleFolderSelect}
                 onRenameFolder={handleRenameFolder}
                 width={280}
                 searchItems={searchResults}
