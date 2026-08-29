@@ -475,18 +475,25 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }
 
-  async function handleDraftSlashCommand({ instruction, contextBefore, contextAfter }) {
+  async function handleDraftSlashCommand({ instruction, contextBefore, contextAfter, mode = 'default' }) {
     if (!item) return
     draftHistory.forceSnapshot()
     setRefining(true)
     const fallback = draftHistory.text
     let generated = ''
 
+    // mode: 'default'     — 단계연구 + 맥락, 신학외부지식 없음
+    // mode: 'theological' — 단계연구 + 맥락 + 신학외부지식 (//?지시어)
+    // mode: 'fresh'       — 단계연구·맥락 없음 + 신학외부지식 (//=지시어)
+
+    const useTheological = mode === 'theological' || mode === 'fresh'
+    const useContext = mode !== 'fresh'
+
     // 편집성 지시(구체적) vs 생성성 지시(막연) 분류
     const isSpecific = /바꿔|수정|고쳐|다듬|줄여|늘려|삭제|대체|짧게|길게|부드럽게|강하게|자연스럽게/.test(instruction)
 
     let stepsData = null
-    if (tab === 'sermon') {
+    if (mode !== 'fresh' && tab === 'sermon') {
       // 구체적 지시: 핵심 단계만 (본문연구·원어해설·메시지)
       // 막연한 지시: 생성된 모든 단계
       const targetIndices = isSpecific ? [1, 2, 4] : null
@@ -496,11 +503,14 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
       if (stepsData.length === 0) stepsData = null
     }
 
+    const aiContextBefore = useContext ? contextBefore : ''
+    const aiContextAfter = useContext ? contextAfter : ''
+
     try {
-      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+      await executeInlineCommand(instruction, aiContextBefore, aiContextAfter, lang, bible, item.passage, item.title, (chunk) => {
         generated = chunk
         draftHistory.onChange(contextBefore + chunk + contextAfter)
-      }, stepsData)
+      }, stepsData, useTheological)
       handleDraftChange(contextBefore + generated + contextAfter)
     } catch {
       handleDraftChange(fallback)

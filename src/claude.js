@@ -904,7 +904,7 @@ export async function generateDawnStep(stepKey, passage, emphasis, lang, bible, 
   return streamCompletion(prompt, onChunk, extra)
 }
 
-export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, passage, title, onChunk, stepsData = null) {
+export async function executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, passage, title, onChunk, stepsData = null, useTheological = false) {
 
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
   const sermonInfo = [
@@ -916,6 +916,14 @@ export async function executeInlineCommand(instruction, contextBefore, contextAf
     ? `\n[단계별 연구 참고 — 아래 연구 내용을 지시사항 수행에 적극 활용하세요]\n${stepsData.map(s => `## ${s.label}\n${s.content}`).join('\n\n')}`
     : ''
 
+  const theologicalText = useTheological
+    ? `\n[신학적 외부 지식 활용]\n이 지시를 수행할 때, 칼빈·루터·바르트·팀 켈러·존 스토트·N.T. 라이트 등 신학자들의 관점, 주석 전통, 성경신학적 통찰, 교회사적 사례를 적극 활용하세요. 단계별 연구에 없는 새로운 신학적 자료와 시각을 제공하는 것이 이 지시의 목적입니다.`
+    : ''
+
+  const contextSection = (contextBefore || contextAfter)
+    ? `\n[앞 문맥]\n${contextBefore.slice(-600)}\n\n[뒤 문맥]\n${contextAfter.slice(0, 600)}`
+    : ''
+
   const prompt = `당신은 설교 작성 전문가입니다.
 
 아래 설교문의 지정된 위치에 들어갈 내용을 생성해 주세요.
@@ -923,14 +931,10 @@ export async function executeInlineCommand(instruction, contextBefore, contextAf
 
 ${sermonInfo}
 ${stepsText}
+${theologicalText}
 
 [지시사항]: ${instruction}
-
-[앞 문맥]
-${contextBefore.slice(-600)}
-
-[뒤 문맥]
-${contextAfter.slice(0, 600)}
+${contextSection}
 
 생성된 내용만 출력하세요. 별도 설명이나 머리말 없이.
 [사용 성경]: ${bibleRef}`

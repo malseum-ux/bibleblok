@@ -61,7 +61,11 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
         const lineText = view.state.doc.textBetween(paragraphStart, from)
         const slashIdx = lineText.indexOf('//')
         if (slashIdx === -1) return false
-        const instruction = lineText.slice(slashIdx + 2).trim()
+        const afterSlash = lineText.slice(slashIdx + 2)
+        let mode = 'default'
+        let instruction = afterSlash.trim()
+        if (afterSlash.startsWith('?')) { mode = 'theological'; instruction = afterSlash.slice(1).trim() }
+        else if (afterSlash.startsWith('=')) { mode = 'fresh'; instruction = afterSlash.slice(1).trim() }
         if (!instruction) return false
         event.preventDefault()
         const slashAbsPos = paragraphStart + slashIdx
@@ -70,7 +74,7 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
         const contextAfter = view.state.doc.textBetween(from, docSize, '\n')
         const tr = view.state.tr.delete(slashAbsPos, from)
         view.dispatch(tr)
-        onEnterCommandRef.current({ instruction, contextBefore, contextAfter })
+        onEnterCommandRef.current({ instruction, contextBefore, contextAfter, mode })
         return true
       },
     },
