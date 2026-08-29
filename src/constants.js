@@ -57,8 +57,8 @@ export const DAWN_STEPS = [
 
 export const CELL_STEPS = [
   { index: 0, key: 'sharing', label: { ko: '나눔 교재', en: 'Sharing Material' } },
-  { index: 1, key: 'theological', label: { ko: '신학적 교재', en: 'Theological Material' } },
-  { index: 2, key: 'gospel', label: { ko: '복음적 교재', en: 'Gospel Material' } },
+  { index: 1, key: 'gospel', label: { ko: '복음적 교재', en: 'Gospel Material' } },
+  { index: 2, key: 'theological', label: { ko: '신학적 교재', en: 'Theological Material' } },
   { index: 3, key: 'literary', label: { ko: '문학적 교재', en: 'Literary Material' } },
   { index: 4, key: 'psychological', label: { ko: '심리학적 교재', en: 'Psychological Material' } },
   { index: 5, key: 'communal', label: { ko: '공동체적 교재', en: 'Communal Material' } },
