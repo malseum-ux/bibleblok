@@ -481,11 +481,26 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     setRefining(true)
     const fallback = draftHistory.text
     let generated = ''
+
+    // 편집성 지시(구체적) vs 생성성 지시(막연) 분류
+    const isSpecific = /바꿔|수정|고쳐|다듬|줄여|늘려|삭제|대체|짧게|길게|부드럽게|강하게|자연스럽게/.test(instruction)
+
+    let stepsData = null
+    if (tab === 'sermon') {
+      // 구체적 지시: 핵심 단계만 (본문연구·원어해설·메시지)
+      // 막연한 지시: 생성된 모든 단계
+      const targetIndices = isSpecific ? [1, 2, 4] : null
+      stepsData = SERMON_STEPS
+        .filter(s => (!targetIndices || targetIndices.includes(s.index)) && stripHtml(stepContents[s.index] || '').trim())
+        .map(s => ({ label: s.label[lang] || s.label.ko, content: stripHtml(stepContents[s.index]) }))
+      if (stepsData.length === 0) stepsData = null
+    }
+
     try {
       await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
         generated = chunk
         draftHistory.onChange(contextBefore + chunk + contextAfter)
-      })
+      }, stepsData)
       handleDraftChange(contextBefore + generated + contextAfter)
     } catch {
       handleDraftChange(fallback)
