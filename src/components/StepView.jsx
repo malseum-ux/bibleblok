@@ -906,26 +906,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                       </button>
                     )}
                     <div style={{ flex: 1 }} />
-                    {content && !loading && (
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(stripHtml(editing ? resultHistory.text : content))
-                          setResultCopied(true)
-                          setTimeout(() => setResultCopied(false), 1500)
-                        }}
-                        style={{
-                          background: resultCopied ? 'var(--accent)' : 'transparent',
-                          color: resultCopied ? '#fff' : 'var(--text-muted)',
-                          border: '1px solid ' + (resultCopied ? 'var(--accent)' : 'var(--border)'),
-                          borderRadius: 6,
-                          padding: '5px 10px',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                        }}
-                      >{resultCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}</button>
-                    )}
                     {content && !loading && onFontSizeChange && (
                       <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
                         <button
@@ -1212,29 +1192,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                 const draftHasContent = !!stripHtml(draftHistory.text).trim()
                 return (
                   <>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(stripHtml(draftHistory.text))
-                        setDraftCopied(true)
-                        setTimeout(() => setDraftCopied(false), 1500)
-                      }}
-                      disabled={!draftHasContent}
-                      style={{
-                        background: draftCopied ? 'var(--accent)' : 'transparent',
-                        color: draftCopied ? '#fff' : 'var(--text-muted)',
-                        border: '1px solid ' + (draftCopied ? 'var(--accent)' : 'var(--border)'),
-                        borderRadius: 5,
-                        padding: '2px 9px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: draftHasContent ? 'pointer' : 'default',
-                        opacity: !draftHasContent ? 0.4 : 1,
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {draftCopied ? (lang === 'en' ? 'Copied' : '복사됨') : (lang === 'en' ? 'Copy' : '복사')}
-                    </button>
                     <button
                       onClick={refineSermonDraft}
                       disabled={refining || loading || !draftHasContent}
