@@ -9,6 +9,7 @@ import RichEditor from './RichEditor'
 const CELL_SUBTITLES = {
   sharing: '삶으로 나누는 말씀',
   theological: '뿌리에서 열매까지',
+  gospel: '그리스도 안에서',
   literary: '이야기 속으로',
   psychological: '말씀 앞에 나를 내려놓기',
   communal: '함께 세상으로',
