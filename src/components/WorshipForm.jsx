@@ -144,9 +144,6 @@ function getSeasonColor(season) {
 
 // 성서정과 AI 조회
 async function fetchLectionary(date, season, lang, bible) {
-  const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || ''
-  if (!API_KEY) throw new Error('API_KEY_MISSING')
-
   const year = new Date(date).getFullYear()
   const cycle = ['A', 'B', 'C'][(year - 2022) % 3] || 'A'
 
@@ -155,15 +152,13 @@ async function fetchLectionary(date, season, lang, bible) {
 예시 형식: 사 40:1-11 | 시 85:1-2, 8-13 | 막 1:1-8 | 빌 1:3-11
 번역본: ${bible || '개역개정성경'}`
 
-  const response = await fetch('/api/openrouter/api/v1/chat/completions', {
+  const response = await fetch('/api/generate', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${API_KEY}`,
-      'content-type': 'application/json',
-    },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4-6',
+      model: 'deepseek-chat',
       max_tokens: 200,
+      stream: false,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
@@ -200,8 +195,8 @@ export default function WorshipForm({ worship, onSave, lang }) {
     try {
       const result = await fetchLectionary(form.date, form.season, lang, form.bible)
       set('lectionary', result)
-    } catch {
-      // API 키 없거나 오류 시 무시
+    } catch (e) {
+      alert((lang === 'ko' ? '성서정과 조회 실패: ' : 'Lectionary lookup failed: ') + e.message)
     } finally {
       setLoadingLectionary(false)
     }
