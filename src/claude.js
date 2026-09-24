@@ -950,6 +950,41 @@ ${contextSection}
   return streamCompletion(prompt, onChunk)
 }
 
+// 드래그로 선택한 부분만 지시대로 고친다 (내용·핵심 유지)
+export async function executeSelectionEdit(selectedText, instruction, contextBefore, contextAfter, lang, bible, passage, title, onChunk) {
+  const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
+  const info = [
+    passage ? `본문: ${passage}` : '',
+    title ? `제목: ${title}` : '',
+  ].filter(Boolean).join('\n')
+
+  const prompt = `아래 [선택한 글]을 [지시사항]대로 고쳐 주세요.
+
+[원칙]
+- 원래 글의 내용과 핵심 메시지는 반드시 유지할 것
+- 지시사항이 요구하는 부분만 고치고, 새로운 내용을 임의로 덧붙이지 말 것
+- 문단 수와 문단 나눔은 지시사항이 요구하지 않는 한 그대로 유지할 것
+- 앞뒤 문맥과 자연스럽게 이어지도록 할 것
+- 고친 글만 출력할 것. 설명·머리말·따옴표 없이
+
+${info}
+[사용 성경]: ${bibleRef}
+
+[지시사항]: ${instruction}
+
+[앞 문맥]
+${contextBefore}
+
+[선택한 글]
+${selectedText}
+
+[뒤 문맥]
+${contextAfter}`
+
+  const systemExtra = '이 요청은 이미 쓴 글의 일부를 고치는 작업입니다. 번호 붙이기 규칙은 적용하지 말고, 원래 글의 형식(번호 유무, 문단 구성)을 그대로 따르세요.'
+  return streamCompletion(prompt, onChunk, systemExtra)
+}
+
 export async function generateDraftFromSteps(stepsData, passage, title, date, lang, bible, userKeyword, onChunk) {
   const bibleRef = bible || (lang === 'en' ? 'ESV' : '개역개정')
   const stepsText = stepsData.map(s => `## ${s.label}\n${s.content}`).join('\n\n')

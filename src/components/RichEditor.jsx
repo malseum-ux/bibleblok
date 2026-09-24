@@ -62,10 +62,11 @@ export default function RichEditor({ value, onChange, baseFontSize = 14, fixedTo
         const slashIdx = lineText.indexOf('//')
         if (slashIdx === -1) return false
         const afterSlash = lineText.slice(slashIdx + 2)
-        let mode = 'default'
+        // //-지시: 내 연구 + 문맥 / //+지시: 내 연구 + 문맥 + 신학자 관점 / //지시: 신학자 관점으로 새로 쓰기
+        let mode = 'fresh'
         let instruction = afterSlash.trim()
-        if (afterSlash.startsWith('?')) { mode = 'theological'; instruction = afterSlash.slice(1).trim() }
-        else if (afterSlash.startsWith('=')) { mode = 'fresh'; instruction = afterSlash.slice(1).trim() }
+        if (afterSlash.startsWith('-')) { mode = 'research'; instruction = afterSlash.slice(1).trim() }
+        else if (afterSlash.startsWith('+')) { mode = 'theological'; instruction = afterSlash.slice(1).trim() }
         if (!instruction) return false
         event.preventDefault()
         const slashAbsPos = paragraphStart + slashIdx

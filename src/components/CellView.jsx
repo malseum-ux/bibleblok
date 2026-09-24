@@ -5,6 +5,7 @@ import { saveCellStep, getCellSteps, getSermonSteps, getCustomStepItems, addCust
 import { addMemory, buildMemoryPrompt } from '../memory'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
+import { useSelectionEdit, SelectionEditBox } from './SelectionEdit'
 
 const CELL_SUBTITLES = {
   sharing: '삶으로 나누는 말씀',
@@ -136,6 +137,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const aiDivRef = useRef(null)
   const resultPanelRef = useRef(null)
   const prevStepRef = useRef(0)
+  // 드래그해서 고치기 — 보기 화면의 글 영역
+  const aiContentRef = useRef(null)
+  const aiSel = useSelectionEdit(aiContentRef, !!aiContent && !loading && !refining)
 
   const step = CELL_STEPS[currentStep] || CELL_STEPS[0]
 
@@ -318,17 +322,20 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     }
   }
 
-  async function handleAiSlashCommand({ instruction, contextBefore, contextAfter }) {
+  // //-지시: 문맥 / //+지시: 문맥 + 신학자 관점 / //지시: 신학자 관점으로 새로 쓰기 (교재는 연구 단계가 없음)
+  async function handleAiSlashCommand({ instruction, contextBefore, contextAfter, mode = 'fresh' }) {
     if (!item) return
     resultHistory.forceSnapshot()
     setRefining(true)
     const fallback = resultHistory.text
     let generated = ''
+    const useTheological = mode !== 'research'
+    const useContext = mode !== 'fresh'
     try {
-      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+      await executeInlineCommand(instruction, useContext ? contextBefore : '', useContext ? contextAfter : '', lang, bible, item.passage, item.title, (chunk) => {
         generated = chunk
         resultHistory.onChange(contextBefore + chunk + contextAfter)
-      })
+      }, null, useTheological)
       resultHistory.onChange(contextBefore + generated + contextAfter)
     } catch {
       resultHistory.onChange(fallback)
@@ -349,6 +356,13 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
+  }
+
+  // 드래그해서 고친 결과를 교재 내용에 반영·저장
+  async function applyAiEdit(html) {
+    setAiContent(html)
+    setStepContents(prev => ({ ...prev, [currentStep]: html }))
+    if (item?.id) await saveCellStep(item.id, currentStep, html, '')
   }
 
   async function handleSaveItem(formData) {
@@ -575,9 +589,22 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
         ) : (
           <div
             ref={aiDivRef}
-            onClick={aiContent && !loading ? startEdit : undefined}
+            onClick={aiContent && !loading ? () => { if (aiSel.consumeClick()) return; startEdit() } : undefined}
+            onMouseUp={aiSel.onMouseUp}
             style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', cursor: aiContent && !loading ? 'text' : 'default' }}
           >
+            {aiSel.info && (
+              <SelectionEditBox
+                info={aiSel.info}
+                source={aiContent}
+                onApply={applyAiEdit}
+                onClose={aiSel.close}
+                lang={lang}
+                bible={bible}
+                passage={item?.passage}
+                title={item?.title}
+              />
+            )}
             {error && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
                 {error}
@@ -585,9 +612,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
             )}
             {aiContent ? (
               aiContent.trimStart().startsWith('<') ? (
-                <div className="plain-view" dangerouslySetInnerHTML={{ __html: aiContent.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '') }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
+                <div ref={aiContentRef} className="plain-view" dangerouslySetInnerHTML={{ __html: aiContent.replace(/<p[^>]*>(\s|<br\s*\/?>)*<\/p>/gi, '') }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
               ) : (
-                <div className="plain-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                <div ref={aiContentRef} className="plain-view" style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
                   {aiContent.split('\n').filter(l => l.trim() !== '').map((line, i) => (
                     <p key={i}>{line}</p>
                   ))}

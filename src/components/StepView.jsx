@@ -7,6 +7,7 @@ import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
 import RichEditor from './RichEditor'
+import { useSelectionEdit, SelectionEditBox } from './SelectionEdit'
 
 function stripHtml(html) {
   if (!html || !html.trimStart().startsWith('<')) return html
@@ -145,6 +146,9 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const splitContainerRef = useRef(null)
   const resultDivRef = useRef(null)
   const lastSelectionRef = useRef('')
+  // 드래그해서 고치기 — 보기 화면의 글 영역
+  const resultContentRef = useRef(null)
+  const draftContentRef = useRef(null)
   const resultPanelRef = useRef(null)
   const finishEditRef = useRef(null)
   const draftPanelRef = useRef(null)
@@ -169,6 +173,9 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
     loadContents()
   }, [item?.id, tab])
+
+  const resultSel = useSelectionEdit(resultContentRef, !!content && !loading && !refining)
+  const draftSel = useSelectionEdit(draftContentRef, !!draftHistory.text && !loading && !refining)
 
   useEffect(() => {
     // 예배인도/새벽설교는 통합 결과를 step 0에 저장하므로 항상 step 0 내용을 표시
@@ -421,17 +428,29 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }
 
-  async function handleStepSlashCommand({ instruction, contextBefore, contextAfter }) {
+  // //- · //+ 명령에 함께 보낼 내 연구 — 내용이 있는 단계만 (excludeIndex 단계는 제외)
+  function collectStepsData(excludeIndex) {
+    const list = (tab === 'sermon' ? SERMON_STEPS : [{ index: 0, label: { ko: '연구 내용', en: 'Research' } }])
+      .filter(s => s.index !== excludeIndex && stripHtml(stepContents[s.index] || '').trim())
+      .map(s => ({ label: s.label[lang] || s.label.ko, content: stripHtml(stepContents[s.index]) }))
+    return list.length ? list : null
+  }
+
+  async function handleStepSlashCommand({ instruction, contextBefore, contextAfter, mode = 'fresh' }) {
     if (!item) return
     resultHistory.forceSnapshot()
     setRefining(true)
     const fallback = resultHistory.text
     let generated = ''
+    const useTheological = mode !== 'research'
+    const useContext = mode !== 'fresh'
+    // 단계 창의 "내 연구" = 지금 단계를 뺀 다른 단계들 (예배·새벽은 단계가 하나라 없음)
+    const stepsData = useContext && tab === 'sermon' ? collectStepsData(currentStep) : null
     try {
-      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
+      await executeInlineCommand(instruction, useContext ? contextBefore : '', useContext ? contextAfter : '', lang, bible, item.passage, item.title, (chunk) => {
         generated = chunk
         resultHistory.onChange(contextBefore + chunk + contextAfter)
-      })
+      }, stepsData, useTheological)
       resultHistory.onChange(contextBefore + generated + contextAfter)
     } catch {
       resultHistory.onChange(fallback)
@@ -440,33 +459,19 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }
 
-  async function handleDraftSlashCommand({ instruction, contextBefore, contextAfter, mode = 'default' }) {
+  async function handleDraftSlashCommand({ instruction, contextBefore, contextAfter, mode = 'fresh' }) {
     if (!item) return
     draftHistory.forceSnapshot()
     setRefining(true)
     const fallback = draftHistory.text
     let generated = ''
 
-    // mode: 'default'     — 단계연구 + 맥락, 신학외부지식 없음
-    // mode: 'theological' — 단계연구 + 맥락 + 신학외부지식 (//?지시어)
-    // mode: 'fresh'       — 단계연구·맥락 없음 + 신학외부지식 (//=지시어)
-
-    const useTheological = mode === 'theological' || mode === 'fresh'
+    // mode: 'research'    — 내 연구 + 문맥 (//-지시)
+    // mode: 'theological' — 내 연구 + 문맥 + 신학자 관점 (//+지시)
+    // mode: 'fresh'       — 연구·문맥 없이 신학자 관점으로 새로 쓰기 (//지시)
+    const useTheological = mode !== 'research'
     const useContext = mode !== 'fresh'
-
-    // 편집성 지시(구체적) vs 생성성 지시(막연) 분류
-    const isSpecific = /바꿔|수정|고쳐|다듬|줄여|늘려|삭제|대체|짧게|길게|부드럽게|강하게|자연스럽게/.test(instruction)
-
-    let stepsData = null
-    if (mode !== 'fresh' && tab === 'sermon') {
-      // 구체적 지시: 핵심 단계만 (본문연구·원어해설·메시지)
-      // 막연한 지시: 생성된 모든 단계
-      const targetIndices = isSpecific ? [1, 2, 4] : null
-      stepsData = SERMON_STEPS
-        .filter(s => (!targetIndices || targetIndices.includes(s.index)) && stripHtml(stepContents[s.index] || '').trim())
-        .map(s => ({ label: s.label[lang] || s.label.ko, content: stripHtml(stepContents[s.index]) }))
-      if (stepsData.length === 0) stepsData = null
-    }
+    const stepsData = useContext ? collectStepsData(null) : null
 
     const aiContextBefore = useContext ? contextBefore : ''
     const aiContextAfter = useContext ? contextAfter : ''
@@ -482,6 +487,23 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     } finally {
       setRefining(false)
     }
+  }
+
+  // 드래그해서 고친 결과를 단계 내용에 반영·저장
+  async function applyResultEdit(html) {
+    const idx = tab === 'sermon' ? currentStep : 0
+    setContent(html)
+    setStepContents(prev => ({ ...prev, [idx]: html }))
+    if (tab === 'sermon') await saveSermonStep(item.id, idx, html)
+    else if (tab === 'worship') await saveWorshipStep(item.id, 0, html)
+    else await saveDawnStep(item.id, 0, html)
+    onGenerated?.(item.id)
+  }
+
+  // 드래그해서 고친 결과를 초안에 반영 (되돌리기 기록 유지)
+  function applyDraftEdit(html) {
+    draftHistory.forceSnapshot()
+    handleDraftChange(html)
   }
 
   async function handleSaveItem(formData) {
@@ -975,9 +997,22 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           ) : (
             <div
               ref={resultDivRef}
-              onClick={content && !loading ? startEdit : undefined}
+              onClick={content && !loading ? () => { if (resultSel.consumeClick()) return; startEdit() } : undefined}
+              onMouseUp={resultSel.onMouseUp}
               style={{ flex: 1, overflow: 'auto', padding: '20px 24px', cursor: content && !loading ? 'text' : 'default' }}
             >
+              {resultSel.info && (
+                <SelectionEditBox
+                  info={resultSel.info}
+                  source={content}
+                  onApply={applyResultEdit}
+                  onClose={resultSel.close}
+                  lang={lang}
+                  bible={bible}
+                  passage={item.passage}
+                  title={item.title}
+                />
+              )}
               {error && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>
                   {error}
@@ -986,6 +1021,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               {content ? (
                 content.trimStart().startsWith('<') ? (
                   <div
+                    ref={resultContentRef}
                     className="plain-view"
                     onMouseUp={() => {
                       const sel = window.getSelection()?.toString().trim()
@@ -996,6 +1032,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   />
                 ) : (
                   <div
+                    ref={resultContentRef}
                     className="plain-view"
                     onMouseUp={() => {
                       const sel = window.getSelection()?.toString().trim()
@@ -1156,14 +1193,27 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               />
             ) : (
               <div
-                onClick={() => setDraftEditing(true)}
+                onClick={() => { if (draftSel.consumeClick()) return; setDraftEditing(true) }}
+                onMouseUp={draftSel.onMouseUp}
                 style={{ flex: 1, overflow: 'auto', padding: '20px 24px', cursor: 'text' }}
               >
+                {draftSel.info && (
+                  <SelectionEditBox
+                    info={draftSel.info}
+                    source={draftHistory.text}
+                    onApply={applyDraftEdit}
+                    onClose={draftSel.close}
+                    lang={lang}
+                    bible={bible}
+                    passage={item.passage}
+                    title={item.title}
+                  />
+                )}
                 {draftHistory.text ? (
                   draftHistory.text.trimStart().startsWith('<') ? (
-                    <div className="rich-view" dangerouslySetInnerHTML={{ __html: draftHistory.text }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
+                    <div ref={draftContentRef} className="rich-view" dangerouslySetInnerHTML={{ __html: draftHistory.text }} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }} />
                   ) : (
-                    <div style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
+                    <div ref={draftContentRef} style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}>
                       {draftHistory.text.split('\n').map((line, i, arr) => (
                         <Fragment key={i}>{line}{i < arr.length - 1 && <br />}</Fragment>
                       ))}
