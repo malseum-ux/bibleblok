@@ -371,6 +371,21 @@ export async function reorderCustomStepItem(id, direction, tab, stepKey) {
   ])
 }
 
+// ── 단계 내용 검색 ────────────────────────────────────────────────────────────
+
+// 단계 내용에 검색어가 들어 있는 설교/새벽설교 id 목록을 한 번의 조회로 가져온다
+export async function searchStepOwnerIds(type, query) {
+  const q = query?.trim()
+  if (!q) return new Set()
+  const table = type === 'sermon' ? 'sermon_steps' : 'dawn_steps'
+  const idCol = type === 'sermon' ? 'sermon_id' : 'dawn_id'
+  // %, _ 는 ilike 와일드카드이므로 글자 그대로 검색되도록 이스케이프
+  const escaped = q.replace(/[\\%_]/g, c => '\\' + c)
+  const { data, error } = await supabase.from(table).select(idCol).ilike('content', `%${escaped}%`)
+  if (error) throw error
+  return new Set((data || []).map(r => r[idCol]))
+}
+
 // ── 강해 시리즈 컨텍스트 ──────────────────────────────────────────────────────
 
 export async function getSeriesContext(type, seriesName, currentId) {

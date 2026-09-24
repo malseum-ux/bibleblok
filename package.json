@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.115.0",
     "@supabase/supabase-js": "^2.112.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/extension-bubble-menu": "^3.30.0",
@@ -22,10 +21,8 @@
     "@tiptap/react": "^3.30.0",
     "@tiptap/starter-kit": "^3.30.0",
     "dexie": "^4.4.4",
-    "i18next": "^26.3.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-i18next": "^17.0.11",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

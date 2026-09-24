@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import AuthGate, { useUserEmail } from './components/AuthGate'
-import AdminPanel from './components/AdminPanel'
+import AuthGate from './components/AuthGate'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
   createWorship, getWorships, updateWorship, deleteWorship,
@@ -10,10 +9,10 @@ import {
   getSermonSteps, getWorshipSteps, getDawnSteps,
   saveSermonStep, saveWorshipStep, saveDawnStep,
   exportAllData, importAllData, migrateLocalToSupabase,
+  searchStepOwnerIds,
 } from './db'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from './constants'
 import { getSettings, saveSettings, applyTheme } from './settings'
-import { fetchUsage } from './usage'
 import Sidebar from './components/Sidebar'
 import ItemDetail from './components/ItemDetail'
 import StepView from './components/StepView'
@@ -21,15 +20,7 @@ import CellView from './components/CellView'
 import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
 
-const ADMIN_EMAIL = 'malseum@gmail.com'
-
 function AppInner() {
-  const userEmail = useUserEmail()
-  const isAdmin = userEmail === ADMIN_EMAIL
-
-  const [adminOpen, setAdminOpen] = useState(false)
-  const [usageInfo, setUsageInfo] = useState(null)
-
   const [tab, setTab] = useState('sermon')
   const [settings, setSettings] = useState(getSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -63,13 +54,6 @@ function AppInner() {
     const handler = () => setIsMobile(window.innerWidth < 900)
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
-  }, [])
-
-  useEffect(() => {
-    async function loadUsage() { setUsageInfo(await fetchUsage()) }
-    loadUsage()
-    window.addEventListener('usageUpdated', loadUsage)
-    return () => window.removeEventListener('usageUpdated', loadUsage)
   }, [])
 
   // 로컬 IndexedDB 이전 필요 여부 확인
@@ -296,17 +280,22 @@ function AppInner() {
     const q = (query || searchQuery).trim().toLowerCase()
     if (!q || searchMode !== 'sermon-content') return
     setSearchLoading(true)
-    const matched = []
-    for (const item of [...sermons, ...dawns]) {
-      const basic = [item.title, item.passage, item.category, item.emphasis]
-        .filter(Boolean).join(' ').toLowerCase()
-      if (basic.includes(q)) { matched.push(item); continue }
-      if (item.draft?.toLowerCase().includes(q)) { matched.push(item); continue }
-      const isSermon = sermons.some(s => s.id === item.id)
-      const stepsData = isSermon ? await getSermonSteps(item.id) : await getDawnSteps(item.id)
-      if (stepsData.some(s => s.content?.toLowerCase().includes(q))) matched.push(item)
+    try {
+      const [sermonStepIds, dawnStepIds] = await Promise.all([
+        searchStepOwnerIds('sermon', q),
+        searchStepOwnerIds('dawn', q),
+      ])
+      const matched = [...sermons, ...dawns].filter(item => {
+        const basic = [item.title, item.passage, item.category, item.emphasis]
+          .filter(Boolean).join(' ').toLowerCase()
+        if (basic.includes(q)) return true
+        if (item.draft?.toLowerCase().includes(q)) return true
+        return sermonStepIds.has(item.id) || dawnStepIds.has(item.id)
+      })
+      setSearchResults(matched)
+    } catch (e) {
+      alert((lang === 'ko' ? '검색 실패: ' : 'Search failed: ') + e.message)
     }
-    setSearchResults(matched)
     setSearchLoading(false)
   }
 
@@ -355,16 +344,6 @@ function AppInner() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-
-        {usageInfo && !usageInfo.isAdmin && !usageInfo.isFree && (
-          <div style={{
-            fontSize: 12,
-            color: usageInfo.count >= usageInfo.limit ? '#dc2626' : 'var(--text-muted)',
-            whiteSpace: 'nowrap', flexShrink: 0,
-          }}>
-            {lang === 'en' ? `${usageInfo.count}/${usageInfo.limit} this month` : `이번 달 ${usageInfo.count}/${usageInfo.limit}회`}
-          </div>
-        )}
 
         {searchOpen && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -430,25 +409,6 @@ function AppInner() {
           </svg>
         </button>
 
-        {isAdmin && (
-          <button
-            onClick={() => setAdminOpen(true)}
-            title="사용자 관리"
-            style={{
-              background: 'none', border: '1px solid var(--border)', borderRadius: 6,
-              width: 32, height: 32, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </button>
-        )}
-
         <button
           onClick={() => setSettingsOpen(true)}
           title={lang === 'ko' ? '설정' : 'Settings'}
@@ -464,8 +424,6 @@ function AppInner() {
           </svg>
         </button>
       </header>
-
-      {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
 
       {settingsOpen && (
         <SettingsPanel
