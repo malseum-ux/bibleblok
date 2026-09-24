@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { getSettings } from '../settings'
 
 export default function AuthGate({ children }) {
+  // 화면에 보이는 앱 이름 — 저장된 언어 설정을 따른다
+  const appName = getSettings().lang === 'en' ? 'Bible & Sermon' : '성경과설교'
   const [session, setSession] = useState(undefined)
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -51,7 +54,8 @@ export default function AuthGate({ children }) {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
       <div style={{ width: 340, padding: '40px 36px', background: 'var(--bg-sidebar)', border: '1px solid var(--border)', borderRadius: 12 }}>
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>BibleBlok</div>
+          <img src="/icon-192.png" alt={appName} width={56} height={56} style={{ display: 'block', marginBottom: 14, borderRadius: 12 }} />
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>{appName}</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>로그인하여 여러 기기에서 사용하세요</div>
         </div>
 

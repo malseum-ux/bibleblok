@@ -41,6 +41,8 @@ function AppInner() {
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14, cell: 14 })
 
   const lang = settings.lang
+  // 화면에 보이는 앱 이름 (코드·저장소 이름은 bibleblok 유지)
+  const appName = lang === 'en' ? 'Bible & Sermon' : '성경과설교'
 
   useEffect(() => { applyTheme(settings.theme) }, [settings.theme])
 
@@ -294,7 +296,10 @@ function AppInner() {
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>BibleBlok</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <img src="/logo-64.png" alt={appName} width={28} height={28} style={{ display: 'block', borderRadius: 8, objectFit: 'cover' }} />
+          {!isMobile && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{appName}</span>}
+        </div>
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
           {(lang === 'en'
