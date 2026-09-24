@@ -51,7 +51,7 @@ export default function AuthGate({ children }) {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
       <div style={{ width: 340, padding: '40px 36px', background: 'var(--bg-sidebar)', border: '1px solid var(--border)', borderRadius: 12 }}>
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>말씀블록</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>BibleBlok</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>로그인하여 여러 기기에서 사용하세요</div>
         </div>
 

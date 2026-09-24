@@ -113,7 +113,7 @@ function stripHtml(html) {
   return div.textContent || ''
 }
 
-export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onExport, sermons = [], onGoToSermon }) {
+export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, onSaveItem, onExport, sermons = [], onGoToSermon }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [stepContents, setStepContents] = useState({})
   const [aiContent, setAiContent] = useState('')

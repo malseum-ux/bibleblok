@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AuthGate from './components/AuthGate'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
@@ -6,9 +6,8 @@ import {
   createDawn, getDawns, updateDawn, deleteDawn,
   createCell, getCells, updateCell, deleteCell,
   getFolders, createFolder, deleteFolder, moveItemToFolder, moveFolder, renameFolder,
-  getSermonSteps, getWorshipSteps, getDawnSteps,
-  saveSermonStep, saveWorshipStep, saveDawnStep,
-  exportAllData, importAllData, migrateLocalToSupabase,
+  getSermonSteps, getWorshipSteps, getDawnSteps, getCellSteps,
+  importAllData,
   searchStepOwnerIds,
 } from './db'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from './constants'
@@ -41,11 +40,6 @@ function AppInner() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14, cell: 14 })
 
-  // 이전(migration) 상태
-  const [migrationNeeded, setMigrationNeeded] = useState(false)
-  const [migrating, setMigrating] = useState(false)
-  const [migrationResult, setMigrationResult] = useState(null)
-
   const lang = settings.lang
 
   useEffect(() => { applyTheme(settings.theme) }, [settings.theme])
@@ -54,25 +48,6 @@ function AppInner() {
     const handler = () => setIsMobile(window.innerWidth < 900)
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
-  }, [])
-
-  // 로컬 IndexedDB 이전 필요 여부 확인
-  useEffect(() => {
-    if (localStorage.getItem('sb_migrated')) return
-    // IndexedDB에 sermonblok DB가 있고 데이터가 있으면 이전 배너 표시
-    const req = indexedDB.open('bibleblok')
-    req.onsuccess = (e) => {
-      const localDb = e.target.result
-      if (!localDb.objectStoreNames.contains('sermons')) { localDb.close(); return }
-      try {
-        const tx = localDb.transaction(['sermons', 'dawns'], 'readonly')
-        let count = 0
-        let done = 0
-        const check = () => { if (++done === 2 && count > 0) setMigrationNeeded(true); localDb.close() }
-        tx.objectStore('sermons').count().onsuccess = (ev) => { count += ev.target.result; check() }
-        tx.objectStore('dawns').count().onsuccess = (ev) => { count += ev.target.result; check() }
-      } catch { localDb.close() }
-    }
   }, [])
 
   // 초기 데이터 로드 (Supabase에서)
@@ -94,23 +69,6 @@ function AppInner() {
   async function loadCells() { setCells(await getCells()) }
   async function loadFolders() { setFolders(await getFolders(tab)) }
 
-  async function handleMigrate() {
-    setMigrating(true)
-    try {
-      const result = await migrateLocalToSupabase()
-      localStorage.setItem('sb_migrated', '1')
-      setMigrationResult({ success: true, count: result.count })
-      setMigrationNeeded(false)
-      await loadSermons()
-      await loadWorships()
-      await loadDawns()
-      await loadCells()
-    } catch (e) {
-      setMigrationResult({ error: e.message })
-    }
-    setMigrating(false)
-  }
-
   async function handleCreateFolder(name) {
     await createFolder(tab, name, selectedFolder?.id || null)
     await loadFolders()
@@ -118,7 +76,12 @@ function AppInner() {
 
   async function handleDeleteFolder(id) {
     if (!confirm('폴더를 삭제하시겠습니까? 하위폴더와 파일은 루트로 이동됩니다.')) return
-    await deleteFolder(id)
+    try {
+      await deleteFolder(id)
+    } catch (e) {
+      alert((lang === 'ko' ? '폴더 삭제 실패: ' : 'Folder delete failed: ') + e.message)
+      return
+    }
     await loadFolders()
     setSelectedFolder(null)
     tab === 'sermon' ? await loadSermons() : tab === 'worship' ? await loadWorships() : tab === 'dawn' ? await loadDawns() : await loadCells()
@@ -179,7 +142,12 @@ function AppInner() {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : tab === 'dawn' ? DAWN_STEPS : CELL_STEPS
   const selectedItem = items.find(i => i.id === selected?.id)
 
+  // 저장 버튼을 여러 번 눌러도 새 파일이 한 번만 만들어지도록 잠금
+  const creatingRef = useRef(false)
+
   async function handleCreateNew(formData) {
+    if (creatingRef.current) return
+    creatingRef.current = true
     try {
       const data = { ...formData, folderId: selectedFolder?.id || null }
       if (tab === 'sermon') {
@@ -201,6 +169,8 @@ function AppInner() {
       }
     } catch (e) {
       alert((lang === 'ko' ? '저장 실패: ' : 'Save failed: ') + e.message)
+    } finally {
+      creatingRef.current = false
     }
   }
 
@@ -226,14 +196,16 @@ function AppInner() {
   }
 
   async function handleExportItem(itemId) {
-    const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : dawns
+    const allItems = tab === 'sermon' ? sermons : tab === 'worship' ? worships : tab === 'dawn' ? dawns : cells
     const item = allItems.find(i => i.id === itemId)
     if (!item) return
     const stepsData = tab === 'sermon'
       ? await getSermonSteps(itemId)
       : tab === 'worship'
       ? await getWorshipSteps(itemId)
-      : await getDawnSteps(itemId)
+      : tab === 'dawn'
+      ? await getDawnSteps(itemId)
+      : await getCellSteps(itemId)
     const stepsMap = {}
     stepsData.forEach(s => { stepsMap[s.stepIndex] = s.content })
     const blob = new Blob([JSON.stringify({ version: 2, tab, item, steps: stepsMap }, null, 2)], { type: 'application/json' })
@@ -509,55 +481,6 @@ function AppInner() {
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
-          {/* 로컬 데이터 이전 배너 */}
-          {migrationNeeded && (
-            <div style={{
-              background: 'rgba(83, 74, 183, 0.08)',
-              borderBottom: '1px solid rgba(83, 74, 183, 0.3)',
-              padding: '10px 16px',
-              fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              flexShrink: 0,
-            }}>
-              <span style={{ color: '#534AB7', fontWeight: 600 }}>기존 데이터 이전</span>
-              <span style={{ color: 'var(--text-muted)' }}>이전에 작성한 설교가 이 기기에 남아 있습니다. 클라우드로 이전하면 모든 기기에서 사용할 수 있습니다.</span>
-              <button
-                onClick={handleMigrate}
-                disabled={migrating}
-                style={{
-                  marginLeft: 'auto', background: '#534AB7', color: '#fff',
-                  border: 'none', borderRadius: 5, padding: '5px 14px',
-                  fontSize: 12, fontWeight: 600, cursor: migrating ? 'not-allowed' : 'pointer',
-                  flexShrink: 0, opacity: migrating ? 0.7 : 1,
-                }}
-              >
-                {migrating ? '이전 중...' : '클라우드로 이전'}
-              </button>
-              <button
-                onClick={() => { localStorage.setItem('sb_migrated', '1'); setMigrationNeeded(false) }}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, padding: '0 4px', flexShrink: 0 }}
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* 이전 결과 메시지 */}
-          {migrationResult && (
-            <div style={{
-              padding: '8px 16px', fontSize: 12, flexShrink: 0,
-              background: migrationResult.success ? 'rgba(22, 163, 74, 0.08)' : 'rgba(220, 38, 38, 0.08)',
-              color: migrationResult.success ? '#16a34a' : '#dc2626',
-              borderBottom: '1px solid var(--border)',
-            }}>
-              {migrationResult.success
-                ? `이전 완료! ${migrationResult.count}개 항목이 클라우드에 저장되었습니다.`
-                : `이전 실패: ${migrationResult.error}`}
-            </div>
-          )}
-
           {!selected && tab !== 'cell' && (
             <div style={{ flex: 1, overflow: 'auto' }}>
               <ItemDetail
@@ -610,7 +533,6 @@ function AppInner() {
                 bible={settings.bible}
                 fontSize={fontSizes.cell}
                 onFontSizeChange={size => setFontSizes(prev => ({ ...prev, cell: size }))}
-                isMobile={isMobile}
                 onSaveItem={handleSave}
                 onExport={() => handleExportItem(selected.id)}
                 sermons={[...sermons, ...dawns]}

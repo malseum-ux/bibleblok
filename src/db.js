@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { SERMON_STEPS, DAWN_STEPS } from './constants'
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -297,12 +298,16 @@ export async function createFolder(tab, name, parentId = null) {
 
 export async function deleteFolder(id) {
   // 폴더 안의 항목들은 folder_id를 null로 초기화
-  await Promise.all([
+  // 바로 아래 하위폴더는 루트로 옮긴다 (DB의 on delete cascade로 함께 지워지지 않도록)
+  const results = await Promise.all([
     supabase.from('sermons').update({ folder_id: null }).eq('folder_id', id),
     supabase.from('worships').update({ folder_id: null }).eq('folder_id', id),
     supabase.from('dawns').update({ folder_id: null }).eq('folder_id', id),
     supabase.from('cells').update({ folder_id: null }).eq('folder_id', id),
+    supabase.from('folders').update({ parent_id: null }).eq('parent_id', id),
   ])
+  const failed = results.find(r => r.error)
+  if (failed) throw failed.error
   const { error } = await supabase.from('folders').delete().eq('id', id)
   if (error) throw error
 }
@@ -396,7 +401,9 @@ export async function getSeriesContext(type, seriesName, currentId) {
   if (error || !items?.length) return ''
 
   const mapped = items.map(type === 'sermon' ? mapSermon : mapDawn)
-  const coreStepIndex = type === 'sermon' ? 2 : 1
+  // 단계 순서가 바뀌어도 어긋나지 않도록 번호 대신 단계 이름으로 찾는다
+  const coreStepKey = type === 'sermon' ? 'message' : 'core_message'
+  const coreStepIndex = (type === 'sermon' ? SERMON_STEPS : DAWN_STEPS).find(s => s.key === coreStepKey).index
   const stepsTable = type === 'sermon' ? 'sermon_steps' : 'dawn_steps'
   const idCol = type === 'sermon' ? 'sermon_id' : 'dawn_id'
 
@@ -479,150 +486,6 @@ export async function importAllData(json) {
     toRemove.forEach(k => localStorage.removeItem(k))
     Object.entries(data.keywords).forEach(([k, v]) => localStorage.setItem(k, v))
   }
-}
-
-// ── 로컬 IndexedDB → Supabase 1회 이전 ───────────────────────────────────────
-
-export async function migrateLocalToSupabase() {
-  const Dexie = (await import('dexie')).default
-  const localDb = new Dexie('bibleblok')
-  localDb.version(7).stores({
-    sermons: '++id, date, category, title, passage, emphasis, createdAt',
-    sermonSteps: '++id, [sermonId+stepIndex], sermonId',
-    worships: '++id, date, season, createdAt',
-    worshipSteps: '++id, [worshipId+stepIndex], worshipId',
-    dawns: '++id, date, createdAt',
-    dawnSteps: '++id, [dawnId+stepIndex], dawnId',
-    folders: '++id, tab, parentId',
-    customStepItems: '++id, tab, stepKey',
-    cells: '++id, passage, title, date, folderId, createdAt',
-    cellSteps: '++id, [cellId+stepIndex], cellId',
-  })
-
-  const userId = await uid()
-  const [
-    localSermons, localSermonSteps,
-    localWorships, localWorshipSteps,
-    localDawns, localDawnSteps,
-    localFolders, localCustomItems,
-    localCells, localCellSteps,
-  ] = await Promise.all([
-    localDb.sermons.toArray(), localDb.sermonSteps.toArray(),
-    localDb.worships.toArray(), localDb.worshipSteps.toArray(),
-    localDb.dawns.toArray(), localDb.dawnSteps.toArray(),
-    localDb.folders.toArray(), localDb.customStepItems.toArray(),
-    localDb.cells.toArray(), localDb.cellSteps.toArray(),
-  ])
-
-  const total = localSermons.length + localWorships.length + localDawns.length + localCells.length
-  if (total === 0) return { count: 0 }
-
-  const folderIdMap = {}
-
-  // 폴더 이전 (1차: 삽입)
-  for (const f of localFolders) {
-    const { data: row } = await supabase.from('folders').insert({
-      user_id: userId, tab: f.tab, name: f.name,
-      parent_id: null, created_at: f.createdAt || Date.now(),
-    }).select().single()
-    if (row) folderIdMap[f.id] = row.id
-  }
-
-  // 폴더 이전 (2차: 부모 관계 연결)
-  for (const f of localFolders) {
-    if (f.parentId && folderIdMap[f.parentId] && folderIdMap[f.id]) {
-      await supabase.from('folders').update({ parent_id: folderIdMap[f.parentId] }).eq('id', folderIdMap[f.id])
-    }
-  }
-
-  // 설교 이전
-  const sermonIdMap = {}
-  for (const s of localSermons) {
-    const { data: row } = await supabase.from('sermons').insert({
-      user_id: userId, date: s.date, category: s.category, title: s.title,
-      passage: s.passage, emphasis: s.emphasis, draft: s.draft,
-      folder_id: s.folderId ? (folderIdMap[s.folderId] || null) : null,
-      created_at: s.createdAt || Date.now(),
-    }).select().single()
-    if (row) sermonIdMap[s.id] = row.id
-  }
-  for (const st of localSermonSteps) {
-    const newId = sermonIdMap[st.sermonId]
-    if (!newId) continue
-    await supabase.from('sermon_steps').upsert(
-      { user_id: userId, sermon_id: newId, step_index: st.stepIndex, content: st.content },
-      { onConflict: 'sermon_id,step_index' }
-    )
-  }
-
-  // 예배 이전
-  const worshipIdMap = {}
-  for (const w of localWorships) {
-    const { data: row } = await supabase.from('worships').insert({
-      user_id: userId, date: w.date, season: w.season, title: w.title,
-      passage: w.passage, draft: w.draft,
-      folder_id: w.folderId ? (folderIdMap[w.folderId] || null) : null,
-      created_at: w.createdAt || Date.now(),
-    }).select().single()
-    if (row) worshipIdMap[w.id] = row.id
-  }
-  for (const st of localWorshipSteps) {
-    const newId = worshipIdMap[st.worshipId]
-    if (!newId) continue
-    await supabase.from('worship_steps').upsert(
-      { user_id: userId, worship_id: newId, step_index: st.stepIndex, content: st.content },
-      { onConflict: 'worship_id,step_index' }
-    )
-  }
-
-  // 새벽설교 이전
-  const dawnIdMap = {}
-  for (const d of localDawns) {
-    const { data: row } = await supabase.from('dawns').insert({
-      user_id: userId, date: d.date, category: d.category, title: d.title,
-      passage: d.passage, season: d.season, emphasis: d.emphasis, draft: d.draft,
-      folder_id: d.folderId ? (folderIdMap[d.folderId] || null) : null,
-      created_at: d.createdAt || Date.now(),
-    }).select().single()
-    if (row) dawnIdMap[d.id] = row.id
-  }
-  for (const st of localDawnSteps) {
-    const newId = dawnIdMap[st.dawnId]
-    if (!newId) continue
-    await supabase.from('dawn_steps').upsert(
-      { user_id: userId, dawn_id: newId, step_index: st.stepIndex, content: st.content },
-      { onConflict: 'dawn_id,step_index' }
-    )
-  }
-
-  // 교재 이전
-  const cellIdMap = {}
-  for (const c of localCells) {
-    const { data: row } = await supabase.from('cells').insert({
-      user_id: userId, passage: c.passage, title: c.title, date: c.date,
-      folder_id: c.folderId ? (folderIdMap[c.folderId] || null) : null,
-      created_at: c.createdAt || Date.now(),
-    }).select().single()
-    if (row) cellIdMap[c.id] = row.id
-  }
-  for (const st of localCellSteps) {
-    const newId = cellIdMap[st.cellId]
-    if (!newId) continue
-    await supabase.from('cell_steps').upsert(
-      { user_id: userId, cell_id: newId, step_index: st.stepIndex, content: st.content, final_content: st.finalContent ?? null },
-      { onConflict: 'cell_id,step_index' }
-    )
-  }
-
-  // 커스텀 항목 이전
-  for (const item of localCustomItems) {
-    await supabase.from('custom_step_items').insert({
-      user_id: userId, tab: item.tab, step_key: item.stepKey,
-      label: item.label, text: item.text, order: item.order ?? 0,
-    })
-  }
-
-  return { count: total }
 }
 
 // ── 내부 헬퍼 (importAllData용 ID 재매핑) ─────────────────────────────────────

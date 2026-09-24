@@ -179,7 +179,6 @@ export default function WorshipForm({ worship, onSave, lang }) {
     }
   })
   const [loadingLectionary, setLoadingLectionary] = useState(false)
-  const dateRef = { current: null }
 
   function set(key, val) {
     setForm(prev => ({ ...prev, [key]: val }))

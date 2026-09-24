@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
-import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, generateDraftFromSteps, executeInlineCommand, stopCurrentGeneration, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
+import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, executeInlineCommand, stopCurrentGeneration, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
 import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
 import { addMemory, buildMemoryPrompt } from '../memory'
 import SermonForm from './SermonForm'
@@ -121,9 +121,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const [editing, setEditing] = useState(false)
   const [draftEditing, setDraftEditing] = useState(false)
   const [refining, setRefining] = useState(false)
-  const [draftSaved, setDraftSaved] = useState(false)
-  const [resultCopied, setResultCopied] = useState(false)
-  const [draftCopied, setDraftCopied] = useState(false)
   const [manualSaved, setManualSaved] = useState(false)
   const resultHistory = useTextHistory('', null)
   const [loading, setLoading] = useState(false)
@@ -406,14 +403,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     handleDraftChange(existingHtml + separator + addHtml)
   }
 
-  function saveDraftNow() {
-    clearTimeout(draftTimer.current)
-    if (tab === 'dawn') updateDawn(item.id, { draft: draftHistory.text })
-    else updateSermon(item.id, { draft: draftHistory.text })
-    setDraftSaved(true)
-    setTimeout(() => setDraftSaved(false), 1500)
-  }
-
   async function refineSermonDraft() {
     const plainText = stripHtml(draftHistory.text)
     if (!plainText.trim() || refining || loading) return
@@ -427,28 +416,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
       handleDraftChange(refined)
     } catch {
       handleDraftChange(originalHtml)
-    } finally {
-      setRefining(false)
-    }
-  }
-
-  async function handleGenerateDraftFromSteps() {
-    const filledSteps = steps
-      .filter(s => stripHtml(stepContents[s.index] || '').trim())
-      .map(s => ({ label: s.label[lang] || s.label.ko, content: stripHtml(stepContents[s.index]) }))
-    if (filledSteps.length === 0) return
-    draftHistory.forceSnapshot()
-    setRefining(true)
-    const fallback = draftHistory.text
-    let generated = ''
-    try {
-      await generateDraftFromSteps(
-        filledSteps, item?.passage, item?.title, item?.date, lang, bible, userKeyword,
-        (chunk) => { generated = chunk; draftHistory.onChange(chunk) }
-      )
-      handleDraftChange(generated)
-    } catch {
-      handleDraftChange(fallback)
     } finally {
       setRefining(false)
     }
@@ -517,37 +484,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
   }
 
-  async function handleResultKeyDown(e) {
-    if (e.key !== 'Enter' || e.shiftKey) return
-    const text = resultHistory.text
-    const cursor = resultTextareaRef.current?.selectionStart ?? 0
-    const textBeforeCursor = text.slice(0, cursor)
-    const lastNewline = textBeforeCursor.lastIndexOf('\n')
-    const currentLineStart = lastNewline + 1
-    const currentLine = textBeforeCursor.slice(currentLineStart)
-    const slashIdx = currentLine.indexOf('//')
-    if (slashIdx === -1) return
-    const instruction = currentLine.slice(slashIdx + 2).trim()
-    if (!instruction) return
-    e.preventDefault()
-    const contextBefore = text.slice(0, currentLineStart + slashIdx)
-    const contextAfter = text.slice(cursor)
-    resultHistory.forceSnapshot()
-    setRefining(true)
-    try {
-      let generated = ''
-      await executeInlineCommand(instruction, contextBefore, contextAfter, lang, bible, item.passage, item.title, (chunk) => {
-        generated = chunk
-        resultHistory.onChange(contextBefore + chunk + contextAfter)
-      })
-      resultHistory.onChange(contextBefore + generated + contextAfter)
-    } catch {
-      resultHistory.onChange(text)
-    } finally {
-      setRefining(false)
-    }
-  }
-
   async function handleSaveItem(formData) {
     await onSaveItem?.(formData)
     setInfoOpen(false)
@@ -557,27 +493,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     resultHistory.reset(content)
     setInstructionsOpen(false)
     setEditing(true)
-  }
-
-  async function saveEdit() {
-    const text = resultHistory.text
-    if (tab === 'sermon') {
-      await saveSermonStep(item.id, currentStep, text)
-      setStepContents(prev => ({ ...prev, [currentStep]: text }))
-    } else if (tab === 'worship') {
-      await saveWorshipStep(item.id, 0, text)
-      setStepContents(prev => ({ ...prev, [0]: text }))
-    } else {
-      await saveDawnStep(item.id, 0, text)
-      setStepContents(prev => ({ ...prev, [0]: text }))
-    }
-    setContent(text)
-    setEditing(false)
-    onGenerated?.(item.id)
-  }
-
-  function cancelEdit() {
-    setEditing(false)
   }
 
   async function handleManualSave() {
