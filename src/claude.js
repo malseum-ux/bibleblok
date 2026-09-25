@@ -1,3 +1,4 @@
+import { aiHeaders } from './supabase.js'
 import { getHymnListText } from './hymns.js'
 import { getRandomVerseText, FORGIVENESS_VERSES, CALL_TO_WORSHIP_VERSES } from './worship-verses.js'
 
@@ -1087,9 +1088,7 @@ async function runStreamCompletion(prompt, onChunk, systemExtra, signal) {
   const response = await fetch('/api/generate', {
     method: 'POST',
     signal,
-    headers: {
-      'content-type': 'application/json',
-    },
+    headers: await aiHeaders(),
     body: JSON.stringify({
       model: 'deepseek-flash',
       // 생각 과정 끄기 — 예전 deepseek-chat 과 같은 즉답 방식 (flash 는 기본이 생각 모드)

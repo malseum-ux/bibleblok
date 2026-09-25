@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { aiHeaders } from '../supabase.js'
 
 const inputStyle = {
   width: '100%',
@@ -154,7 +155,7 @@ async function fetchLectionary(date, season, lang, bible) {
 
   const response = await fetch('/api/generate', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: await aiHeaders(),
     body: JSON.stringify({
       model: 'deepseek-flash',
       // 생각 과정 끄기 — 예전 deepseek-chat 과 같은 즉답 방식 (flash 는 기본이 생각 모드)
