@@ -1091,7 +1091,9 @@ async function runStreamCompletion(prompt, onChunk, systemExtra, signal) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-flash',
+      // 생각 과정 끄기 — 예전 deepseek-chat 과 같은 즉답 방식 (flash 는 기본이 생각 모드)
+      thinking: { type: 'disabled' },
       max_tokens: 8000,
       stream: true,
       messages: [
