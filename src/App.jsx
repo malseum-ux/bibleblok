@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import AuthGate from './components/AuthGate'
+import FolderGate from './components/FolderGate'
 import {
   createSermon, getSermons, updateSermon, deleteSermon,
   createWorship, getWorships, updateWorship, deleteWorship,
@@ -52,7 +53,7 @@ function AppInner() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
-  // 초기 데이터 로드 (Supabase에서)
+  // 초기 데이터 로드 (저장 폴더에서 — FolderGate 가 미리 읽어 둔다)
   useEffect(() => {
     loadSermons()
     loadWorships()
@@ -102,11 +103,15 @@ function AppInner() {
     if (isFolderDescendant(folderId, newParentId)) return
     await moveFolder(folderId, newParentId)
     await loadFolders()
+    // 폴더 id 는 경로라서 이름·위치가 바뀌면 달라진다 — 그 폴더나 안쪽이 선택돼 있으면 선택을 푼다 (플러터와 같다)
+    if (selectedFolder && (selectedFolder.id === folderId || selectedFolder.id.startsWith(folderId + '/'))) setSelectedFolder(null)
   }
 
   async function handleRenameFolder(folderId, name) {
     await renameFolder(folderId, name)
     await loadFolders()
+    // 폴더 id 는 경로라서 이름·위치가 바뀌면 달라진다 — 그 폴더나 안쪽이 선택돼 있으면 선택을 푼다 (플러터와 같다)
+    if (selectedFolder && (selectedFolder.id === folderId || selectedFolder.id.startsWith(folderId + '/'))) setSelectedFolder(null)
   }
 
   async function handleMoveItem(itemId, folderId) {
@@ -273,6 +278,11 @@ function AppInner() {
     setSearchLoading(false)
   }
 
+  // 백업·웹 데이터 가져오기 뒤 목록 새로 읽기
+  async function reloadAll() {
+    await Promise.all([loadSermons(), loadWorships(), loadDawns(), loadCells(), loadFolders()])
+  }
+
   function handleSettingsChange(next) {
     setSettings(next)
     saveSettings(next)
@@ -408,6 +418,7 @@ function AppInner() {
           onChange={handleSettingsChange}
           onClose={() => setSettingsOpen(false)}
           onImport={handleFileImport}
+          onDataChanged={reloadAll}
         />
       )}
 
@@ -555,5 +566,6 @@ function AppInner() {
 }
 
 export default function App() {
-  return <AuthGate><AppInner /></AuthGate>
+  // 로그인 → 저장 폴더 → 메인 순서 (플러터 앱과 같다)
+  return <AuthGate><FolderGate><AppInner /></FolderGate></AuthGate>
 }

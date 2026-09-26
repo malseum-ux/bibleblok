@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
 import { LANGUAGES, BIBLE_VERSIONS_KO, BIBLE_VERSIONS_EN, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
-import { exportAllData, importAllData } from '../db'
+import { exportAllData, importAllData, getAllKeywords, removeKeyword } from '../db'
 import { getAllMemories, deleteMemory } from '../memory'
-import { supabase } from '../supabase'
+import { signOut } from '../supabase'
+import { folderName, pickFolder } from '../folderFs'
+import { fetchCloudBackup } from '../cloudImport'
 
 const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS, cell: CELL_STEPS }
 const TAB_LABELS = {
@@ -10,29 +12,21 @@ const TAB_LABELS = {
   en: { sermon: 'Sermon', worship: 'Worship', dawn: 'Dawn Prayer', cell: 'Cell Material' },
 }
 
+// 기억된 지시어 — 저장 폴더의 settings.json 에 있다
 function getDefaultKeywords() {
-  const result = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (!key?.startsWith('defaultKeyword_')) continue
-    const rest = key.slice('defaultKeyword_'.length)
-    const sepIdx = rest.indexOf('_')
-    if (sepIdx === -1) continue
-    const tab = rest.slice(0, sepIdx)
-    const stepKey = rest.slice(sepIdx + 1)
-    const steps = ALL_STEPS[tab] || []
-    const step = steps.find(s => s.key === stepKey)
-    result.push({ key, tab, stepKey, stepLabel: step ? step.label.ko : stepKey, value: localStorage.getItem(key) })
-  }
-  return result
+  return getAllKeywords().map(({ key, tab, stepKey, value }) => {
+    const step = (ALL_STEPS[tab] || []).find(s => s.key === stepKey)
+    return { key, tab, stepKey, stepLabel: step ? step.label.ko : stepKey, value }
+  })
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, onImport }) {
+export default function SettingsPanel({ settings, onChange, onClose, onDataChanged }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [memories, setMemories] = useState(getAllMemories)
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
+  const [webStatus, setWebStatus] = useState(null) // reading | done:n | error:메시지
   const fileInputRef = useRef(null)
 
   async function handleExport() {
@@ -59,13 +53,43 @@ export default function SettingsPanel({ settings, onChange, onClose, onImport })
       const text = await file.text()
       const json = JSON.parse(text)
       if (!json.version || !json.data) throw new Error('잘못된 파일 형식입니다.')
-      await importAllData(json)
-      setImportStatus('done')
-      setTimeout(() => window.location.reload(), 1000)
+      const added = await importAllData(json)
+      setImportStatus('done:' + added)
+      setDefaultKeywords(getDefaultKeywords())
+      await onDataChanged?.()
     } catch (err) {
       setImportStatus('error:' + err.message)
     }
     e.target.value = ''
+  }
+
+  // 예전 웹(Supabase)에 있는 이 계정의 데이터를 저장 폴더로 옮긴다 — 이미 있는 항목은 건너뛴다
+  async function handleWebImport() {
+    const ok = confirm(lang === 'ko'
+      ? '웹 바이블블록에 저장된 이 계정의 설교·예배·새벽·교재를 저장 폴더로 가져올까요?\n\n'
+        + '· 이미 가져온 항목은 다시 만들지 않습니다.\n'
+        + '· 웹의 원본은 지우지 않습니다.\n'
+        + '· 웹 브라우저에만 있던 기억된 지시어·학습 메모리는 옮겨지지 않습니다.'
+      : "Import this account's data from the web app into your data folder?\n\nExisting items are skipped and the web originals are kept.")
+    if (!ok) return
+    setWebStatus('reading')
+    try {
+      const added = await importAllData(await fetchCloudBackup())
+      setWebStatus('done:' + added)
+      await onDataChanged?.()
+    } catch (err) {
+      setWebStatus('error:' + err.message)
+    }
+  }
+
+  // 다른 저장 폴더로 바꾸면 처음부터 다시 읽는다
+  async function handleChangeFolder() {
+    try {
+      await pickFolder()
+      window.location.reload()
+    } catch (err) {
+      if (err?.name !== 'AbortError') alert(err.message)
+    }
   }
 
   function set(key, value) {
@@ -156,12 +180,27 @@ export default function SettingsPanel({ settings, onChange, onClose, onImport })
                   textAlign: 'left', width: '100%',
                 }}
               >
-                {lang === 'ko' ? '불러오기 (백업 파일 복원)' : 'Import Backup'}
+                {lang === 'ko' ? '불러오기 (백업 파일 추가)' : 'Import Backup'}
               </button>
               <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportFile} style={{ display: 'none' }} />
               {exportStatus && <div style={{ fontSize: 12, color: '#16a34a' }}>{exportStatus}</div>}
               {importStatus === 'reading' && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>불러오는 중...</div>}
-              {importStatus === 'done' && <div style={{ fontSize: 12, color: '#16a34a' }}>완료! 페이지를 새로고침합니다...</div>}
+              {importStatus?.startsWith('done:') && <div style={{ fontSize: 12, color: '#16a34a' }}>{lang === 'ko' ? `완료! ${importStatus.slice(5)}개 항목을 더했습니다.` : `Done! Added ${importStatus.slice(5)} items.`}</div>}
+              <button
+                onClick={handleWebImport}
+                disabled={webStatus === 'reading'}
+                style={{
+                  background: 'var(--bg)', color: 'var(--text)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  padding: '8px 12px', fontSize: 13, cursor: webStatus === 'reading' ? 'default' : 'pointer',
+                  textAlign: 'left', width: '100%',
+                }}
+              >
+                {lang === 'ko' ? '웹 바이블블록에서 가져오기' : 'Import from Web App'}
+              </button>
+              {webStatus === 'reading' && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lang === 'ko' ? '가져오는 중...' : 'Importing...'}</div>}
+              {webStatus?.startsWith('done:') && <div style={{ fontSize: 12, color: '#16a34a' }}>{lang === 'ko' ? `완료! ${webStatus.slice(5)}개 항목을 가져왔습니다.` : `Done! Imported ${webStatus.slice(5)} items.`}</div>}
+              {webStatus?.startsWith('error:') && <div style={{ fontSize: 12, color: '#dc2626' }}>{webStatus.slice(6)}</div>}
               {importStatus?.startsWith('error:') && <div style={{ fontSize: 12, color: '#dc2626' }}>{importStatus.slice(6)}</div>}
             </div>
           </div>
@@ -192,9 +231,25 @@ export default function SettingsPanel({ settings, onChange, onClose, onImport })
           </div>
 
           <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '저장 폴더' : 'Data Folder'}</div>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>{folderName()}</div>
+            <button
+              onClick={handleChangeFolder}
+              style={{
+                background: 'var(--bg)', color: 'var(--text)',
+                border: '1px solid var(--border)', borderRadius: 6,
+                padding: '8px 12px', fontSize: 13, cursor: 'pointer',
+                textAlign: 'left', width: '100%',
+              }}
+            >
+              {lang === 'ko' ? '다른 폴더로 변경' : 'Change Folder'}
+            </button>
+          </div>
+
+          <div style={sectionStyle}>
             <div style={labelStyle}>{lang === 'ko' ? '계정' : 'Account'}</div>
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={() => { onClose(); signOut() }}
               style={{
                 background: 'var(--bg)', color: 'var(--text)',
                 border: '1px solid var(--border)', borderRadius: 6,
@@ -217,7 +272,7 @@ export default function SettingsPanel({ settings, onChange, onClose, onImport })
                         {TAB_LABELS[lang]?.[item.tab] || item.tab} · {item.stepLabel}
                       </span>
                       <button
-                        onClick={() => { localStorage.removeItem(item.key); setDefaultKeywords(getDefaultKeywords()) }}
+                        onClick={() => { removeKeyword(item.key); setDefaultKeywords(getDefaultKeywords()) }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}
                       >×</button>
                     </div>

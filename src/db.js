@@ -1,590 +1,595 @@
-import { supabase } from './supabase'
+// 저장소 — 사용자가 고른 저장 폴더에 파일로 저장한다 (플러터 앱 services/store.dart 와 같은 구조·같은 파일 형식)
+//
+// 저장 폴더 구조
+//   설교작성/ 예배인도/ 새벽설교/ 교재작성/   ← 탭별 폴더
+//     <사이드바 폴더>/<하위 폴더>/날짜 제목.json   ← 사이드바 폴더 = 실제 폴더
+//   settings.json                              ← 기억된 지시어·학습 메모리·사용자 지시항목
+//
+// 화면 코드가 쓰는 함수 이름(getSermons, saveSermonStep ...)은 예전 Supabase 시절과 같다.
+// 폴더 id 는 '탭:경로' (예: 'sermon:로마서/1장') — 플러터 백업 형식과 같다.
+import * as fs from './folderFs'
 import { SERMON_STEPS, DAWN_STEPS } from './constants'
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+const TABS = ['sermon', 'worship', 'dawn', 'cell']
+const TAB_DIRS = { sermon: '설교작성', worship: '예배인도', dawn: '새벽설교', cell: '교재작성' }
+const SETTINGS_FILE = 'settings.json'
+const FIELDS = ['date', 'category', 'title', 'passage', 'emphasis', 'season', 'lectionary', 'draft']
 
-async function uid() {
-  const { data } = await supabase.auth.getUser()
-  return data?.user?.id
+const items = { sermon: [], worship: [], dawn: [], cell: [] }     // 파일 한 개 = 항목 한 개
+const folders = { sermon: [], worship: [], dawn: [], cell: [] }   // 탭 폴더 기준 상대 경로
+const settings = { defaultKeywords: {}, memories: {}, customStepItems: [] }
+
+// ── 경로 도우미 ──────────────────────────────────────────────────────────────
+
+const join = (a, b) => (!a ? b : !b ? a : `${a}/${b}`)
+const parentOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '')
+const baseName = p => (p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p)
+const cleanName = name => name.replace(/[\\/:*?"<>|]/g, ' ').trim()
+const nonEmpty = v => (v == null || String(v).trim() === '' ? null : v)
+const uuid = () => crypto.randomUUID()
+
+const folderId = (tab, path) => (path ? `${tab}:${path}` : null)
+function folderPath(id) {
+  if (!id) return { tab: null, path: '' }
+  const i = id.indexOf(':')
+  return { tab: id.slice(0, i), path: id.slice(i + 1) }
 }
 
-// ── Mappers (Supabase snake_case → 앱 camelCase) ──────────────────────────────
-
-const mapSermon = r => ({
-  id: r.id, date: r.date, category: r.category, title: r.title,
-  passage: r.passage, emphasis: r.emphasis, draft: r.draft,
-  folderId: r.folder_id, createdAt: r.created_at,
-})
-
-const mapWorship = r => ({
-  id: r.id, date: r.date, season: r.season, title: r.title,
-  passage: r.passage, draft: r.draft, folderId: r.folder_id, createdAt: r.created_at,
-})
-
-const mapDawn = r => ({
-  id: r.id, date: r.date, category: r.category, title: r.title,
-  passage: r.passage, season: r.season, emphasis: r.emphasis, draft: r.draft,
-  folderId: r.folder_id, createdAt: r.created_at,
-})
-
-const mapCell = r => ({
-  id: r.id, passage: r.passage, title: r.title, date: r.date,
-  folderId: r.folder_id, createdAt: r.created_at,
-})
-
-const mapFolder = r => ({
-  id: r.id, tab: r.tab, name: r.name, parentId: r.parent_id, createdAt: r.created_at,
-})
-
-const mapSermonStep = r => ({
-  id: r.id, sermonId: r.sermon_id, stepIndex: r.step_index, content: r.content,
-})
-
-const mapWorshipStep = r => ({
-  id: r.id, worshipId: r.worship_id, stepIndex: r.step_index, content: r.content,
-})
-
-const mapDawnStep = r => ({
-  id: r.id, dawnId: r.dawn_id, stepIndex: r.step_index, content: r.content,
-})
-
-const mapCellStep = r => ({
-  id: r.id, cellId: r.cell_id, stepIndex: r.step_index,
-  content: r.content, finalContent: r.final_content,
-})
-
-const mapCustomStepItem = r => ({
-  id: r.id, tab: r.tab, stepKey: r.step_key, label: r.label,
-  text: r.text, order: r.order,
-})
-
-// ── Sermons ───────────────────────────────────────────────────────────────────
-
-export async function createSermon(data) {
-  const userId = await uid()
-  const { data: row, error } = await supabase.from('sermons').insert({
-    user_id: userId,
-    date: data.date ?? null, category: data.category ?? null,
-    title: data.title ?? null, passage: data.passage ?? null,
-    emphasis: data.emphasis ?? null, draft: data.draft ?? null,
-    folder_id: data.folderId ?? null, created_at: Date.now(),
-  }).select().single()
-  if (error) throw error
-  return row.id
+// 파일 쓰기는 한 줄로 세워 차례대로 — 같은 파일을 동시에 쓰다 이름이 엉키지 않도록
+let queue = Promise.resolve()
+function serial(fn) {
+  const run = queue.then(fn)
+  queue = run.catch(() => {})
+  return run
 }
 
-export async function getSermons() {
-  const { data, error } = await supabase.from('sermons').select('*').order('created_at', { ascending: false })
-  if (error) throw error
-  return data.map(mapSermon)
+// ── 항목 파일 형식 (플러터 models/item.dart 와 같다) ─────────────────────────
+
+function toJson(it) {
+  const j = {
+    app: 'bibleblok', version: 1, tab: it.tab, id: it.id, createdAt: it.createdAt,
+    date: it.date ?? null, category: it.category ?? null, title: it.title ?? null, passage: it.passage ?? null,
+    emphasis: it.emphasis ?? null, season: it.season ?? null, lectionary: it.lectionary ?? null, draft: it.draft ?? null,
+    steps: it.steps,
+  }
+  if (Object.keys(it.finalSteps).length) j.finalSteps = it.finalSteps
+  return j
 }
 
-export async function updateSermon(id, data) {
-  const u = {}
-  if ('date' in data) u.date = data.date
-  if ('category' in data) u.category = data.category
-  if ('title' in data) u.title = data.title
-  if ('passage' in data) u.passage = data.passage
-  if ('emphasis' in data) u.emphasis = data.emphasis
-  if ('draft' in data) u.draft = data.draft
-  if ('folderId' in data) u.folder_id = data.folderId
-  const { error } = await supabase.from('sermons').update(u).eq('id', id)
-  if (error) throw error
+function fromJson(j, folder, fileName) {
+  const s = k => (typeof j[k] === 'string' ? j[k] : null)
+  const intMap = raw => {
+    const out = {}
+    if (raw && typeof raw === 'object') {
+      for (const [k, v] of Object.entries(raw)) if (/^\d+$/.test(k) && typeof v === 'string') out[k] = v
+    }
+    return out
+  }
+  const it = {
+    id: s('id') ?? fileName, tab: s('tab') ?? 'sermon', createdAt: typeof j.createdAt === 'number' ? j.createdAt : 0,
+    steps: intMap(j.steps), finalSteps: intMap(j.finalSteps), folder, fileName,
+  }
+  for (const f of FIELDS) it[f] = s(f)
+  return it
 }
 
-export async function deleteSermon(id) {
-  const { error } = await supabase.from('sermons').delete().eq('id', id)
-  if (error) throw error
+// 저장 파일 이름 — "날짜 제목.json"
+function preferredFileName(it) {
+  const name = it.tab === 'worship' ? '예배인도' : (nonEmpty(it.title) ?? nonEmpty(it.passage) ?? '제목 없음')
+  const base = [nonEmpty(it.date), name].filter(Boolean).join(' ')
+  let safe = base.replace(/[\\/:*?"<>|\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (safe.startsWith('.')) safe = safe.slice(1)
+  if (safe.length > 80) safe = safe.slice(0, 80).trim()
+  if (!safe) safe = it.id
+  return `${safe}.json`
 }
 
-// ── Sermon Steps ──────────────────────────────────────────────────────────────
-
-export async function getSermonSteps(sermonId) {
-  const { data, error } = await supabase.from('sermon_steps').select('*').eq('sermon_id', sermonId)
-  if (error) throw error
-  return data.map(mapSermonStep)
+// 화면이 쓰는 모양
+function toApp(it) {
+  const o = { id: it.id, folderId: folderId(it.tab, it.folder), createdAt: it.createdAt }
+  for (const f of FIELDS) o[f] = it[f]
+  return o
 }
 
-export async function saveSermonStep(sermonId, stepIndex, content) {
-  const userId = await uid()
-  const { error } = await supabase.from('sermon_steps').upsert(
-    { user_id: userId, sermon_id: sermonId, step_index: stepIndex, content },
-    { onConflict: 'sermon_id,step_index' }
-  )
-  if (error) throw error
+const find = (tab, id) => items[tab].find(i => i.id === id)
+const dirOf = it => join(TAB_DIRS[it.tab], it.folder)
+
+// 같은 폴더에 같은 이름이 있으면 " (2)" 를 붙인다
+function uniqueName(it) {
+  const want = preferredFileName(it)
+  const taken = new Set(items[it.tab].filter(o => o.id !== it.id && o.folder === it.folder).map(o => o.fileName))
+  if (!taken.has(want)) return want
+  const base = want.slice(0, -5)
+  for (let n = 2; ; n++) {
+    const candidate = `${base} (${n}).json`
+    if (!taken.has(candidate)) return candidate
+  }
 }
 
-// ── Worships ──────────────────────────────────────────────────────────────────
-
-export async function createWorship(data) {
-  const userId = await uid()
-  const { data: row, error } = await supabase.from('worships').insert({
-    user_id: userId,
-    date: data.date ?? null, season: data.season ?? null,
-    title: data.title ?? null, passage: data.passage ?? null,
-    draft: data.draft ?? null, folder_id: data.folderId ?? null,
-    created_at: Date.now(),
-  }).select().single()
-  if (error) throw error
-  return row.id
+async function write(it) {
+  const name = uniqueName(it)
+  const path = join(dirOf(it), name)
+  const ok = await fs.writeText(path, JSON.stringify(toJson(it), null, 2))
+  if (!ok) throw new Error(`파일을 저장하지 못했습니다: ${path}`)
+  const old = it.fileName
+  it.fileName = name
+  if (old && old !== name) await fs.remove(join(dirOf(it), old))
 }
 
-export async function getWorships() {
-  const { data, error } = await supabase.from('worships').select('*').order('created_at', { ascending: false })
-  if (error) throw error
-  return data.map(mapWorship)
+const sortItems = tab => items[tab].sort((a, b) => b.createdAt - a.createdAt)
+
+// ── 불러오기 ──────────────────────────────────────────────────────────────────
+
+export async function loadAll() {
+  const tree = await fs.listTree()
+  for (const t of TABS) {
+    const prefix = TAB_DIRS[t]
+    folders[t] = tree.dirs.filter(d => d.startsWith(prefix + '/')).map(d => d.slice(prefix.length + 1)).sort()
+    const list = []
+    for (const f of tree.files) {
+      if (!f.startsWith(prefix + '/') || !f.toLowerCase().endsWith('.json')) continue
+      const text = await fs.readText(f)
+      if (text == null) continue
+      try {
+        const j = JSON.parse(text)
+        if (!j || j.app !== 'bibleblok') continue
+        const rel = f.slice(prefix.length + 1)
+        list.push(fromJson(j, parentOf(rel), baseName(rel)))
+      } catch { /* 형식이 맞지 않는 파일은 건너뛴다 */ }
+    }
+    items[t] = list
+    sortItems(t)
+  }
+  await loadSettings()
 }
 
-export async function updateWorship(id, data) {
-  const u = {}
-  if ('date' in data) u.date = data.date
-  if ('season' in data) u.season = data.season
-  if ('title' in data) u.title = data.title
-  if ('passage' in data) u.passage = data.passage
-  if ('draft' in data) u.draft = data.draft
-  if ('folderId' in data) u.folder_id = data.folderId
-  const { error } = await supabase.from('worships').update(u).eq('id', id)
-  if (error) throw error
+async function loadSettings() {
+  settings.defaultKeywords = {}
+  settings.memories = {}
+  settings.customStepItems = []
+  const text = await fs.readText(SETTINGS_FILE)
+  if (text != null) {
+    try {
+      const j = JSON.parse(text)
+      for (const [k, v] of Object.entries(j.defaultKeywords || {})) settings.defaultKeywords[k] = String(v)
+      for (const [k, v] of Object.entries(j.memories || {})) {
+        settings.memories[k] = (v || []).map(m => ({ text: String(m.text), date: String(m.date) }))
+      }
+      for (const c of j.customStepItems || []) {
+        settings.customStepItems.push({ id: c.id, tab: c.tab, stepKey: c.stepKey, label: c.label ?? '', text: c.text ?? '', order: c.order ?? 0 })
+      }
+    } catch { /* 망가진 설정 파일은 빈 설정으로 */ }
+  }
+  await migrateBrowserSettings()
 }
 
-export async function deleteWorship(id) {
-  const { error } = await supabase.from('worships').delete().eq('id', id)
-  if (error) throw error
+// 예전 웹이 이 브라우저에만 저장해 둔 기억된 지시어·학습 메모리를 settings.json 으로 한 번 옮긴다
+async function migrateBrowserSettings() {
+  const keys = []
+  let changed = false
+  try {
+    for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i))
+  } catch { return }
+  const moved = []
+  for (const key of keys) {
+    if (key?.startsWith('defaultKeyword_')) {
+      const k = key.slice('defaultKeyword_'.length)
+      if (!(k in settings.defaultKeywords)) { settings.defaultKeywords[k] = localStorage.getItem(key) || ''; changed = true }
+      moved.push(key)
+    } else if (key?.startsWith('memory_')) {
+      const k = key.slice('memory_'.length)
+      let list = []
+      try { list = JSON.parse(localStorage.getItem(key) || '[]') } catch { /* 건너뜀 */ }
+      const cur = settings.memories[k] || []
+      for (const m of list) {
+        if (!cur.some(c => c.text === m.text && c.date === m.date)) { cur.push({ text: String(m.text), date: String(m.date) }); changed = true }
+      }
+      if (cur.length) settings.memories[k] = cur
+      moved.push(key)
+    }
+  }
+  if (!moved.length) return
+  if (changed && !(await writeSettings())) return
+  moved.forEach(k => localStorage.removeItem(k))
 }
 
-// ── Worship Steps ─────────────────────────────────────────────────────────────
-
-export async function getWorshipSteps(worshipId) {
-  const { data, error } = await supabase.from('worship_steps').select('*').eq('worship_id', worshipId)
-  if (error) throw error
-  return data.map(mapWorshipStep)
+function writeSettings() {
+  const j = {
+    app: 'bibleblok', version: 1,
+    defaultKeywords: settings.defaultKeywords,
+    memories: settings.memories,
+    customStepItems: settings.customStepItems,
+  }
+  return fs.writeText(SETTINGS_FILE, JSON.stringify(j, null, 2))
 }
 
-export async function saveWorshipStep(worshipId, stepIndex, content) {
-  const userId = await uid()
-  const { error } = await supabase.from('worship_steps').upsert(
-    { user_id: userId, worship_id: worshipId, step_index: stepIndex, content },
-    { onConflict: 'worship_id,step_index' }
-  )
-  if (error) throw error
+const saveSettings = () => serial(writeSettings)
+
+// ── 항목 (탭별 이름은 예전과 같게) ────────────────────────────────────────────
+
+function createItem(tab, data) {
+  return serial(async () => {
+    const it = { id: uuid(), tab, createdAt: Date.now(), steps: {}, finalSteps: {}, folder: folderPath(data.folderId).path, fileName: null }
+    for (const f of FIELDS) it[f] = data[f] ?? null
+    await write(it)
+    items[tab].unshift(it)
+    return it.id
+  })
 }
 
-// ── Dawns ─────────────────────────────────────────────────────────────────────
-
-export async function createDawn(data) {
-  const userId = await uid()
-  const { data: row, error } = await supabase.from('dawns').insert({
-    user_id: userId,
-    date: data.date ?? null, category: data.category ?? null,
-    title: data.title ?? null, passage: data.passage ?? null,
-    season: data.season ?? null, emphasis: data.emphasis ?? null,
-    draft: data.draft ?? null, folder_id: data.folderId ?? null,
-    created_at: Date.now(),
-  }).select().single()
-  if (error) throw error
-  return row.id
+function updateItem(tab, id, data) {
+  return serial(async () => {
+    const it = find(tab, id)
+    if (!it) throw new Error('항목을 찾을 수 없습니다')
+    for (const f of FIELDS) if (f in data) it[f] = data[f] ?? null
+    if ('folderId' in data) {
+      const next = folderPath(data.folderId).path
+      if (next !== it.folder) { await relocateItem(it, next); return }
+    }
+    await write(it)
+  })
 }
 
-export async function getDawns() {
-  const { data, error } = await supabase.from('dawns').select('*').order('created_at', { ascending: false })
-  if (error) throw error
-  return data.map(mapDawn)
+function deleteItem(tab, id) {
+  return serial(async () => {
+    const it = find(tab, id)
+    if (!it) return
+    if (it.fileName) await fs.remove(join(dirOf(it), it.fileName))
+    items[tab] = items[tab].filter(i => i.id !== id)
+  })
 }
 
-export async function updateDawn(id, data) {
-  const u = {}
-  if ('date' in data) u.date = data.date
-  if ('category' in data) u.category = data.category
-  if ('title' in data) u.title = data.title
-  if ('passage' in data) u.passage = data.passage
-  if ('season' in data) u.season = data.season
-  if ('emphasis' in data) u.emphasis = data.emphasis
-  if ('draft' in data) u.draft = data.draft
-  if ('folderId' in data) u.folder_id = data.folderId
-  const { error } = await supabase.from('dawns').update(u).eq('id', id)
-  if (error) throw error
+const listItems = async tab => items[tab].map(toApp)
+
+function getSteps(tab, id, idKey) {
+  const it = find(tab, id)
+  if (!it) return []
+  return Object.entries(it.steps).map(([k, content]) => ({
+    [idKey]: id, stepIndex: Number(k), content,
+    ...(tab === 'cell' ? { finalContent: it.finalSteps[k] ?? null } : {}),
+  }))
 }
 
-export async function deleteDawn(id) {
-  const { error } = await supabase.from('dawns').delete().eq('id', id)
-  if (error) throw error
+function saveStep(tab, id, stepIndex, content, finalContent) {
+  return serial(async () => {
+    const it = find(tab, id)
+    if (!it) throw new Error('항목을 찾을 수 없습니다')
+    it.steps[stepIndex] = content ?? ''
+    if (tab === 'cell') {
+      if (finalContent) it.finalSteps[stepIndex] = finalContent
+      else delete it.finalSteps[stepIndex]
+    }
+    await write(it)
+  })
 }
 
-// ── Dawn Steps ────────────────────────────────────────────────────────────────
+export const createSermon = data => createItem('sermon', data)
+export const getSermons = () => listItems('sermon')
+export const updateSermon = (id, data) => updateItem('sermon', id, data)
+export const deleteSermon = id => deleteItem('sermon', id)
+export const getSermonSteps = async id => getSteps('sermon', id, 'sermonId')
+export const saveSermonStep = (id, i, content) => saveStep('sermon', id, i, content)
 
-export async function getDawnSteps(dawnId) {
-  const { data, error } = await supabase.from('dawn_steps').select('*').eq('dawn_id', dawnId)
-  if (error) throw error
-  return data.map(mapDawnStep)
+export const createWorship = data => createItem('worship', data)
+export const getWorships = () => listItems('worship')
+export const updateWorship = (id, data) => updateItem('worship', id, data)
+export const deleteWorship = id => deleteItem('worship', id)
+export const getWorshipSteps = async id => getSteps('worship', id, 'worshipId')
+export const saveWorshipStep = (id, i, content) => saveStep('worship', id, i, content)
+
+export const createDawn = data => createItem('dawn', data)
+export const getDawns = () => listItems('dawn')
+export const updateDawn = (id, data) => updateItem('dawn', id, data)
+export const deleteDawn = id => deleteItem('dawn', id)
+export const getDawnSteps = async id => getSteps('dawn', id, 'dawnId')
+export const saveDawnStep = (id, i, content) => saveStep('dawn', id, i, content)
+
+export const createCell = data => createItem('cell', data)
+export const getCells = () => listItems('cell')
+export const updateCell = (id, data) => updateItem('cell', id, data)
+export const deleteCell = id => deleteItem('cell', id)
+export const getCellSteps = async id => getSteps('cell', id, 'cellId')
+export const saveCellStep = (id, i, content, finalContent) => saveStep('cell', id, i, content, finalContent)
+
+// ── 폴더 ──────────────────────────────────────────────────────────────────────
+
+// 항목을 다른 폴더로 — 새 위치에 쓰고 옛 파일을 지운다
+async function relocateItem(it, folder) {
+  if (it.folder === folder) return
+  const oldPath = it.fileName ? join(dirOf(it), it.fileName) : null
+  it.folder = folder
+  it.fileName = null
+  await write(it)
+  if (oldPath) await fs.remove(oldPath)
 }
-
-export async function saveDawnStep(dawnId, stepIndex, content) {
-  const userId = await uid()
-  const { error } = await supabase.from('dawn_steps').upsert(
-    { user_id: userId, dawn_id: dawnId, step_index: stepIndex, content },
-    { onConflict: 'dawn_id,step_index' }
-  )
-  if (error) throw error
-}
-
-// ── Cells ─────────────────────────────────────────────────────────────────────
-
-export async function createCell(data) {
-  const userId = await uid()
-  const { data: row, error } = await supabase.from('cells').insert({
-    user_id: userId,
-    passage: data.passage ?? null, title: data.title ?? null,
-    date: data.date ?? null, folder_id: data.folderId ?? null,
-    created_at: Date.now(),
-  }).select().single()
-  if (error) throw error
-  return row.id
-}
-
-export async function getCells() {
-  const { data, error } = await supabase.from('cells').select('*').order('created_at', { ascending: false })
-  if (error) throw error
-  return data.map(mapCell)
-}
-
-export async function updateCell(id, data) {
-  const u = {}
-  if ('passage' in data) u.passage = data.passage
-  if ('title' in data) u.title = data.title
-  if ('date' in data) u.date = data.date
-  if ('folderId' in data) u.folder_id = data.folderId
-  const { error } = await supabase.from('cells').update(u).eq('id', id)
-  if (error) throw error
-}
-
-export async function deleteCell(id) {
-  const { error } = await supabase.from('cells').delete().eq('id', id)
-  if (error) throw error
-}
-
-// ── Cell Steps ────────────────────────────────────────────────────────────────
-
-export async function getCellSteps(cellId) {
-  const { data, error } = await supabase.from('cell_steps').select('*').eq('cell_id', cellId)
-  if (error) throw error
-  return data.map(mapCellStep)
-}
-
-export async function saveCellStep(cellId, stepIndex, content, finalContent) {
-  const userId = await uid()
-  const { error } = await supabase.from('cell_steps').upsert(
-    { user_id: userId, cell_id: cellId, step_index: stepIndex, content, final_content: finalContent ?? null },
-    { onConflict: 'cell_id,step_index' }
-  )
-  if (error) throw error
-}
-
-// ── Folders ───────────────────────────────────────────────────────────────────
 
 export async function getFolders(tab) {
-  const { data, error } = await supabase.from('folders').select('*').eq('tab', tab).order('created_at', { ascending: true })
-  if (error) throw error
-  return data.map(mapFolder)
+  return folders[tab].map(p => ({
+    id: folderId(tab, p), tab, name: baseName(p), parentId: folderId(tab, parentOf(p)), createdAt: 0,
+  }))
 }
 
-export async function createFolder(tab, name, parentId = null) {
-  const userId = await uid()
-  const { data: row, error } = await supabase.from('folders').insert({
-    user_id: userId, tab, name, parent_id: parentId ?? null, created_at: Date.now(),
-  }).select().single()
-  if (error) throw error
-  return row.id
+export function createFolder(tab, name, parentId = null) {
+  return serial(async () => {
+    const clean = cleanName(name)
+    if (!clean) return null
+    const path = join(folderPath(parentId).path, clean)
+    if (!folders[tab].includes(path)) {
+      if (!(await fs.mkdir(join(TAB_DIRS[tab], path)))) throw new Error('폴더를 만들지 못했습니다')
+      folders[tab].push(path)
+      folders[tab].sort()
+    }
+    return folderId(tab, path)
+  })
 }
 
-export async function deleteFolder(id) {
-  // 폴더 안의 항목들은 folder_id를 null로 초기화
-  // 바로 아래 하위폴더는 루트로 옮긴다 (DB의 on delete cascade로 함께 지워지지 않도록)
-  const results = await Promise.all([
-    supabase.from('sermons').update({ folder_id: null }).eq('folder_id', id),
-    supabase.from('worships').update({ folder_id: null }).eq('folder_id', id),
-    supabase.from('dawns').update({ folder_id: null }).eq('folder_id', id),
-    supabase.from('cells').update({ folder_id: null }).eq('folder_id', id),
-    supabase.from('folders').update({ parent_id: null }).eq('parent_id', id),
-  ])
-  const failed = results.find(r => r.error)
-  if (failed) throw failed.error
-  const { error } = await supabase.from('folders').delete().eq('id', id)
-  if (error) throw error
+// 폴더를 통째로 옮긴다 — 새 위치에 폴더·파일을 다시 쓰고 옛 폴더를 지운다
+// (브라우저 저장 방식에는 폴더 이동 기능이 없어서 플러터 앱과 같은 방법을 쓴다)
+async function relocateFolder(tab, from, to) {
+  if (from === to) return
+  if (folders[tab].includes(to)) throw new Error('같은 이름의 폴더가 이미 있습니다')
+  const prefix = TAB_DIRS[tab]
+  const affected = folders[tab].filter(f => f === from || f.startsWith(from + '/'))
+  for (const f of affected) await fs.mkdir(join(prefix, to + f.slice(from.length)))
+  for (const it of items[tab].filter(i => i.folder === from || i.folder.startsWith(from + '/'))) {
+    it.folder = to + it.folder.slice(from.length)
+    it.fileName = null
+    await write(it)
+  }
+  await fs.remove(join(prefix, from))
+  folders[tab] = [...folders[tab].filter(f => !affected.includes(f)), ...affected.map(f => to + f.slice(from.length))].sort()
 }
 
-export async function moveFolder(folderId, newParentId) {
-  const { error } = await supabase.from('folders').update({ parent_id: newParentId ?? null }).eq('id', folderId)
-  if (error) throw error
+// 폴더 삭제 — 바로 아래 하위 폴더와 파일은 루트로 옮긴 뒤 지운다
+export function deleteFolder(id) {
+  return serial(async () => {
+    const { tab, path } = folderPath(id)
+    for (const child of folders[tab].filter(f => parentOf(f) === path)) await relocateFolder(tab, child, baseName(child))
+    for (const it of items[tab].filter(i => i.folder === path)) await relocateItem(it, '')
+    if (!(await fs.remove(join(TAB_DIRS[tab], path)))) throw new Error('폴더를 지우지 못했습니다')
+    folders[tab] = folders[tab].filter(f => f !== path && !f.startsWith(path + '/'))
+  })
 }
 
-export async function renameFolder(folderId, name) {
-  const { error } = await supabase.from('folders').update({ name }).eq('id', folderId)
-  if (error) throw error
+export function moveFolder(id, newParentId) {
+  return serial(async () => {
+    const { tab, path } = folderPath(id)
+    const parent = folderPath(newParentId).path
+    if (parent === path || parent.startsWith(path + '/') || parentOf(path) === parent) return
+    await relocateFolder(tab, path, join(parent, baseName(path)))
+  })
 }
 
-export async function moveItemToFolder(tab, itemId, folderId) {
-  const table = tab === 'sermon' ? 'sermons' : tab === 'worship' ? 'worships' : tab === 'dawn' ? 'dawns' : 'cells'
-  const { error } = await supabase.from(table).update({ folder_id: folderId ?? null }).eq('id', itemId)
-  if (error) throw error
+export function renameFolder(id, name) {
+  return serial(async () => {
+    const { tab, path } = folderPath(id)
+    const clean = cleanName(name)
+    if (!clean || clean === baseName(path)) return
+    await relocateFolder(tab, path, join(parentOf(path), clean))
+  })
 }
 
-// ── Custom Step Items ─────────────────────────────────────────────────────────
+export function moveItemToFolder(tab, itemId, folderIdValue) {
+  return serial(async () => {
+    const it = find(tab, itemId)
+    if (it) await relocateItem(it, folderPath(folderIdValue).path)
+  })
+}
+
+// ── 사용자 지시항목 ───────────────────────────────────────────────────────────
+
+const byOrder = (a, b) => a.order - b.order
 
 export async function getCustomStepItems(tab, stepKey) {
-  const { data, error } = await supabase.from('custom_step_items')
-    .select('*').eq('tab', tab).eq('step_key', stepKey).order('order', { ascending: true })
-  if (error) throw error
-  return data.map(mapCustomStepItem)
+  return settings.customStepItems.filter(c => c.tab === tab && c.stepKey === stepKey).sort(byOrder).map(c => ({ ...c }))
 }
 
 export async function getAllCustomStepItemsForTab(tab) {
-  const { data, error } = await supabase.from('custom_step_items').select('*').eq('tab', tab)
-  if (error) throw error
-  return data.map(mapCustomStepItem)
+  return settings.customStepItems.filter(c => c.tab === tab).sort(byOrder).map(c => ({ ...c }))
 }
 
 export async function addCustomStepItem(tab, stepKey, label) {
   const existing = await getCustomStepItems(tab, stepKey)
-  const order = existing.length
-  const userId = await uid()
-  const { error } = await supabase.from('custom_step_items').insert({
-    user_id: userId, tab, step_key: stepKey, label, text: `- ${label}`, order,
+  settings.customStepItems.push({
+    id: uuid(), tab, stepKey, label, text: `- ${label}`,
+    order: existing.length ? existing[existing.length - 1].order + 1 : 0,
   })
-  if (error) throw error
+  await saveSettings()
 }
 
 export async function deleteCustomStepItem(id) {
-  const { error } = await supabase.from('custom_step_items').delete().eq('id', id)
-  if (error) throw error
+  settings.customStepItems = settings.customStepItems.filter(c => c.id !== id)
+  await saveSettings()
 }
 
 export async function setCustomStepItemOrders(orderedIds) {
-  await Promise.all(orderedIds.map((id, idx) =>
-    supabase.from('custom_step_items').update({ order: idx }).eq('id', id)
-  ))
+  orderedIds.forEach((id, idx) => {
+    const c = settings.customStepItems.find(x => x.id === id)
+    if (c) c.order = idx
+  })
+  await saveSettings()
 }
 
 export async function reorderCustomStepItem(id, direction, tab, stepKey) {
-  const items = await getCustomStepItems(tab, stepKey)
-  const idx = items.findIndex(i => i.id === id)
+  const list = await getCustomStepItems(tab, stepKey)
+  const idx = list.findIndex(i => i.id === id)
   const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-  if (swapIdx < 0 || swapIdx >= items.length) return
-  const [a, b] = [items[idx], items[swapIdx]]
-  await Promise.all([
-    supabase.from('custom_step_items').update({ order: b.order }).eq('id', a.id),
-    supabase.from('custom_step_items').update({ order: a.order }).eq('id', b.id),
-  ])
+  if (idx < 0 || swapIdx < 0 || swapIdx >= list.length) return
+  const a = settings.customStepItems.find(c => c.id === list[idx].id)
+  const b = settings.customStepItems.find(c => c.id === list[swapIdx].id)
+  ;[a.order, b.order] = [b.order, a.order]
+  await saveSettings()
+}
+
+// ── 기억된 지시어 ─────────────────────────────────────────────────────────────
+
+export function getKeyword(tab, stepKey) {
+  return settings.defaultKeywords[`${tab}_${stepKey}`] || ''
+}
+
+export function setKeyword(tab, stepKey, value) {
+  const key = `${tab}_${stepKey}`
+  if (value?.trim()) settings.defaultKeywords[key] = value.trim()
+  else delete settings.defaultKeywords[key]
+  return saveSettings()
+}
+
+// [{ key: 'tab_stepKey', tab, stepKey, value }]
+export function getAllKeywords() {
+  return Object.entries(settings.defaultKeywords).map(([key, value]) => {
+    const i = key.indexOf('_')
+    return { key, tab: key.slice(0, i), stepKey: key.slice(i + 1), value }
+  })
+}
+
+export function removeKeyword(key) {
+  delete settings.defaultKeywords[key]
+  return saveSettings()
+}
+
+// ── 학습 메모리 (memory.js 가 쓴다) ────────────────────────────────────────────
+
+export function getMemoryList(key) {
+  return (settings.memories[key] || []).map(m => ({ ...m }))
+}
+
+export function addMemoryEntry(key, text) {
+  if (!text?.trim()) return Promise.resolve()
+  ;(settings.memories[key] ||= []).push({ text: text.trim(), date: new Date().toISOString().slice(0, 10) })
+  return saveSettings()
+}
+
+export function deleteMemoryEntry(key, index) {
+  const list = settings.memories[key]
+  if (!list || index >= list.length) return Promise.resolve()
+  list.splice(index, 1)
+  if (!list.length) delete settings.memories[key]
+  return saveSettings()
+}
+
+export function getAllMemoryLists() {
+  return Object.entries(settings.memories).map(([key, list]) => ({ key, list: list.map(m => ({ ...m })) }))
 }
 
 // ── 단계 내용 검색 ────────────────────────────────────────────────────────────
 
-// 단계 내용에 검색어가 들어 있는 설교/새벽설교 id 목록을 한 번의 조회로 가져온다
+// 단계 내용에 검색어가 들어 있는 설교/새벽설교 id 목록 (대소문자 구분 없음)
 export async function searchStepOwnerIds(type, query) {
-  const q = query?.trim()
+  const q = query?.trim().toLowerCase()
   if (!q) return new Set()
-  const table = type === 'sermon' ? 'sermon_steps' : 'dawn_steps'
-  const idCol = type === 'sermon' ? 'sermon_id' : 'dawn_id'
-  // %, _ 는 ilike 와일드카드이므로 글자 그대로 검색되도록 이스케이프
-  const escaped = q.replace(/[\\%_]/g, c => '\\' + c)
-  const { data, error } = await supabase.from(table).select(idCol).ilike('content', `%${escaped}%`)
-  if (error) throw error
-  return new Set((data || []).map(r => r[idCol]))
+  return new Set(items[type].filter(it => Object.values(it.steps).some(c => c?.toLowerCase().includes(q))).map(it => it.id))
 }
 
-// ── 강해 시리즈 컨텍스트 ──────────────────────────────────────────────────────
+// ── 강해 시리즈 맥락 ──────────────────────────────────────────────────────────
 
+// 같은 "구분"(시리즈명)의 다른 설교들을 만든 순서대로 요약 — 본문 메시지(새벽은 핵심 메시지) 앞 300자
 export async function getSeriesContext(type, seriesName, currentId) {
   if (!seriesName?.trim()) return ''
-  const table = type === 'sermon' ? 'sermons' : 'dawns'
-  const { data: items, error } = await supabase.from(table)
-    .select('*').eq('category', seriesName).neq('id', currentId).order('created_at', { ascending: true })
-  if (error || !items?.length) return ''
-
-  const mapped = items.map(type === 'sermon' ? mapSermon : mapDawn)
+  const list = items[type].filter(i => i.category === seriesName && i.id !== currentId).sort((a, b) => a.createdAt - b.createdAt)
+  if (!list.length) return ''
   // 단계 순서가 바뀌어도 어긋나지 않도록 번호 대신 단계 이름으로 찾는다
-  const coreStepKey = type === 'sermon' ? 'message' : 'core_message'
-  const coreStepIndex = (type === 'sermon' ? SERMON_STEPS : DAWN_STEPS).find(s => s.key === coreStepKey).index
-  const stepsTable = type === 'sermon' ? 'sermon_steps' : 'dawn_steps'
-  const idCol = type === 'sermon' ? 'sermon_id' : 'dawn_id'
-
+  const coreKey = type === 'sermon' ? 'message' : 'core_message'
+  const coreIndex = (type === 'sermon' ? SERMON_STEPS : DAWN_STEPS).find(s => s.key === coreKey).index
   const lines = [`[강해 시리즈: ${seriesName}] 이전에 다룬 본문들:`]
-  for (const item of mapped) {
-    const { data: steps } = await supabase.from(stepsTable).select('*')
-      .eq(idCol, item.id).eq('step_index', coreStepIndex)
-    const coreStep = steps?.[0]
-    const summary = coreStep?.content
-      ? coreStep.content.slice(0, 300).replace(/\n/g, ' ')
-      : '(내용 미생성)'
-    lines.push(`- ${item.date} | ${item.passage || '본문 미지정'} | ${summary}`)
+  for (const it of list) {
+    const content = it.steps[coreIndex]
+    const summary = content ? content.slice(0, 300).replace(/\n/g, ' ') : '(내용 미생성)'
+    lines.push(`- ${it.date} | ${it.passage || '본문 미지정'} | ${summary}`)
   }
   return lines.join('\n')
 }
 
-// ── 백업 내보내기 / 불러오기 ──────────────────────────────────────────────────
+// ── 백업 (version 2 — 플러터 앱과 같은 형식) ───────────────────────────────────
+
+const TAB_KEYS = {
+  sermon: ['sermons', 'sermonSteps', 'sermonId'],
+  worship: ['worships', 'worshipSteps', 'worshipId'],
+  dawn: ['dawns', 'dawnSteps', 'dawnId'],
+  cell: ['cells', 'cellSteps', 'cellId'],
+}
 
 export async function exportAllData() {
-  const [s, ss, w, ws, d, ds, f, c, cs, csi] = await Promise.all([
-    supabase.from('sermons').select('*'),
-    supabase.from('sermon_steps').select('*'),
-    supabase.from('worships').select('*'),
-    supabase.from('worship_steps').select('*'),
-    supabase.from('dawns').select('*'),
-    supabase.from('dawn_steps').select('*'),
-    supabase.from('folders').select('*'),
-    supabase.from('cells').select('*'),
-    supabase.from('cell_steps').select('*'),
-    supabase.from('custom_step_items').select('*'),
-  ])
-
-  const keywords = {}
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith('defaultKeyword_')) keywords[key] = localStorage.getItem(key)
+  const data = {}
+  const folderList = []
+  for (const t of TABS) {
+    for (const f of folders[t]) {
+      folderList.push({ id: `${t}:${f}`, tab: t, name: baseName(f), parentId: parentOf(f) ? `${t}:${parentOf(f)}` : null, createdAt: 0 })
+    }
+    const [listKey, stepsKey, idKey] = TAB_KEYS[t]
+    data[listKey] = items[t].map(i => ({
+      id: i.id, date: i.date, category: i.category, title: i.title, passage: i.passage,
+      emphasis: i.emphasis, season: i.season, lectionary: i.lectionary, draft: i.draft,
+      folderId: i.folder ? `${t}:${i.folder}` : null, createdAt: i.createdAt,
+    }))
+    data[stepsKey] = items[t].flatMap(i => Object.entries(i.steps).map(([k, content]) => ({
+      [idKey]: i.id, stepIndex: Number(k), content, ...(t === 'cell' ? { finalContent: i.finalSteps[k] ?? null } : {}),
+    })))
   }
-
-  return {
-    version: 2,
-    exportedAt: new Date().toISOString(),
-    data: {
-      sermons: (s.data || []).map(mapSermon),
-      sermonSteps: (ss.data || []).map(mapSermonStep),
-      worships: (w.data || []).map(mapWorship),
-      worshipSteps: (ws.data || []).map(mapWorshipStep),
-      dawns: (d.data || []).map(mapDawn),
-      dawnSteps: (ds.data || []).map(mapDawnStep),
-      folders: (f.data || []).map(mapFolder),
-      cells: (c.data || []).map(mapCell),
-      cellSteps: (cs.data || []).map(mapCellStep),
-      customStepItems: (csi.data || []).map(mapCustomStepItem),
-      keywords,
-    },
-  }
+  data.folders = folderList
+  data.customStepItems = settings.customStepItems.map(c => ({ ...c }))
+  data.keywords = Object.fromEntries(Object.entries(settings.defaultKeywords).map(([k, v]) => [`defaultKeyword_${k}`, v]))
+  return { version: 2, exportedAt: new Date().toISOString(), data }
 }
 
-export async function importAllData(json) {
-  const { data } = json
-  const userId = await uid()
+// 백업 불러오기 — 기존 파일은 그대로 두고, 없는 것만 더한다. 더한 항목 수 반환
+export function importAllData(json) {
+  return serial(async () => {
+    const data = json?.data
+    if (json?.version == null || !data || typeof data !== 'object') throw new Error('잘못된 파일 형식입니다.')
 
-  // 기존 데이터 전체 삭제
-  await Promise.all([
-    supabase.from('sermons').delete().eq('user_id', userId),
-    supabase.from('worships').delete().eq('user_id', userId),
-    supabase.from('dawns').delete().eq('user_id', userId),
-    supabase.from('cells').delete().eq('user_id', userId),
-    supabase.from('folders').delete().eq('user_id', userId),
-    supabase.from('custom_step_items').delete().eq('user_id', userId),
-  ])
-
-  await _insertFromData(data, userId)
-
-  if (data.keywords) {
-    const toRemove = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key?.startsWith('defaultKeyword_')) toRemove.push(key)
+    // 폴더 id → 경로
+    const rawFolders = data.folders || []
+    const byId = Object.fromEntries(rawFolders.map(f => [String(f.id), f]))
+    const pathOf = (id, guard = 0) => {
+      const f = byId[id]
+      if (!f || guard > 50) return ''
+      const parent = f.parentId == null ? '' : pathOf(String(f.parentId), guard + 1)
+      return join(parent, cleanName(String(f.name)))
     }
-    toRemove.forEach(k => localStorage.removeItem(k))
-    Object.entries(data.keywords).forEach(([k, v]) => localStorage.setItem(k, v))
-  }
-}
 
-// ── 내부 헬퍼 (importAllData용 ID 재매핑) ─────────────────────────────────────
-
-async function _insertFromData(data, userId) {
-  const folderIdMap = {}
-
-  for (const f of data.folders || []) {
-    const { data: row } = await supabase.from('folders').insert({
-      user_id: userId, tab: f.tab, name: f.name,
-      parent_id: null, created_at: f.createdAt || Date.now(),
-    }).select().single()
-    if (row) folderIdMap[f.id] = row.id
-  }
-  for (const f of data.folders || []) {
-    if (f.parentId && folderIdMap[f.parentId] && folderIdMap[f.id]) {
-      await supabase.from('folders').update({ parent_id: folderIdMap[f.parentId] }).eq('id', folderIdMap[f.id])
+    for (const f of rawFolders) {
+      const tab = String(f.tab)
+      if (!TABS.includes(tab)) continue
+      const path = pathOf(String(f.id))
+      if (!path || folders[tab].includes(path)) continue
+      await fs.mkdir(join(TAB_DIRS[tab], path))
+      folders[tab].push(path)
     }
-  }
 
-  const sermonIdMap = {}
-  for (const s of data.sermons || []) {
-    const { data: row } = await supabase.from('sermons').insert({
-      user_id: userId, date: s.date, category: s.category, title: s.title,
-      passage: s.passage, emphasis: s.emphasis, draft: s.draft,
-      folder_id: s.folderId ? (folderIdMap[s.folderId] || null) : null,
-      created_at: s.createdAt || Date.now(),
-    }).select().single()
-    if (row) sermonIdMap[s.id] = row.id
-  }
-  for (const st of data.sermonSteps || []) {
-    const newId = sermonIdMap[st.sermonId]
-    if (!newId) continue
-    await supabase.from('sermon_steps').upsert(
-      { user_id: userId, sermon_id: newId, step_index: st.stepIndex, content: st.content },
-      { onConflict: 'sermon_id,step_index' }
-    )
-  }
+    let added = 0
+    for (const t of TABS) {
+      const [listKey, stepsKey, idKey] = TAB_KEYS[t]
+      const stepRows = data[stepsKey] || []
+      for (const r of data[listKey] || []) {
+        const id = String(r.id)
+        if (find(t, id)) continue
+        const s = k => (typeof r[k] === 'string' ? r[k] : null)
+        const it = {
+          id, tab: t, createdAt: typeof r.createdAt === 'number' ? r.createdAt : Date.now(),
+          steps: {}, finalSteps: {}, folder: r.folderId == null ? '' : pathOf(String(r.folderId)), fileName: null,
+        }
+        for (const f of FIELDS) it[f] = s(f)
+        for (const st of stepRows.filter(st => String(st[idKey]) === id)) {
+          if (typeof st.stepIndex !== 'number') continue
+          if (typeof st.content === 'string') it.steps[st.stepIndex] = st.content
+          if (typeof st.finalContent === 'string' && st.finalContent) it.finalSteps[st.stepIndex] = st.finalContent
+        }
+        await write(it)
+        items[t].push(it)
+        added++
+      }
+      sortItems(t)
+      folders[t].sort()
+    }
 
-  const worshipIdMap = {}
-  for (const w of data.worships || []) {
-    const { data: row } = await supabase.from('worships').insert({
-      user_id: userId, date: w.date, season: w.season, title: w.title,
-      passage: w.passage, draft: w.draft,
-      folder_id: w.folderId ? (folderIdMap[w.folderId] || null) : null,
-      created_at: w.createdAt || Date.now(),
-    }).select().single()
-    if (row) worshipIdMap[w.id] = row.id
-  }
-  for (const st of data.worshipSteps || []) {
-    const newId = worshipIdMap[st.worshipId]
-    if (!newId) continue
-    await supabase.from('worship_steps').upsert(
-      { user_id: userId, worship_id: newId, step_index: st.stepIndex, content: st.content },
-      { onConflict: 'worship_id,step_index' }
-    )
-  }
-
-  const dawnIdMap = {}
-  for (const d of data.dawns || []) {
-    const { data: row } = await supabase.from('dawns').insert({
-      user_id: userId, date: d.date, category: d.category, title: d.title,
-      passage: d.passage, season: d.season, emphasis: d.emphasis, draft: d.draft,
-      folder_id: d.folderId ? (folderIdMap[d.folderId] || null) : null,
-      created_at: d.createdAt || Date.now(),
-    }).select().single()
-    if (row) dawnIdMap[d.id] = row.id
-  }
-  for (const st of data.dawnSteps || []) {
-    const newId = dawnIdMap[st.dawnId]
-    if (!newId) continue
-    await supabase.from('dawn_steps').upsert(
-      { user_id: userId, dawn_id: newId, step_index: st.stepIndex, content: st.content },
-      { onConflict: 'dawn_id,step_index' }
-    )
-  }
-
-  const cellIdMap = {}
-  for (const c of data.cells || []) {
-    const { data: row } = await supabase.from('cells').insert({
-      user_id: userId, passage: c.passage, title: c.title, date: c.date,
-      folder_id: c.folderId ? (folderIdMap[c.folderId] || null) : null,
-      created_at: c.createdAt || Date.now(),
-    }).select().single()
-    if (row) cellIdMap[c.id] = row.id
-  }
-  for (const st of data.cellSteps || []) {
-    const newId = cellIdMap[st.cellId]
-    if (!newId) continue
-    await supabase.from('cell_steps').upsert(
-      { user_id: userId, cell_id: newId, step_index: st.stepIndex, content: st.content, final_content: st.finalContent ?? null },
-      { onConflict: 'cell_id,step_index' }
-    )
-  }
-
-  for (const item of data.customStepItems || []) {
-    await supabase.from('custom_step_items').insert({
-      user_id: userId, tab: item.tab, step_key: item.stepKey,
-      label: item.label, text: item.text, order: item.order ?? 0,
-    })
-  }
+    const existingIds = new Set(settings.customStepItems.map(c => c.id))
+    for (const c of data.customStepItems || []) {
+      if (!existingIds.has(c.id)) settings.customStepItems.push({ id: c.id, tab: c.tab, stepKey: c.stepKey, label: c.label ?? '', text: c.text ?? '', order: c.order ?? 0 })
+    }
+    for (const [k, v] of Object.entries(data.keywords || {})) {
+      settings.defaultKeywords[k.startsWith('defaultKeyword_') ? k.slice('defaultKeyword_'.length) : k] = String(v)
+    }
+    await writeSettings()
+    return added
+  })
 }

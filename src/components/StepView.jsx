@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS } from '../constants'
 import { generateSermonStep, generateWorshipCombined, generateDawnCombined, refineDraft, executeInlineCommand, stopCurrentGeneration, SERMON_STEP_ITEMS, WORSHIP_STEP_ITEMS, DAWN_STEP_ITEMS } from '../claude'
-import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
+import { saveSermonStep, saveWorshipStep, saveDawnStep, getSermonSteps, getWorshipSteps, getDawnSteps, updateSermon, updateDawn, getSeriesContext, getCustomStepItems, getAllCustomStepItemsForTab, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders, getKeyword, setKeyword } from '../db'
 import { addMemory, buildMemoryPrompt } from '../memory'
 import SermonForm from './SermonForm'
 import WorshipForm from './WorshipForm'
@@ -213,7 +213,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   // 탭/단계/항목 변경 시 해당 기본 키워드 로드
   useEffect(() => {
     if (!step?.key) return
-    const saved = localStorage.getItem(`defaultKeyword_${tab}_${step.key}`) || ''
+    const saved = getKeyword(tab, step.key)
     setUserKeyword(saved)
   }, [tab, step?.key, item?.id]) // eslint-disable-line
 
@@ -307,8 +307,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     if (/기억해(?:줘|주세요)?/.test(userKeyword)) {
       const cleaned = userKeyword.replace(/기억해(?:줘|주세요)?/g, '').replace(/^[,\s]+|[,\s]+$/g, '').trim()
       if (step?.key) {
-        if (cleaned) localStorage.setItem(`defaultKeyword_${tab}_${step.key}`, cleaned)
-        else localStorage.removeItem(`defaultKeyword_${tab}_${step.key}`)
+        setKeyword(tab, step.key, cleaned)
         if (cleaned) addMemory(tab, step.key, cleaned)
       }
       effectiveKeyword = cleaned

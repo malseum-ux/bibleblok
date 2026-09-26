@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { CELL_STEPS } from '../constants'
 import { generateCellMaterial, executeInlineCommand, stopCurrentGeneration } from '../claude'
-import { saveCellStep, getCellSteps, getSermonSteps, getCustomStepItems, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders } from '../db'
+import { saveCellStep, getCellSteps, getSermonSteps, getCustomStepItems, addCustomStepItem, deleteCustomStepItem, setCustomStepItemOrders, getKeyword, setKeyword } from '../db'
 import { addMemory, buildMemoryPrompt } from '../memory'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
@@ -182,7 +182,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
   useEffect(() => {
     if (!step?.key) return
-    const kw = localStorage.getItem(`defaultKeyword_cell_${step.key}`) || ''
+    const kw = getKeyword('cell', step.key)
     setUserKeyword(kw)
   }, [step?.key])
 
@@ -261,8 +261,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     if (/기억해(?:줘|주세요)?/.test(userKeyword)) {
       const cleaned = userKeyword.replace(/기억해(?:줘|주세요)?/g, '').replace(/^[,\s]+|[,\s]+$/g, '').trim()
       if (step?.key) {
-        if (cleaned) localStorage.setItem(`defaultKeyword_cell_${step.key}`, cleaned)
-        else localStorage.removeItem(`defaultKeyword_cell_${step.key}`)
+        setKeyword('cell', step.key, cleaned)
         if (cleaned) addMemory('cell', step.key, cleaned)
       }
       effectiveKeyword = cleaned
