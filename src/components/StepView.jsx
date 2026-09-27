@@ -109,7 +109,16 @@ function useTextHistory(initialValue, resetKey) {
 
   function getLatest() { return textRef.current }
 
-  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot, getLatest }
+  // 값을 바로 기록 지점으로 남긴다 — AI 생성·드래그 수정처럼 한 번에 바뀌는 경우
+  function record(val) {
+    clearTimeout(timer.current)
+    if (textRef.current !== snapshots.current[snapIdx.current]) pushSnapshot(textRef.current)
+    textRef.current = val
+    setText(val)
+    pushSnapshot(val)
+  }
+
+  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot, getLatest, record }
 }
 
 export default function StepView({ tab, item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
@@ -124,6 +133,9 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const [refining, setRefining] = useState(false)
   const [manualSaved, setManualSaved] = useState(false)
   const resultHistory = useTextHistory('', null)
+  // AI 생성 화면의 되돌리기 기록 — 단계(또는 항목)가 바뀔 때만 새로 시작한다
+  const [loadedItemId, setLoadedItemId] = useState(null)
+  const historyKeyRef = useRef(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
@@ -170,6 +182,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
       const map = {}
       saved.forEach(s => { map[s.stepIndex] = s.content })
       setStepContents(map)
+      setLoadedItemId(item.id)
     }
     loadContents()
   }, [item?.id, tab])
@@ -179,7 +192,13 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
 
   useEffect(() => {
     // 예배인도/새벽설교는 통합 결과를 step 0에 저장하므로 항상 step 0 내용을 표시
-    setContent(tab === 'sermon' ? (stepContents[currentStep] || '') : (stepContents[0] || ''))
+    const shown = tab === 'sermon' ? (stepContents[currentStep] || '') : (stepContents[0] || '')
+    setContent(shown)
+    const historyKey = `${loadedItemId}:${tab === 'sermon' ? currentStep : 0}`
+    if (historyKeyRef.current !== historyKey) {
+      historyKeyRef.current = historyKey
+      resultHistory.reset(shown)
+    }
     setError(null)
     setInstructionsOpen(false)
     const items = stepItemsDefs[step?.key] || []
@@ -315,6 +334,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     }
 
     const prevContent = content
+    resultHistory.record(prevContent)
     const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
     const activeItems = hasItems ? selectedItems : null
     const memory = step?.key ? buildMemoryPrompt(tab, step.key) : ''
@@ -331,6 +351,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           (text) => setContent(prevContent + SEP + text), activeItems, effectiveKeyword, customText, memory
         ).then(async (full) => {
           const combined = prevContent + SEP + full
+          resultHistory.record(combined)
           await saveSermonStep(item.id, currentStep, combined)
           setStepContents(prev => ({ ...prev, [currentStep]: combined }))
           onGenerated?.(item.id)
@@ -349,6 +370,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts, memory
         ).then(async (full) => {
           const combined = prevContent + SEP + full
+          resultHistory.record(combined)
           await saveWorshipStep(item.id, 0, combined)
           setStepContents(prev => ({ ...prev, [0]: combined }))
           onGenerated?.(item.id)
@@ -368,6 +390,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
           stepSelectedItems, (text) => setContent(prevContent + SEP + text), effectiveKeyword, customStepTexts, memory
         ).then(async (full) => {
           const combined = prevContent + SEP + full
+          resultHistory.record(combined)
           await saveDawnStep(item.id, 0, combined)
           setStepContents(prev => ({ ...prev, [0]: combined }))
           onGenerated?.(item.id)
@@ -394,6 +417,15 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
         updateSermon(item.id, { draft: text })
       }
     }, 500)
+  }
+
+  // 초안창 되돌리기·다시하기 — 누르는 즉시 파일에도 저장
+  async function applyDraftHistory(move) {
+    move()
+    clearTimeout(draftTimer.current)
+    const text = draftHistory.getLatest()
+    if (tab === 'dawn') await updateDawn(item.id, { draft: text })
+    else await updateSermon(item.id, { draft: text })
   }
 
   function applyToSermon() {
@@ -491,11 +523,25 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   // 드래그해서 고친 결과를 단계 내용에 반영·저장
   async function applyResultEdit(html) {
     const idx = tab === 'sermon' ? currentStep : 0
+    resultHistory.record(html)
     setContent(html)
     setStepContents(prev => ({ ...prev, [idx]: html }))
     if (tab === 'sermon') await saveSermonStep(item.id, idx, html)
     else if (tab === 'worship') await saveWorshipStep(item.id, 0, html)
     else await saveDawnStep(item.id, 0, html)
+    onGenerated?.(item.id)
+  }
+
+  // AI 생성 화면 되돌리기·다시하기 — 바뀐 내용을 화면과 파일에 함께 반영
+  async function applyStepHistory(move) {
+    move()
+    const text = resultHistory.getLatest()
+    const idx = tab === 'sermon' ? currentStep : 0
+    setContent(text)
+    setStepContents(prev => ({ ...prev, [idx]: text }))
+    if (tab === 'sermon') await saveSermonStep(item.id, idx, text)
+    else if (tab === 'worship') await saveWorshipStep(item.id, 0, text)
+    else await saveDawnStep(item.id, 0, text)
     onGenerated?.(item.id)
   }
 
@@ -511,7 +557,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   }
 
   function startEdit() {
-    resultHistory.reset(content)
+    if (resultHistory.getLatest() !== content) resultHistory.record(content)
     setInstructionsOpen(false)
     setEditing(true)
   }
@@ -571,6 +617,7 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
 
   // 매 렌더마다 최신 값을 참조하도록 유지 (textRef.current: React state보다 항상 동기적으로 최신)
   finishEditRef.current = () => {
+    resultHistory.forceSnapshot()
     setContent(resultHistory.getLatest())
     setEditing(false)
   }
@@ -862,6 +909,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                         >A+</button>
                       </div>
                     )}
+                    <button onClick={() => applyStepHistory(resultHistory.undo)} disabled={!resultHistory.canUndo || loading || refining} style={undoBtnStyle(resultHistory.canUndo && !loading && !refining)}>↩</button>
+                    <button onClick={() => applyStepHistory(resultHistory.redo)} disabled={!resultHistory.canRedo || loading || refining} style={undoBtnStyle(resultHistory.canRedo && !loading && !refining)}>↪</button>
                     <button
                       onClick={loading ? stopCurrentGeneration : generate}
                       style={{
@@ -1178,8 +1227,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 6px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, lineHeight: 1 }}>A+</button>
                 </div>
               )}
-              <button onClick={draftHistory.undo} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
-              <button onClick={draftHistory.redo} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
+              <button onClick={() => applyDraftHistory(draftHistory.undo)} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
+              <button onClick={() => applyDraftHistory(draftHistory.redo)} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
             {draftEditing ? (
               <RichEditor

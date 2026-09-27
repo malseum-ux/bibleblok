@@ -104,7 +104,18 @@ function useTextHistory(initialValue, resetKey) {
     pushSnapshot(textRef.current)
   }
 
-  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot }
+  function getLatest() { return textRef.current }
+
+  // 값을 바로 기록 지점으로 남긴다 — AI 생성·드래그 수정처럼 한 번에 바뀌는 경우
+  function record(val) {
+    clearTimeout(timer.current)
+    if (textRef.current !== snapshots.current[snapIdx.current]) pushSnapshot(textRef.current)
+    textRef.current = val
+    setText(val)
+    pushSnapshot(val)
+  }
+
+  return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot, getLatest, record }
 }
 
 function stripHtml(html) {
@@ -119,6 +130,9 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   const [stepContents, setStepContents] = useState({})
   const [aiContent, setAiContent] = useState('')
   const resultHistory = useTextHistory('', `${item?.id}-${currentStep}-result`)
+  // 되돌리기 기록은 단계(또는 항목)가 바뀔 때만 새로 시작한다 — 자동 저장 때마다 지워지지 않도록
+  const [loadedItemId, setLoadedItemId] = useState(null)
+  const historyKeyRef = useRef(null)
   const [loading, setLoading] = useState(false)
   const [refining, setRefining] = useState(false)
   const [error, setError] = useState(null)
@@ -149,6 +163,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
       const aiMap = {}
       rows.forEach(s => { aiMap[s.stepIndex] = s.content || '' })
       setStepContents(aiMap)
+      setLoadedItemId(item.id)
     })
   }, [item?.id])
 
@@ -158,7 +173,11 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
     const ai = stepContents[currentStep] || ''
     setAiContent(ai)
-    resultHistory.reset(ai)
+    const historyKey = `${loadedItemId}:${currentStep}`
+    if (historyKeyRef.current !== historyKey) {
+      historyKeyRef.current = historyKey
+      resultHistory.reset(ai)
+    }
     setInstructionsOpen(false)
     setError(null)
 
@@ -207,7 +226,8 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     function handleClick(e) {
       if (resultPanelRef.current && !resultPanelRef.current.contains(e.target)) {
         setEditing(false)
-        const t = resultHistory.text
+        resultHistory.forceSnapshot()
+        const t = resultHistory.getLatest()
         setAiContent(t)
         setStepContents(prev => ({ ...prev, [currentStep]: t }))
         if (item?.id) saveCellStep(item.id, currentStep, t, '')
@@ -269,6 +289,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
     }
 
     const prevContent = aiContent
+    resultHistory.record(prevContent)
     const SEP = prevContent ? '\n\n' + '─'.repeat(30) + '\n\n' : ''
     const subtitle = CELL_SUBTITLES[step.key] || ''
     const titleLine = `# ${step.label.ko} — ${subtitle}\n\n`
@@ -306,7 +327,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
         customText, effectiveKeyword, sermonContext, memory
       ).then(async () => {
         setAiContent(accumulated)
-        resultHistory.reset(accumulated)
+        resultHistory.record(accumulated)
         setStepContents(prev => ({ ...prev, [currentStep]: accumulated }))
         await saveCellStep(item.id, currentStep, accumulated, '')
       })
@@ -344,7 +365,7 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   }
 
   function startEdit() {
-    resultHistory.reset(aiContent)
+    if (resultHistory.getLatest() !== aiContent) resultHistory.record(aiContent)
     setInstructionsOpen(false)
     setEditing(true)
   }
@@ -359,9 +380,19 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
 
   // 드래그해서 고친 결과를 교재 내용에 반영·저장
   async function applyAiEdit(html) {
+    resultHistory.record(html)
     setAiContent(html)
     setStepContents(prev => ({ ...prev, [currentStep]: html }))
     if (item?.id) await saveCellStep(item.id, currentStep, html, '')
+  }
+
+  // 되돌리기·다시하기 — 바뀐 내용을 화면과 파일에 함께 반영
+  async function applyHistory(move) {
+    move()
+    const text = resultHistory.getLatest()
+    setAiContent(text)
+    setStepContents(prev => ({ ...prev, [currentStep]: text }))
+    if (item?.id) await saveCellStep(item.id, currentStep, text, '')
   }
 
   async function handleSaveItem(formData) {
@@ -382,6 +413,19 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
   }
 
   const displayAi = editing ? resultHistory.text : aiContent
+
+  // 되돌리기·다시하기 버튼 (설교작성 화면과 같은 모양)
+  const undoBtnStyle = (can) => ({
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    border: '1px solid var(--border)',
+    borderRadius: 5,
+    padding: '2px 7px',
+    fontSize: 12,
+    cursor: can ? 'pointer' : 'default',
+    opacity: can ? 1 : 0.35,
+    lineHeight: 1,
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -499,6 +543,8 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
               <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
             </div>
           )}
+          <button onClick={() => applyHistory(resultHistory.undo)} disabled={!resultHistory.canUndo || loading || refining} style={undoBtnStyle(resultHistory.canUndo && !loading && !refining)}>↩</button>
+          <button onClick={() => applyHistory(resultHistory.redo)} disabled={!resultHistory.canRedo || loading || refining} style={undoBtnStyle(resultHistory.canRedo && !loading && !refining)}>↪</button>
           <button
             onClick={loading ? stopCurrentGeneration : generate}
             style={{ background: loading ? '#dc2626' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
