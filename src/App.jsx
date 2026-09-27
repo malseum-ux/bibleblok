@@ -19,6 +19,7 @@ import StepView from './components/StepView'
 import CellView from './components/CellView'
 import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
+import { checkWebUpdate } from './updateCheck'
 
 function AppInner() {
   const [tab, setTab] = useState('sermon')
@@ -40,6 +41,11 @@ function AppInner() {
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14, cell: 14 })
+  // 켤 때 새 버전이 있는지 조용히 확인 — 있으면 설정 버튼에 점 표시
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  useEffect(() => {
+    checkWebUpdate().then(r => setUpdateAvailable(r.hasUpdate)).catch(() => {})
+  }, [])
 
   const lang = settings.lang
   // 화면에 보이는 앱 이름 (코드·저장소 이름은 bibleblok 유지)
@@ -284,8 +290,7 @@ function AppInner() {
   }
 
   function handleSettingsChange(next) {
-    setSettings(next)
-    saveSettings(next)
+    setSettings(saveSettings(next))
   }
 
   return (
@@ -398,8 +403,9 @@ function AppInner() {
 
         <button
           onClick={() => setSettingsOpen(true)}
-          title={lang === 'ko' ? '설정' : 'Settings'}
+          title={updateAvailable ? (lang === 'ko' ? '설정 — 새 버전이 있습니다' : 'Settings — update available') : (lang === 'ko' ? '설정' : 'Settings')}
           style={{
+            position: 'relative',
             background: 'none', border: '1px solid var(--border)', borderRadius: 6,
             width: 32, height: 32, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
@@ -409,6 +415,7 @@ function AppInner() {
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
+          {updateAvailable && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />}
         </button>
       </header>
 
@@ -419,6 +426,7 @@ function AppInner() {
           onClose={() => setSettingsOpen(false)}
           onImport={handleFileImport}
           onDataChanged={reloadAll}
+          updateAvailable={updateAvailable}
         />
       )}
 

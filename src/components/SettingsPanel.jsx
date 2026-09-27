@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react'
-import { LANGUAGES, BIBLE_VERSIONS_KO, BIBLE_VERSIONS_EN, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
+import { LANGUAGES, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
 import { exportAllData, importAllData, getAllKeywords, removeKeyword } from '../db'
 import { getAllMemories, deleteMemory } from '../memory'
 import { signOut } from '../supabase'
 import { folderName, pickFolder } from '../folderFs'
 import { fetchCloudBackup } from '../cloudImport'
+import { APP_VERSION, currentBuild, checkWebUpdate } from '../updateCheck'
 
 const ALL_STEPS = { sermon: SERMON_STEPS, worship: WORSHIP_STEPS, dawn: DAWN_STEPS, cell: CELL_STEPS }
 const TAB_LABELS = {
@@ -20,13 +21,14 @@ function getDefaultKeywords() {
   })
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, onDataChanged }) {
+export default function SettingsPanel({ settings, onChange, onClose, onDataChanged, updateAvailable = false }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [memories, setMemories] = useState(getAllMemories)
   const [importStatus, setImportStatus] = useState(null)
   const [exportStatus, setExportStatus] = useState(null)
   const [webStatus, setWebStatus] = useState(null) // reading | done:n | error:메시지
+  const [updateStatus, setUpdateStatus] = useState(updateAvailable ? 'available' : null) // checking | latest | available | error
   const fileInputRef = useRef(null)
 
   async function handleExport() {
@@ -82,6 +84,16 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
     }
   }
 
+  async function handleCheckUpdate() {
+    setUpdateStatus('checking')
+    try {
+      const { hasUpdate } = await checkWebUpdate()
+      setUpdateStatus(hasUpdate ? 'available' : 'latest')
+    } catch {
+      setUpdateStatus('error')
+    }
+  }
+
   // 다른 저장 폴더로 바꾸면 처음부터 다시 읽는다
   async function handleChangeFolder() {
     try {
@@ -93,12 +105,7 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
   }
 
   function set(key, value) {
-    if (key === 'lang') {
-      const defaultBible = value === 'en' ? 'ESV' : '개역개정성경'
-      onChange({ ...settings, lang: value, bible: defaultBible })
-    } else {
-      onChange({ ...settings, [key]: value })
-    }
+    onChange({ ...settings, [key]: value })
   }
 
   const sectionStyle = { marginBottom: 28 }
@@ -222,15 +229,6 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
           </div>
 
           <div style={sectionStyle}>
-            <div style={labelStyle}>{lang === 'ko' ? '성경 번역본' : 'Bible Version'}</div>
-            <OptionGroup
-              items={lang === 'en' ? BIBLE_VERSIONS_EN : BIBLE_VERSIONS_KO}
-              value={settings.bible} onSelect={v => set('bible', v)}
-              getCode={b => b.code} getLabel={b => b.label}
-            />
-          </div>
-
-          <div style={sectionStyle}>
             <div style={labelStyle}>{lang === 'ko' ? '저장 폴더' : 'Data Folder'}</div>
             <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>{folderName()}</div>
             <button
@@ -312,6 +310,32 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
                     </div>
                   ))
                 })}
+              </div>
+            )}
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '앱 정보' : 'About'}</div>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>
+              {lang === 'ko' ? '성경과설교' : 'Bible & Sermon'} {APP_VERSION} <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>(build {currentBuild()})</span>
+            </div>
+            <button onClick={handleCheckUpdate} disabled={updateStatus === 'checking'} style={{
+                background: 'var(--bg)', color: 'var(--text)',
+                border: '1px solid var(--border)', borderRadius: 6,
+                padding: '8px 12px', fontSize: 13, cursor: 'pointer',
+                textAlign: 'left', width: '100%',
+              }}>
+              {lang === 'ko' ? '업데이트 확인' : 'Check for Updates'}
+            </button>
+            {updateStatus === 'checking' && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>{lang === 'ko' ? '확인 중...' : 'Checking...'}</div>}
+            {updateStatus === 'latest' && <div style={{ fontSize: 12, color: '#16a34a', marginTop: 8 }}>{lang === 'ko' ? '최신 버전입니다.' : 'You are up to date.'}</div>}
+            {updateStatus === 'error' && <div style={{ fontSize: 12, color: '#dc2626', marginTop: 8 }}>{lang === 'ko' ? '확인하지 못했습니다. 인터넷 연결을 확인해 주세요.' : 'Could not check. Please check your connection.'}</div>}
+            {updateStatus === 'available' && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--accent)', marginBottom: 8 }}>{lang === 'ko' ? '새 버전이 있습니다.' : 'A new version is available.'}</div>
+                <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+                  {lang === 'ko' ? '새로고침해서 업데이트' : 'Reload to Update'}
+                </button>
               </div>
             )}
           </div>

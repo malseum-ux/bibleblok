@@ -5,12 +5,16 @@ const SUPABASE_KEY = 'sb_publishable__PtJQXkCwFJbmI8ZMpAReg_uOmuXX8J'
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-// AI 서버(/api/generate)에 보낼 머리말 — 로그인 표를 함께 보내야 서버가 받아 준다
+// AI 서버 — 지시문을 조립해 AI 에 묻는 Supabase 함수 (플러터 앱과 같은 곳)
+export const AI_URL = `${SUPABASE_URL}/functions/v1/bibleblok-generate`
+
+// AI 서버에 보낼 머리말 — 로그인 표를 함께 보내야 서버가 받아 준다
 export async function aiHeaders() {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   return {
     'content-type': 'application/json',
+    apikey: SUPABASE_KEY,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 }

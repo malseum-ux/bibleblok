@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { aiHeaders } from '../supabase.js'
+import { fetchLectionary } from '../claude.js'
+import { bibleFor } from '../settings.js'
 
 const inputStyle = {
   width: '100%',
@@ -143,33 +144,6 @@ function getSeasonColor(season) {
   return map[season] || null
 }
 
-// 성서정과 AI 조회
-async function fetchLectionary(date, season, lang, bible) {
-  const year = new Date(date).getFullYear()
-  const cycle = ['A', 'B', 'C'][(year - 2022) % 3] || 'A'
-
-  const prompt = `개정 공동 성구집(RCL) ${cycle}년 주기를 기준으로, ${date} (${season || '일반 주일'})의 성서정과 본문을 알려주세요.
-구약/시편/서신서/복음서 각 1개씩, 성경 장절 형식으로만 간결하게 답하세요. 설명 없이 본문 목록만 작성하세요.
-예시 형식: 사 40:1-11 | 시 85:1-2, 8-13 | 막 1:1-8 | 빌 1:3-11
-번역본: ${bible || '개역개정성경'}`
-
-  const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: await aiHeaders(),
-    body: JSON.stringify({
-      model: 'deepseek-flash',
-      // 생각 과정 끄기 — 예전 deepseek-chat 과 같은 즉답 방식 (flash 는 기본이 생각 모드)
-      thinking: { type: 'disabled' },
-      max_tokens: 200,
-      stream: false,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  if (!response.ok) throw new Error('API error')
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content?.trim() || ''
-}
-
 export default function WorshipForm({ worship, onSave, lang }) {
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState(() => {
@@ -195,7 +169,7 @@ export default function WorshipForm({ worship, onSave, lang }) {
   async function autoFillLectionary() {
     setLoadingLectionary(true)
     try {
-      const result = await fetchLectionary(form.date, form.season, lang, form.bible)
+      const result = await fetchLectionary(form.date, form.season, bibleFor(lang))
       set('lectionary', result)
     } catch (e) {
       alert((lang === 'ko' ? '성서정과 조회 실패: ' : 'Lectionary lookup failed: ') + e.message)
