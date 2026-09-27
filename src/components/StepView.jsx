@@ -157,7 +157,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const resultEditTimer = useRef(null)
   const splitContainerRef = useRef(null)
   const resultDivRef = useRef(null)
-  const lastSelectionRef = useRef('')
   // 드래그해서 고치기 — 보기 화면의 글 영역
   const resultContentRef = useRef(null)
   const draftContentRef = useRef(null)
@@ -426,19 +425,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
     const text = draftHistory.getLatest()
     if (tab === 'dawn') await updateDawn(item.id, { draft: text })
     else await updateSermon(item.id, { draft: text })
-  }
-
-  function applyToSermon() {
-    if (!content) return
-    const textToAdd = lastSelectionRef.current || content
-    lastSelectionRef.current = ''
-    const existingHtml = draftHistory.text
-    // textToAdd를 HTML 단락으로 변환하여 기존 초안에 붙임 (기존 서식 유지)
-    const addHtml = textToAdd.trimStart().startsWith('<')
-      ? textToAdd
-      : textToAdd.split('\n').filter(l => l.trim() !== '').map(l => `<p>${l}</p>`).join('')
-    const separator = stripHtml(existingHtml).trim() ? '<p><br></p>' : ''
-    handleDraftChange(existingHtml + separator + addHtml)
   }
 
   async function refineSermonDraft() {
@@ -1071,10 +1057,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   <div
                     ref={resultContentRef}
                     className="plain-view"
-                    onMouseUp={() => {
-                      const sel = window.getSelection()?.toString().trim()
-                      lastSelectionRef.current = sel || ''
-                    }}
                     dangerouslySetInnerHTML={{ __html: content }}
                     style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}
                   />
@@ -1082,10 +1064,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                   <div
                     ref={resultContentRef}
                     className="plain-view"
-                    onMouseUp={() => {
-                      const sel = window.getSelection()?.toString().trim()
-                      lastSelectionRef.current = sel || ''
-                    }}
                     style={{ lineHeight: 1.8, color: 'var(--text)', fontSize }}
                   >
                     {content.split('\n').filter(l => l.trim() !== '').map((line, i) => (
@@ -1101,26 +1079,6 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
             </div>
           )}
 
-          {tab === 'sermon' && content && !loading && (
-            <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-              <button
-                onClick={applyToSermon}
-                style={{
-                  width: '100%',
-                  background: 'var(--accent-light)',
-                  color: 'var(--accent)',
-                  border: '1px solid var(--accent)',
-                  borderRadius: 6,
-                  padding: '8px 0',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {lang === 'ko' ? '설교문에 반영' : 'Add to Sermon'}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* 드래그 핸들 (설교 탭, 데스크탑만) */}
