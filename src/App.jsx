@@ -20,6 +20,8 @@ import CellView from './components/CellView'
 import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
 import { checkWebUpdate } from './updateCheck'
+import WordblokSermonView from './components/WordblokSermonView'
+import { restoreWordblokFolder, loadWordblokSermons } from './wordblokSermons'
 
 function AppInner() {
   const [tab, setTab] = useState('sermon')
@@ -58,6 +60,26 @@ function AppInner() {
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
+
+  // 성경나침반 내설교 (설교작성 사이드 목록, 읽기 전용)
+  const [wordblokGroups, setWordblokGroups] = useState([])
+  const [wordblokSelected, setWordblokSelected] = useState(null) // { item, file }
+  async function loadWordblok() {
+    try {
+      const name = await restoreWordblokFolder()
+      setWordblokGroups(name ? await loadWordblokSermons() : [])
+    } catch { setWordblokGroups([]) }
+  }
+  useEffect(() => { loadWordblok() }, [])
+  function selectWordblok(item) {
+    // 같은 설교를 다시 누르면 닫는다 (새 설교 만들기 화면으로)
+    if (wordblokSelected?.item.key === item.key) { setWordblokSelected(null); return }
+    const group = wordblokGroups.find(g => g.path === item.path)
+    setSelected(null)
+    setWordblokSelected({ item, file: group?.file ?? '' })
+  }
+  // 내 원고나 폴더를 고르면 성경나침반 설교 보기는 닫는다
+  useEffect(() => { if (selected) setWordblokSelected(null) }, [selected])
 
   // 초기 데이터 로드 (저장 폴더에서 — FolderGate 가 미리 읽어 둔다)
   useEffect(() => {
@@ -132,6 +154,7 @@ function AppInner() {
   function handleFolderSelect(folder) {
     setSelectedFolder(folder)
     setSelected(null)
+    setWordblokSelected(null)
   }
 
   async function handleFileImport(e) {
@@ -233,6 +256,7 @@ function AppInner() {
   function switchTab(t) {
     setTab(t)
     setSelected(null)
+    setWordblokSelected(null)
     setSelectedFolder(null)
     closeSearch()
   }
@@ -427,6 +451,7 @@ function AppInner() {
           onImport={handleFileImport}
           onDataChanged={reloadAll}
           updateAvailable={updateAvailable}
+          onWordblokChanged={() => { setWordblokSelected(null); loadWordblok() }}
         />
       )}
 
@@ -439,7 +464,7 @@ function AppInner() {
             folders={folders}
             selectedId={selected}
             selectedFolderId={selectedFolder?.id}
-            onSelect={(sel) => setSelected({ id: sel.id, step: 0 })}
+            onSelect={(sel) => { setWordblokSelected(null); setSelected({ id: sel.id, step: 0 }) }}
             onDelete={handleDelete}
             steps={steps}
             onCreateFolder={handleCreateFolder}
@@ -452,6 +477,9 @@ function AppInner() {
             searchItems={searchResults}
             searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
             lang={lang}
+            wordblokGroups={wordblokGroups}
+            selectedWordblokKey={wordblokSelected?.item.key}
+            onWordblokSelect={selectWordblok}
           />
         )}
 
@@ -485,7 +513,7 @@ function AppInner() {
                 folders={folders}
                 selectedId={selected}
                 selectedFolderId={selectedFolder?.id}
-                onSelect={(sel) => { setSelected({ id: sel.id, step: 0 }); setSidebarVisible(false) }}
+                onSelect={(sel) => { setWordblokSelected(null); setSelected({ id: sel.id, step: 0 }); setSidebarVisible(false) }}
                 onDelete={handleDelete}
                 steps={steps}
                 onCreateFolder={handleCreateFolder}
@@ -498,6 +526,9 @@ function AppInner() {
                 searchItems={searchResults}
                 searchItemsTab={searchMode === 'worship' ? 'worship' : 'sermon'}
                 lang={lang}
+                wordblokGroups={wordblokGroups}
+                selectedWordblokKey={wordblokSelected?.item.key}
+                onWordblokSelect={item => { selectWordblok(item); setSidebarVisible(false) }}
               />
             </div>
           </>
@@ -505,7 +536,19 @@ function AppInner() {
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
-          {!selected && tab !== 'cell' && (
+          {wordblokSelected && tab === 'sermon' && (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+              <WordblokSermonView
+                key={wordblokSelected.item.key}
+                item={wordblokSelected.item}
+                file={wordblokSelected.file}
+                lang={lang}
+                fontSize={fontSizes.sermon}
+              />
+            </div>
+          )}
+
+          {!selected && !(wordblokSelected && tab === 'sermon') && tab !== 'cell' && (
             <div style={{ flex: 1, overflow: 'auto' }}>
               <ItemDetail
                 key={`new-${tab}-${selectedFolder?.id ?? 'root'}`}

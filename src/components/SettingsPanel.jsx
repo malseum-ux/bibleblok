@@ -4,6 +4,9 @@ import { exportAllData, importAllData, getAllKeywords, removeKeyword } from '../
 import { getAllMemories, deleteMemory } from '../memory'
 import { signOut } from '../supabase'
 import { folderName, pickFolder } from '../folderFs'
+import {
+  wordblokFolderName, wordblokPermissionNeeded, pickWordblokFolder, requestWordblokPermission, clearWordblokCache,
+} from '../wordblokSermons'
 import { fetchCloudBackup } from '../cloudImport'
 import { APP_VERSION, currentBuild, checkWebUpdate } from '../updateCheck'
 
@@ -21,7 +24,7 @@ function getDefaultKeywords() {
   })
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, onDataChanged, updateAvailable = false }) {
+export default function SettingsPanel({ settings, onChange, onClose, onDataChanged, updateAvailable = false, onWordblokChanged }) {
   const lang = settings.lang
   const [defaultKeywords, setDefaultKeywords] = useState(getDefaultKeywords)
   const [memories, setMemories] = useState(getAllMemories)
@@ -106,6 +109,30 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
 
   function set(key, value) {
     onChange({ ...settings, [key]: value })
+  }
+
+  // 성경나침반 내설교 폴더 (읽기 전용) — 설교작성 사이드 목록에 보인다
+  const [wbName, setWbName] = useState(wordblokFolderName)
+  const [wbPending, setWbPending] = useState(wordblokPermissionNeeded)
+  async function handlePickWordblok() {
+    try {
+      setWbName(await pickWordblokFolder())
+      setWbPending(false)
+      onWordblokChanged?.()
+    } catch (err) {
+      if (err?.name !== 'AbortError') alert(err.message)
+    }
+  }
+  async function handleRestoreWordblok() {
+    const name = await requestWordblokPermission()
+    if (!name) return
+    setWbName(name)
+    setWbPending(false)
+    onWordblokChanged?.()
+  }
+  function handleRefreshWordblok() {
+    clearWordblokCache()
+    onWordblokChanged?.()
   }
 
   const sectionStyle = { marginBottom: 28 }
@@ -242,6 +269,40 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
             >
               {lang === 'ko' ? '다른 폴더로 변경' : 'Change Folder'}
             </button>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '성경나침반 내설교 폴더' : 'WordBlok Sermon Folder'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
+              {lang === 'ko'
+                ? '성경나침반의 설교 파일(.scb)을 설교작성 목록에서 읽을 수 있습니다.'
+                : 'Read WordBlok sermon files (.scb) in the sermon list.'}
+            </div>
+            {wbName && <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>{wbName}</div>}
+            {wbPending && (
+              <button
+                onClick={handleRestoreWordblok}
+                style={{ background: 'var(--bg)', color: '#f59e0b', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', fontSize: 13, cursor: 'pointer', textAlign: 'left', width: '100%', marginBottom: 6 }}
+              >
+                {lang === 'ko' ? '권한 다시 허용' : 'Allow Access Again'}
+              </button>
+            )}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={handlePickWordblok}
+                style={{ flex: 1, background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', fontSize: 13, cursor: 'pointer', textAlign: 'left' }}
+              >
+                {wbName ? (lang === 'ko' ? '다른 폴더로 변경' : 'Change Folder') : (lang === 'ko' ? '폴더 선택' : 'Choose Folder')}
+              </button>
+              {wbName && (
+                <button
+                  onClick={handleRefreshWordblok}
+                  style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', fontSize: 13, cursor: 'pointer' }}
+                >
+                  {lang === 'ko' ? '새로고침' : 'Refresh'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={sectionStyle}>

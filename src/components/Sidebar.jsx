@@ -31,6 +31,10 @@ export default function Sidebar({
   onFsFileOpen,
   onImport,
   lang = 'ko',
+  // 성경나침반 내설교 (설교작성 탭에서만, 읽기 전용) — [{ file, path, items: [{ key, title, date, ... }] }]
+  wordblokGroups = [],
+  selectedWordblokKey = null,
+  onWordblokSelect,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -309,6 +313,53 @@ export default function Sidebar({
     )
   }
 
+  // 성경나침반 내설교: .scb 파일마다 접히는 폴더, 누르면 오른쪽에 읽기 전용으로 보인다
+  function renderWordblokSection() {
+    return (
+      <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 4 }}>
+        <div style={{ padding: '6px 10px 2px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>
+          {lang === 'en' ? 'WordBlok Sermons' : '성경나침반 내설교'}
+        </div>
+        {wordblokGroups.map(g => {
+          const openKey = `wordblok-${g.path}`
+          const isOpen = expandedIds.has(openKey)
+          return (
+            <div key={g.path}>
+              <div
+                onClick={() => toggleExpand(openKey)}
+                style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', paddingLeft: 10, cursor: 'pointer', gap: 4, userSelect: 'none', borderLeft: '2px solid transparent' }}
+              >
+                <span style={{ fontSize: 8, color: 'var(--text-muted)', transform: isOpen ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.15s', flexShrink: 0, opacity: 0.7 }}>▶</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: 'var(--text-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {g.file}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{g.items.length}</span>
+              </div>
+              {isOpen && sortItems(g.items).map(item => {
+                const isSel = selectedWordblokKey === item.key
+                return (
+                  <div
+                    key={item.key}
+                    onClick={() => onWordblokSelect?.(item)}
+                    style={{
+                      display: 'flex', alignItems: 'center', padding: '4px 8px', paddingLeft: 24, cursor: 'pointer', userSelect: 'none',
+                      background: isSel ? 'var(--accent-light)' : 'transparent',
+                      borderLeft: isSel ? '2px solid var(--accent)' : '2px solid transparent',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: isSel ? 'var(--accent)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {getLabel(item)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   function renderFolder(node, depth = 0) {
     const isFolderSelected = selectedFolderId === node.id
     const folderFiles = folderMap[node.id] || []
@@ -543,6 +594,8 @@ export default function Sidebar({
           )}
 
           {sortItems(rootItems).map(item => renderFileItem(item, 0))}
+
+          {tab === 'sermon' && wordblokGroups.length > 0 && renderWordblokSection()}
 
           {dragDisplay && (
             <div style={{
