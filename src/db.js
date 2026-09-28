@@ -91,7 +91,13 @@ function toApp(it) {
   return o
 }
 
-const find = (tab, id) => items[tab].find(i => i.id === id)
+// 성경나침반 내설교를 설교작성 화면(StepView)으로 열 때 쓰는 짝 항목 — 사이드바 목록에는 넣지 않는다.
+// AI 단계 결과는 저장 폴더의 숨김 폴더 '.성경나침반/파일이름.json' 에, 설교문 초안은 원래 .scb 에 저장한다.
+const COMPANION_DIR = '.성경나침반'
+const companions = new Map() // id → 항목
+let companionDraftSaver = null // (항목) => Promise — 초안·본문을 .scb 에 저장 (App 이 넘겨준다)
+
+const find = (tab, id) => items[tab].find(i => i.id === id) ?? (tab === 'sermon' ? companions.get(id) : undefined)
 const dirOf = it => join(TAB_DIRS[it.tab], it.folder)
 
 // 같은 폴더에 같은 이름이 있으면 " (2)" 를 붙인다
@@ -107,6 +113,19 @@ function uniqueName(it) {
 }
 
 async function write(it) {
+  if (it.companion) {
+    // 단계 결과 등은 숨김 폴더에, 초안·본문은 .scb 에
+    const path = join(COMPANION_DIR, it.fileName)
+    const ok = await fs.writeText(path, JSON.stringify(toJson(it), null, 2))
+    if (!ok) throw new Error(`파일을 저장하지 못했습니다: ${path}`)
+    // 초안이나 본문이 바뀐 때만 .scb 에 쓴다 (단계 결과만 바뀌면 건너뜀)
+    if (companionDraftSaver && (it.draft !== it.savedDraft || it.passage !== it.savedPassage)) {
+      await companionDraftSaver(toApp(it), it.companion)
+      it.savedDraft = it.draft
+      it.savedPassage = it.passage
+    }
+    return
+  }
   const name = uniqueName(it)
   const path = join(dirOf(it), name)
   const ok = await fs.writeText(path, JSON.stringify(toJson(it), null, 2))
@@ -222,7 +241,7 @@ function updateItem(tab, id, data) {
     const it = find(tab, id)
     if (!it) throw new Error('항목을 찾을 수 없습니다')
     for (const f of FIELDS) if (f in data) it[f] = data[f] ?? null
-    if ('folderId' in data) {
+    if ('folderId' in data && !it.companion) {
       const next = folderPath(data.folderId).path
       if (next !== it.folder) { await relocateItem(it, next); return }
     }
@@ -592,4 +611,47 @@ export function importAllData(json) {
     await writeSettings()
     return added
   })
+}
+
+// ── 성경나침반 내설교 짝 항목 ─────────────────────────────────────────────────
+
+/** .scb 에 저장하는 함수를 정한다 — (항목, 원본 정보) => Promise */
+export function setCompanionDraftSaver(fn) { companionDraftSaver = fn }
+
+/**
+ * 성경나침반 설교 한 편을 설교작성 항목 모양으로 연다. 전에 만든 AI 단계 결과가 있으면 함께 불러온다.
+ * source: { key, path, id, title, date, passage, draftHtml } — draftHtml 은 .scb 본문을 문단으로 바꾼 것
+ */
+export async function openCompanion(source) {
+  const id = `wordblok:${source.key}`
+  const fileName = `${cleanName(source.key.replace(/[#/]/g, ' '))}.json`
+  let it = companions.get(id)
+  if (!it) {
+    it = { id, tab: 'sermon', createdAt: Date.now(), steps: {}, finalSteps: {}, folder: '', fileName, companion: source }
+    for (const f of FIELDS) it[f] = null
+    const text = await fs.readText(join(COMPANION_DIR, fileName))
+    if (text) {
+      try {
+        const saved = fromJson(JSON.parse(text), '', fileName)
+        it.steps = saved.steps
+        it.createdAt = saved.createdAt || it.createdAt
+        for (const f of ['category', 'emphasis', 'season', 'lectionary']) it[f] = saved[f]
+      } catch { /* 형식이 맞지 않으면 새로 */ }
+    }
+    companions.set(id, it)
+  }
+  // 제목·날짜·본문·초안은 늘 .scb 기준
+  it.companion = source
+  it.title = source.title
+  it.date = source.date || null
+  it.passage = source.passage
+  it.draft = source.draftHtml
+  it.savedDraft = it.draft
+  it.savedPassage = it.passage
+  return toApp(it)
+}
+
+export function getCompanion(id) {
+  const it = companions.get(id)
+  return it ? toApp(it) : null
 }

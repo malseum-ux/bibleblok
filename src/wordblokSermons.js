@@ -221,3 +221,30 @@ export async function saveWordblokSermon(path, id, refText, text) {
   await w.close()
   return ref
 }
+
+// ── 설교작성 화면(StepView)으로 열 때 ─────────────────────────────────
+
+const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/** .scb 글 → 초안 HTML (줄 하나 = 문단 하나, 설교문 초안과 같은 문단 모양) */
+export function textToDraftHtml(text) {
+  return (text ?? '').split('\n').filter(l => l.trim()).map(l => `<p>${esc(l)}</p>`).join('')
+}
+
+/** 초안 HTML → .scb 글 (문단은 줄바꿈, 서식은 버림) */
+export function draftHtmlToText(html) {
+  if (!(html ?? '').trimStart().startsWith('<')) return (html ?? '').trim()
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** 쓰기 권한 미리 받기 — 설교를 누른 클릭 안에서 불러야 권한 창이 뜬다 (초안은 나중에 저절로 저장되므로) */
+export async function requestWordblokWrite() {
+  if (!handle) return false
+  try { return await handle.requestPermission({ mode: 'readwrite' }) === 'granted' } catch { return false }
+}

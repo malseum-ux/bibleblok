@@ -20,8 +20,11 @@ import CellView from './components/CellView'
 import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
 import { checkWebUpdate } from './updateCheck'
-import WordblokSermonView from './components/WordblokSermonView'
-import { restoreWordblokFolder, loadWordblokSermons } from './wordblokSermons'
+import {
+  restoreWordblokFolder, loadWordblokSermons, readWordblokSermon, saveWordblokSermon, requestWordblokWrite,
+  passageLabel, textToDraftHtml, draftHtmlToText,
+} from './wordblokSermons'
+import { openCompanion, getCompanion, setCompanionDraftSaver } from './db'
 
 function AppInner() {
   const [tab, setTab] = useState('sermon')
@@ -63,7 +66,7 @@ function AppInner() {
 
   // 성경나침반 내설교 (설교작성 사이드 목록, 읽기 전용)
   const [wordblokGroups, setWordblokGroups] = useState([])
-  const [wordblokSelected, setWordblokSelected] = useState(null) // { item, file }
+  const [wordblokSelected, setWordblokSelected] = useState(null) // { item, file, appItem } — appItem: 설교작성 화면용 짝 항목
   async function loadWordblok() {
     try {
       const name = await restoreWordblokFolder()
@@ -71,12 +74,31 @@ function AppInner() {
     } catch { setWordblokGroups([]) }
   }
   useEffect(() => { loadWordblok() }, [])
-  function selectWordblok(item) {
+  // 설교작성 화면에서 초안·본문이 바뀌면 원래 .scb 에 저장하고, 구절이 바뀌었으면 목록에도 반영
+  useEffect(() => {
+    setCompanionDraftSaver(async (app, source) => {
+      const ref = await saveWordblokSermon(source.path, source.id, app.passage ?? '', draftHtmlToText(app.draft))
+      setWordblokGroups(gs => gs.map(g => g.path !== source.path ? g
+        : { ...g, items: g.items.map(i => i.key === source.key ? { ...i, ...ref } : i) }))
+    })
+    return () => setCompanionDraftSaver(null)
+  }, [])
+  async function selectWordblok(item) {
     // 같은 설교를 다시 누르면 닫는다 (새 설교 만들기 화면으로)
     if (wordblokSelected?.item.key === item.key) { setWordblokSelected(null); return }
+    // 초안은 나중에 저절로 저장되므로, 이 클릭 안에서 쓰기 권한을 미리 받는다
+    await requestWordblokWrite()
     const group = wordblokGroups.find(g => g.path === item.path)
+    const text = await readWordblokSermon(item.path, item.id)
+    const appItem = await openCompanion({
+      key: item.key, path: item.path, id: item.id,
+      title: item.title, date: item.date, passage: passageLabel(item), draftHtml: textToDraftHtml(text),
+    })
     setSelected(null)
-    setWordblokSelected({ item, file: group?.file ?? '' })
+    setWordblokSelected({ item, file: group?.file ?? '', appItem })
+  }
+  function refreshWordblokItem() {
+    setWordblokSelected(sel => sel && { ...sel, appItem: getCompanion(sel.appItem.id) ?? sel.appItem })
   }
   // 내 원고나 폴더를 고르면 성경나침반 설교 보기는 닫는다
   useEffect(() => { if (selected) setWordblokSelected(null) }, [selected])
@@ -537,20 +559,26 @@ function AppInner() {
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
           {wordblokSelected && tab === 'sermon' && (
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
-              <WordblokSermonView
-                key={wordblokSelected.item.key}
-                item={wordblokSelected.item}
-                file={wordblokSelected.file}
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              {/* 성경나침반 설교: 설교작성과 같은 화면 — 단계 결과는 저장 폴더 숨김 폴더에, 초안·본문은 .scb 에 */}
+              <StepView
+                key={wordblokSelected.appItem.id}
+                tab="sermon"
+                item={wordblokSelected.appItem}
                 lang={lang}
-                fontSize={fontSizes.sermon}
                 bible={settings.bible}
-                onSaved={updated => {
-                  // 구절이 바뀌었을 수 있으니 목록과 보기 화면의 항목을 바꿔 둔다
-                  setWordblokGroups(gs => gs.map(g => g.path !== updated.path ? g
-                    : { ...g, items: g.items.map(i => i.key === updated.key ? updated : i) }))
-                  setWordblokSelected(sel => sel && { ...sel, item: updated })
+                fontSize={fontSizes.sermon}
+                onFontSizeChange={size => setFontSizes(prev => ({ ...prev, sermon: size }))}
+                isMobile={isMobile}
+                onSaveItem={async form => {
+                  try { await updateSermon(wordblokSelected.appItem.id, form); refreshWordblokItem() }
+                  catch (e) { alert((lang === 'ko' ? '저장 실패: ' : 'Save failed: ') + e.message) }
                 }}
+                onItemUpdate={refreshWordblokItem}
+                onGenerated={() => {}}
+                onExport={() => {}}
+                cells={cells}
+                onGoToCell={(cellId) => { switchTab('cell'); setSelected({ id: cellId, step: 0 }) }}
               />
             </div>
           )}
