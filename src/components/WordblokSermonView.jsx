@@ -1,15 +1,53 @@
 // 성경나침반 내설교 한 편 보기·수정 — 설교문 초안 칸과 같은 모양
 // 수정: 워드블록 편집과 같이 구절 입력 + 본문, [저장][취소]. 저장하면 원래 .scb 에 바로 저장된다.
+// 본문은 설교문 초안과 같은 편집기 — //지시 · //-지시 · //+지시 + Enter 로 AI 가 그 자리에 쓴다.
+// .scb 는 서식 없는 글이라 저장할 때 글자만 남긴다.
 // 플러터 앱(bibleblok_app/lib/screens/wordblok_sermon_view.dart)과 같은 구성
 import { useEffect, useState } from 'react'
+import RichEditor from './RichEditor'
+import { executeInlineCommand } from '../claude'
 import { passageLabel, readWordblokSermon, saveWordblokSermon } from '../wordblokSermons'
 
-export default function WordblokSermonView({ item, file, lang = 'ko', fontSize = 14, onSaved }) {
+// 편집기 HTML → 글자 (문단은 줄바꿈)
+function htmlToText(html) {
+  if (!html.trimStart().startsWith('<')) return html
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+export default function WordblokSermonView({ item, file, lang = 'ko', fontSize = 14, bible, onSaved }) {
   const [text, setText] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editRef, setEditRef] = useState('')
-  const [editText, setEditText] = useState('')
+  const [editText, setEditText] = useState('') // 편집기 값 (글자 또는 HTML)
   const [saving, setSaving] = useState(false)
+  const [refining, setRefining] = useState(false)
+
+  // 설교문 초안과 같은 //지시 (연구 단계가 없으므로 //-·//+ 도 문맥만 함께 보낸다)
+  async function handleSlashCommand({ instruction, contextBefore, contextAfter, mode = 'fresh' }) {
+    setRefining(true)
+    const fallback = editText
+    const useContext = mode !== 'fresh'
+    let generated = ''
+    try {
+      await executeInlineCommand(
+        instruction, useContext ? contextBefore : '', useContext ? contextAfter : '',
+        lang, bible, editRef.trim() || passageLabel(item), item.title,
+        chunk => { generated = chunk; setEditText(contextBefore + chunk + contextAfter) },
+        null, mode !== 'research',
+      )
+      setEditText(contextBefore + generated + contextAfter)
+    } catch {
+      setEditText(fallback)
+    } finally {
+      setRefining(false)
+    }
+  }
 
   useEffect(() => {
     let alive = true
@@ -29,8 +67,9 @@ export default function WordblokSermonView({ item, file, lang = 'ko', fontSize =
     if (saving) return
     setSaving(true)
     try {
-      const ref = await saveWordblokSermon(item.path, item.id, editRef.trim(), editText)
-      setText(editText.trim())
+      const plain = htmlToText(editText)
+      const ref = await saveWordblokSermon(item.path, item.id, editRef.trim(), plain)
+      setText(plain.trim())
       setEditing(false)
       onSaved?.({ ...item, ...ref })
     } catch (err) {
@@ -78,14 +117,18 @@ export default function WordblokSermonView({ item, file, lang = 'ko', fontSize =
               />
               <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{lang === 'ko' ? '맵핑' : 'Passage'}</span>
             </div>
-            <textarea
-              value={editText}
-              onChange={e => setEditText(e.target.value)}
-              rows={20}
-              style={{ fontSize, lineHeight: 1.8, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg)', color: 'var(--text)', outline: 'none', resize: 'vertical' }}
-            />
+            <div style={{ minHeight: 360, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 4, opacity: refining ? 0.7 : 1 }}>
+              <RichEditor
+                fixedToolbar
+                editable={!refining && !saving}
+                value={editText}
+                onChange={setEditText}
+                baseFontSize={fontSize}
+                onEnterCommand={handleSlashCommand}
+              />
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleSave} disabled={saving} style={{ ...btn(true), opacity: saving ? 0.5 : 1 }}>
+              <button onClick={handleSave} disabled={saving || refining} style={{ ...btn(true), opacity: saving || refining ? 0.5 : 1 }}>
                 {saving ? (lang === 'ko' ? '저장 중...' : 'Saving...') : (lang === 'ko' ? '저장' : 'Save')}
               </button>
               <button onClick={() => setEditing(false)} style={btn(false)}>{lang === 'ko' ? '취소' : 'Cancel'}</button>

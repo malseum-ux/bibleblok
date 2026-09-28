@@ -544,6 +544,7 @@ function AppInner() {
                 file={wordblokSelected.file}
                 lang={lang}
                 fontSize={fontSizes.sermon}
+                bible={settings.bible}
                 onSaved={updated => {
                   // 구절이 바뀌었을 수 있으니 목록과 보기 화면의 항목을 바꿔 둔다
                   setWordblokGroups(gs => gs.map(g => g.path !== updated.path ? g
