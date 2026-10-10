@@ -45,7 +45,6 @@ function AppInner() {
   const [searchMode, setSearchMode] = useState('sermon-title')
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
-  const [fontSizes, setFontSizes] = useState({ sermon: 14, worship: 14, dawn: 14, cell: 14 })
   // 켤 때 새 버전이 있는지 조용히 확인 — 있으면 설정 버튼에 점 표시
   const [updateAvailable, setUpdateAvailable] = useState(false)
   useEffect(() => {
@@ -567,8 +566,8 @@ function AppInner() {
                 item={wordblokSelected.appItem}
                 lang={lang}
                 bible={settings.bible}
-                fontSize={fontSizes.sermon}
-                onFontSizeChange={size => setFontSizes(prev => ({ ...prev, sermon: size }))}
+                fontSize={settings.fontSize}
+                onFontSizeChange={size => handleSettingsChange({ ...settings, fontSize: size })}
                 isMobile={isMobile}
                 onSaveItem={async form => {
                   try { await updateSermon(wordblokSelected.appItem.id, form); refreshWordblokItem() }
@@ -613,8 +612,8 @@ function AppInner() {
                 item={selectedItem}
                 lang={lang}
                 bible={settings.bible}
-                fontSize={fontSizes[tab]}
-                onFontSizeChange={size => setFontSizes(prev => ({ ...prev, [tab]: size }))}
+                fontSize={settings.fontSize}
+                onFontSizeChange={size => handleSettingsChange({ ...settings, fontSize: size })}
                 isMobile={isMobile}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}
@@ -633,8 +632,8 @@ function AppInner() {
                 item={selectedItem}
                 lang={lang}
                 bible={settings.bible}
-                fontSize={fontSizes.cell}
-                onFontSizeChange={size => setFontSizes(prev => ({ ...prev, cell: size }))}
+                fontSize={settings.fontSize}
+                onFontSizeChange={size => handleSettingsChange({ ...settings, fontSize: size })}
                 onSaveItem={handleSave}
                 onExport={() => handleExportItem(selected.id)}
                 sermons={[...sermons, ...dawns]}

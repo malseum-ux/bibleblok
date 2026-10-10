@@ -29,7 +29,7 @@ function changeSize(editor, direction) {
   editor.chain().focus().setFontSize(next).run()
 }
 
-export default function RichEditor({ value, onChange, baseFontSize = 14, fixedToolbar = false, editable = true, onEnterCommand }) {
+export default function RichEditor({ value, onChange, baseFontSize = 15, fixedToolbar = false, editable = true, onEnterCommand }) {
   const [toolbar, setToolbar] = useState(null)
   const lastEmittedRef = useRef(toHtml(value || ''))
   const isSyncingRef = useRef(false)

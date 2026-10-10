@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { LANGUAGES, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
+import { FONT_MIN, FONT_MAX } from '../settings'
 import { exportAllData, importAllData, getAllKeywords, removeKeyword } from '../db'
 import { getAllMemories, deleteMemory } from '../memory'
 import { signOut } from '../supabase'
@@ -253,6 +254,20 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
               items={LANGUAGES} value={settings.lang} onSelect={v => set('lang', v)}
               getCode={l => l.code} getLabel={l => l.label}
             />
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '글꼴 크기' : 'Font Size'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => set('fontSize', Math.max(FONT_MIN, settings.fontSize - 1))} style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, width: 40, height: 32, fontSize: 13, cursor: 'pointer' }}>A-</button>
+              <span style={{ minWidth: 28, textAlign: 'center', fontSize: 14, fontWeight: 600, color: 'var(--text-heading)' }}>{settings.fontSize}</span>
+              <button onClick={() => set('fontSize', Math.min(FONT_MAX, settings.fontSize + 1))} style={{ background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, width: 40, height: 32, fontSize: 13, cursor: 'pointer' }}>A+</button>
+              {settings.fontSize !== 15 && (
+                <button onClick={() => set('fontSize', 15)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer' }}>
+                  {lang === 'ko' ? '기본(15)' : 'Default (15)'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={sectionStyle}>

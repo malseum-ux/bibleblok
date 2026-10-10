@@ -6,6 +6,7 @@ import { addMemory, buildMemoryPrompt } from '../memory'
 import CellForm from './CellForm'
 import RichEditor from './RichEditor'
 import { useSelectionEdit, SelectionEditBox } from './SelectionEdit'
+import { SlashHelpButton, SlashHelpPanel } from './SlashHelp'
 
 const CELL_SUBTITLES = {
   sharing: '삶으로 나누는 말씀',
@@ -125,11 +126,12 @@ function stripHtml(html) {
   return div.textContent || ''
 }
 
-export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeChange, onSaveItem, onExport, sermons = [], onGoToSermon }) {
+export default function CellView({ item, lang, bible, fontSize = 15, onFontSizeChange, onSaveItem, onExport, sermons = [], onGoToSermon }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [stepContents, setStepContents] = useState({})
   const [aiContent, setAiContent] = useState('')
   const resultHistory = useTextHistory('', `${item?.id}-${currentStep}-result`)
+  const [slashHelpOpen, setSlashHelpOpen] = useState(false) // // 지시문 안내 펼침
   // 되돌리기 기록은 단계(또는 항목)가 바뀔 때만 새로 시작한다 — 자동 저장 때마다 지워지지 않도록
   const [loadedItemId, setLoadedItemId] = useState(null)
   const historyKeyRef = useRef(null)
@@ -540,9 +542,11 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
           {displayAi && !loading && onFontSizeChange && (
             <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', height: 28 }}>
               <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A-</button>
+                        <span style={{ padding: '0 6px', fontSize: 12, color: 'var(--text)', minWidth: 18, textAlign: 'center' }}>{fontSize}</span>
               <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}>A+</button>
             </div>
           )}
+          <SlashHelpButton open={slashHelpOpen} onToggle={() => setSlashHelpOpen(v => !v)} lang={lang} />
           <button onClick={() => applyHistory(resultHistory.undo)} disabled={!resultHistory.canUndo || loading || refining} style={undoBtnStyle(resultHistory.canUndo && !loading && !refining)}>↩</button>
           <button onClick={() => applyHistory(resultHistory.redo)} disabled={!resultHistory.canRedo || loading || refining} style={undoBtnStyle(resultHistory.canRedo && !loading && !refining)}>↪</button>
           <button
@@ -556,6 +560,8 @@ export default function CellView({ item, lang, bible, fontSize = 14, onFontSizeC
                 : (lang === 'en' ? 'Generate' : 'AI 생성')}
           </button>
         </div>
+
+        {slashHelpOpen && <SlashHelpPanel lang={lang} />}
 
         {/* 지시 항목 패널 */}
         {!editing && instructionsOpen && (

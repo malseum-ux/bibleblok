@@ -8,6 +8,7 @@ import WorshipForm from './WorshipForm'
 import DawnForm from './DawnForm'
 import RichEditor from './RichEditor'
 import { useSelectionEdit, SelectionEditBox } from './SelectionEdit'
+import { SlashHelpButton, SlashHelpPanel } from './SlashHelp'
 
 function stripHtml(html) {
   if (!html || !html.trimStart().startsWith('<')) return html
@@ -121,7 +122,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot, getLatest, record }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 14, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 15, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -133,6 +134,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
   const [refining, setRefining] = useState(false)
   const [manualSaved, setManualSaved] = useState(false)
   const resultHistory = useTextHistory('', null)
+  // // 지시문 안내 펼침 (설교작성은 우측 초안창, 예배·새벽은 AI 생성 화면 위)
+  const [slashHelpOpen, setSlashHelpOpen] = useState(false)
   // AI 생성 화면의 되돌리기 기록 — 단계(또는 항목)가 바뀔 때만 새로 시작한다
   const [loadedItemId, setLoadedItemId] = useState(null)
   const historyKeyRef = useRef(null)
@@ -889,12 +892,14 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                           onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))}
                           style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
                         >A-</button>
+                        <span style={{ padding: '0 6px', fontSize: 12, color: 'var(--text)', minWidth: 18, textAlign: 'center' }}>{fontSize}</span>
                         <button
                           onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))}
                           style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 7px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1 }}
                         >A+</button>
                       </div>
                     )}
+                    {tab !== 'sermon' && <SlashHelpButton open={slashHelpOpen} onToggle={() => setSlashHelpOpen(v => !v)} lang={lang} />}
                     <button onClick={() => applyStepHistory(resultHistory.undo)} disabled={!resultHistory.canUndo || loading || refining} style={undoBtnStyle(resultHistory.canUndo && !loading && !refining)}>↩</button>
                     <button onClick={() => applyStepHistory(resultHistory.redo)} disabled={!resultHistory.canRedo || loading || refining} style={undoBtnStyle(resultHistory.canRedo && !loading && !refining)}>↪</button>
                     <button
@@ -916,6 +921,8 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
                     </button>
                   </>
                 </div>
+
+                {tab !== 'sermon' && slashHelpOpen && <SlashHelpPanel lang={lang} />}
 
                 {/* 지시 항목 패널 (편집 모드가 아닐 때만) */}
                 {!editing && instructionsOpen && hasItems && (
@@ -1182,12 +1189,15 @@ export default function StepView({ tab, item, lang, bible, fontSize = 14, onFont
               {onFontSizeChange && (
                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden', height: 24, flexShrink: 0 }}>
                   <button onClick={() => onFontSizeChange(Math.max(11, fontSize - 1))} style={{ background: 'none', border: 'none', borderRight: '1px solid var(--border)', padding: '0 6px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, lineHeight: 1 }}>A-</button>
+                        <span style={{ padding: '0 6px', fontSize: 12, color: 'var(--text)', minWidth: 18, textAlign: 'center' }}>{fontSize}</span>
                   <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 6px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, lineHeight: 1 }}>A+</button>
                 </div>
               )}
+              <SlashHelpButton open={slashHelpOpen} onToggle={() => setSlashHelpOpen(v => !v)} lang={lang} />
               <button onClick={() => applyDraftHistory(draftHistory.undo)} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
               <button onClick={() => applyDraftHistory(draftHistory.redo)} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>
             </div>
+            {slashHelpOpen && <SlashHelpPanel lang={lang} />}
             {draftEditing ? (
               <RichEditor
                 fixedToolbar
