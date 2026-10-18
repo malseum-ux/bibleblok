@@ -283,11 +283,11 @@ function AppInner() {
     setSelected({ id, step: 0 })
   }
 
-  async function createFromPlan(date) {
+  async function createFromPlan(date, kind = 'sermon') {
     try {
-      const id = await createSermon({ date })
-      await loadSermons()
-      setTab('sermon')
+      const id = kind === 'dawn' ? await createDawn({ date }) : await createSermon({ date })
+      await (kind === 'dawn' ? loadDawns() : loadSermons())
+      setTab(kind)
       setWordblokSelected(null)
       setSelected({ id, step: null })
     } catch (e) {
@@ -579,7 +579,7 @@ function AppInner() {
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
           {tab === 'plan' && (
-            <PlanView lang={lang} sermons={sermons} dawns={dawns} worships={worships} onOpen={openFromPlan} onCreate={createFromPlan} />
+            <PlanView lang={lang} sermons={sermons} dawns={dawns} worships={worships} onOpen={openFromPlan} onCreate={createFromPlan} isMobile={isMobile} />
           )}
 
           {wordblokSelected && tab === 'sermon' && (
