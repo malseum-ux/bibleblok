@@ -384,8 +384,8 @@ function AppInner() {
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
           {(lang === 'en'
-            ? [['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material'], ['plan', 'Plan']]
-            : [['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성'], ['plan', '설교 계획']]
+            ? [['plan', 'Plan'], ['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material']]
+            : [['plan', '설교 계획'], ['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성']]
           ).map(([t, label]) => (
             <button
               key={t}
