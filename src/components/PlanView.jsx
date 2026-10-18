@@ -85,7 +85,7 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
             </div>
           )
         })}
-        {isSunday && worshipDates.has(date) && <div style={{ fontSize: 11, color: PLAN_COLORS.worship }}>{ko ? '예배인도 O' : 'Worship O'}</div>}
+        {isSunday && worshipDates.has(date) && <div style={{ fontSize: 11, color: PLAN_COLORS.worship }}>{ko ? '예배인도' : 'Worship'}</div>}
         {isSunday && cellDates.has(date) && <div style={{ fontSize: 11, color: PLAN_COLORS.cell }}>{ko ? '교재작성 O' : 'Cell O'}</div>}
         {dayDawns.map(d => (
           <div key={d.id} onClick={open('dawn', d.id)} style={{ ...line, cursor: 'pointer', fontSize: compact ? 14 : 12, color: PLAN_COLORS.dawn }}>
