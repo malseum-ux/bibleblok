@@ -579,7 +579,7 @@ function AppInner() {
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
           {tab === 'plan' && (
-            <PlanView lang={lang} sermons={sermons} dawns={dawns} worships={worships} onOpen={openFromPlan} onCreate={createFromPlan} isMobile={isMobile} />
+            <PlanView lang={lang} sermons={sermons} dawns={dawns} worships={worships} cells={cells} onOpen={openFromPlan} onCreate={createFromPlan} isMobile={isMobile} />
           )}
 
           {wordblokSelected && tab === 'sermon' && (
