@@ -4,7 +4,12 @@ const DEFAULTS = {
   theme: 'system',
   lang: 'ko',
   fontSize: 15,
+  speechRate: 300,       // 설교 속도 — 1분에 읽는 글자 수 (느림 250 · 보통 300 · 빠름 350)
+  showSermonTime: true,  // 우측 초안창에 예상 설교 시간 보이기
 }
+
+export const SPEECH_RATES = [250, 300, 350]
+const cleanRate = n => (SPEECH_RATES.includes(Number(n)) ? Number(n) : DEFAULTS.speechRate)
 
 // 글꼴 크기 범위 — 설정 화면과 화면 위 A-·A+ 버튼이 같은 값을 바꾼다
 export const FONT_MIN = 11
@@ -19,14 +24,20 @@ export function bibleFor(lang) {
 export function getSettings() {
   let stored = {}
   try { stored = JSON.parse(localStorage.getItem(KEY) || '{}') } catch { /* 망가진 값은 기본값으로 */ }
-  const { theme, lang, fontSize } = { ...DEFAULTS, ...stored }
-  return { theme, lang, fontSize: clampFont(fontSize), bible: bibleFor(lang) }
+  const { theme, lang, fontSize, speechRate, showSermonTime } = { ...DEFAULTS, ...stored }
+  return { theme, lang, fontSize: clampFont(fontSize), speechRate: cleanRate(speechRate), showSermonTime: showSermonTime !== false, bible: bibleFor(lang) }
 }
 
 export function saveSettings(patch) {
-  const { theme, lang, fontSize } = { ...getSettings(), ...patch }
-  localStorage.setItem(KEY, JSON.stringify({ theme, lang, fontSize: clampFont(fontSize) }))
-  return { theme, lang, fontSize: clampFont(fontSize), bible: bibleFor(lang) }
+  const { theme, lang, fontSize, speechRate, showSermonTime } = { ...getSettings(), ...patch }
+  const saved = { theme, lang, fontSize: clampFont(fontSize), speechRate: cleanRate(speechRate), showSermonTime: showSermonTime !== false }
+  localStorage.setItem(KEY, JSON.stringify(saved))
+  return { ...saved, bible: bibleFor(lang) }
+}
+
+// 예상 설교 시간 — 공백을 뺀 글자 수 ÷ 1분에 읽는 글자 수 (반올림, 최소 1분)
+export function sermonMinutes(chars, rate) {
+  return chars > 0 ? Math.max(1, Math.round(chars / rate)) : 0
 }
 
 export function applyTheme(theme) {

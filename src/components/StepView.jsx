@@ -9,6 +9,7 @@ import DawnForm from './DawnForm'
 import RichEditor from './RichEditor'
 import { useSelectionEdit, SelectionEditBox } from './SelectionEdit'
 import { SlashHelpButton, SlashHelpPanel } from './SlashHelp'
+import { sermonMinutes } from '../settings'
 
 function stripHtml(html) {
   if (!html || !html.trimStart().startsWith('<')) return html
@@ -122,7 +123,7 @@ function useTextHistory(initialValue, resetKey) {
   return { text, onChange, reset, undo, redo, canUndo, canRedo, forceSnapshot, getLatest, record }
 }
 
-export default function StepView({ tab, item, lang, bible, fontSize = 15, onFontSizeChange, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
+export default function StepView({ tab, item, lang, bible, fontSize = 15, onFontSizeChange, speechRate = 300, showSermonTime = true, onToggleSermonTime, isMobile = false, onSaveItem, onItemUpdate, onGenerated, onExport, cells = [], onGoToCell }) {
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : DAWN_STEPS
 
   const [currentStep, setCurrentStep] = useState(0)
@@ -1193,6 +1194,27 @@ export default function StepView({ tab, item, lang, bible, fontSize = 15, onFont
                   <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '0 6px', height: '100%', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, lineHeight: 1 }}>A+</button>
                 </div>
               )}
+              {onToggleSermonTime && (() => {
+                // 예상 설교 시간 — 켜면 "약 25분 · 7,500자", 끄면 "설교 시간" (공백 뺀 글자 수 ÷ 설정의 설교 속도)
+                const chars = stripHtml(draftHistory.text || '').replace(/\s/g, '').length
+                const on = showSermonTime && chars > 0
+                return (
+                  <button
+                    onClick={onToggleSermonTime}
+                    title={lang === 'en' ? `Estimated preaching time · ${chars.toLocaleString()} chars (${speechRate} chars/min)` : `예상 설교 시간 · ${chars.toLocaleString()}자 (1분에 ${speechRate}자 기준)`}
+                    style={{
+                      background: on ? 'var(--accent-light)' : 'transparent',
+                      color: on ? 'var(--accent)' : 'var(--text-muted)',
+                      border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'),
+                      borderRadius: 5, padding: '2px 8px', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {on
+                      ? (lang === 'en' ? `~${sermonMinutes(chars, speechRate)} min` : `약 ${sermonMinutes(chars, speechRate)}분`)
+                      : (lang === 'en' ? 'Time' : '설교 시간')}
+                  </button>
+                )
+              })()}
               <SlashHelpButton open={slashHelpOpen} onToggle={() => setSlashHelpOpen(v => !v)} lang={lang} />
               <button onClick={() => applyDraftHistory(draftHistory.undo)} disabled={!draftHistory.canUndo} style={undoBtnStyle(draftHistory.canUndo)}>↩</button>
               <button onClick={() => applyDraftHistory(draftHistory.redo)} disabled={!draftHistory.canRedo} style={undoBtnStyle(draftHistory.canRedo)}>↪</button>

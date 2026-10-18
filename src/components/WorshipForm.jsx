@@ -43,7 +43,8 @@ function getEaster(year) {
   return new Date(year, month - 1, day)
 }
 
-function getChurchSeason(dateStr) {
+// 설교 계획 화면(PlanView)도 같이 쓴다
+export function getChurchSeason(dateStr) {
   if (!dateStr) return ''
   const date = new Date(dateStr + 'T00:00:00')
   const year = date.getFullYear()
@@ -123,7 +124,7 @@ function getChurchSeason(dateStr) {
   return '일반 주일'
 }
 
-function getSeasonColor(season) {
+export function getSeasonColor(season) {
   if (season?.startsWith('오순절 후')) return { label: '초록', hex: '#16A34A' }
   const map = {
     '대림절':       { label: '보라', hex: '#7C3AED' },

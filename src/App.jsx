@@ -19,6 +19,7 @@ import StepView from './components/StepView'
 import CellView from './components/CellView'
 import CellForm from './components/CellForm'
 import SettingsPanel from './components/SettingsPanel'
+import PlanView from './components/PlanView'
 import { checkWebUpdate } from './updateCheck'
 import {
   restoreWordblokFolder, loadWordblokSermons, readWordblokSermon, saveWordblokSermon, requestWordblokWrite,
@@ -111,7 +112,8 @@ function AppInner() {
   }, [])
 
   useEffect(() => {
-    loadFolders()
+    if (tab === 'plan') setFolders([]) // 설교 계획 탭은 폴더가 없다
+    else loadFolders()
     setSelectedFolder(null)
   }, [tab])
 
@@ -119,7 +121,7 @@ function AppInner() {
   async function loadWorships() { setWorships(await getWorships()) }
   async function loadDawns() { setDawns(await getDawns()) }
   async function loadCells() { setCells(await getCells()) }
-  async function loadFolders() { setFolders(await getFolders(tab)) }
+  async function loadFolders() { if (tab !== 'plan') setFolders(await getFolders(tab)) }
 
   async function handleCreateFolder(name) {
     await createFolder(tab, name, selectedFolder?.id || null)
@@ -195,7 +197,7 @@ function AppInner() {
     } catch { alert('파일을 불러오지 못했습니다.') }
   }
 
-  const items = tab === 'sermon' ? sermons : tab === 'worship' ? worships : tab === 'dawn' ? dawns : cells
+  const items = tab === 'plan' ? [] : tab === 'sermon' ? sermons : tab === 'worship' ? worships : tab === 'dawn' ? dawns : cells
   const steps = tab === 'sermon' ? SERMON_STEPS : tab === 'worship' ? WORSHIP_STEPS : tab === 'dawn' ? DAWN_STEPS : CELL_STEPS
   const selectedItem = items.find(i => i.id === selected?.id)
 
@@ -272,6 +274,25 @@ function AppInner() {
     a.download = `${item.date || 'item'}-${item.title || item.passage || 'export'}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  // 설교 계획에서 설교 열기 / 빈 주일에 새 설교 만들기
+  function openFromPlan(t, id) {
+    setTab(t)
+    setWordblokSelected(null)
+    setSelected({ id, step: 0 })
+  }
+
+  async function createFromPlan(date) {
+    try {
+      const id = await createSermon({ date })
+      await loadSermons()
+      setTab('sermon')
+      setWordblokSelected(null)
+      setSelected({ id, step: null })
+    } catch (e) {
+      alert((lang === 'ko' ? '저장 실패: ' : 'Save failed: ') + e.message)
+    }
   }
 
   function switchTab(t) {
@@ -363,8 +384,8 @@ function AppInner() {
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
           {(lang === 'en'
-            ? [['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material']]
-            : [['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성']]
+            ? [['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material'], ['plan', 'Plan']]
+            : [['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성'], ['plan', '설교 계획']]
           ).map(([t, label]) => (
             <button
               key={t}
@@ -478,7 +499,7 @@ function AppInner() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* 데스크탑 사이드바 */}
-        {!isMobile && sidebarVisible && (
+        {!isMobile && sidebarVisible && tab !== 'plan' && (
           <Sidebar
             tab={tab}
             items={items}
@@ -505,7 +526,7 @@ function AppInner() {
         )}
 
         {/* 사이드바 너비 조절 핸들 */}
-        {!isMobile && sidebarVisible && (
+        {!isMobile && sidebarVisible && tab !== 'plan' && (
           <div
             onPointerDown={(e) => {
               if (e.button !== 0) return
@@ -524,7 +545,7 @@ function AppInner() {
         )}
 
         {/* 모바일 사이드바 오버레이 */}
-        {isMobile && sidebarVisible && (
+        {isMobile && sidebarVisible && tab !== 'plan' && (
           <>
             <div onClick={() => setSidebarVisible(false)} style={{ position: 'fixed', inset: 0, top: 48, background: 'rgba(0,0,0,0.4)', zIndex: 49 }} />
             <div style={{ position: 'fixed', top: 48, left: 0, bottom: 0, width: 280, zIndex: 50, display: 'flex', flexDirection: 'column' }}>
@@ -557,6 +578,10 @@ function AppInner() {
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
+          {tab === 'plan' && (
+            <PlanView lang={lang} sermons={sermons} dawns={dawns} worships={worships} onOpen={openFromPlan} onCreate={createFromPlan} />
+          )}
+
           {wordblokSelected && tab === 'sermon' && (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {/* 성경나침반 설교: 설교작성과 같은 화면 — 단계 결과는 저장 폴더 숨김 폴더에, 초안·본문은 .scb 에 */}
@@ -568,6 +593,9 @@ function AppInner() {
                 bible={settings.bible}
                 fontSize={settings.fontSize}
                 onFontSizeChange={size => handleSettingsChange({ ...settings, fontSize: size })}
+                speechRate={settings.speechRate}
+                showSermonTime={settings.showSermonTime}
+                onToggleSermonTime={() => handleSettingsChange({ ...settings, showSermonTime: !settings.showSermonTime })}
                 isMobile={isMobile}
                 onSaveItem={async form => {
                   try { await updateSermon(wordblokSelected.appItem.id, form); refreshWordblokItem() }
@@ -582,7 +610,7 @@ function AppInner() {
             </div>
           )}
 
-          {!selected && !(wordblokSelected && tab === 'sermon') && tab !== 'cell' && (
+          {!selected && !(wordblokSelected && tab === 'sermon') && tab !== 'cell' && tab !== 'plan' && (
             <div style={{ flex: 1, overflow: 'auto' }}>
               <ItemDetail
                 key={`new-${tab}-${selectedFolder?.id ?? 'root'}`}
@@ -614,6 +642,9 @@ function AppInner() {
                 bible={settings.bible}
                 fontSize={settings.fontSize}
                 onFontSizeChange={size => handleSettingsChange({ ...settings, fontSize: size })}
+                speechRate={settings.speechRate}
+                showSermonTime={settings.showSermonTime}
+                onToggleSermonTime={() => handleSettingsChange({ ...settings, showSermonTime: !settings.showSermonTime })}
                 isMobile={isMobile}
                 onSaveItem={handleSave}
                 onItemUpdate={tab === 'sermon' ? loadSermons : tab === 'worship' ? loadWorships : loadDawns}

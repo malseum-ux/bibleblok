@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { LANGUAGES, THEMES, SERMON_STEPS, WORSHIP_STEPS, DAWN_STEPS, CELL_STEPS } from '../constants'
-import { FONT_MIN, FONT_MAX } from '../settings'
+import { FONT_MIN, FONT_MAX, SPEECH_RATES } from '../settings'
 import { exportAllData, importAllData, getAllKeywords, removeKeyword } from '../db'
 import { getAllMemories, deleteMemory } from '../memory'
 import { signOut } from '../supabase'
@@ -267,6 +267,18 @@ export default function SettingsPanel({ settings, onChange, onClose, onDataChang
                   {lang === 'ko' ? '기본(15)' : 'Default (15)'}
                 </button>
               )}
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={labelStyle}>{lang === 'ko' ? '설교 속도' : 'Preaching Speed'}</div>
+            <OptionGroup
+              items={SPEECH_RATES.map((r, idx) => ({ code: r, label: (lang === 'ko' ? ['느림', '보통', '빠름'] : ['Slow', 'Normal', 'Fast'])[idx] + (lang === 'ko' ? ` (1분 ${r}자)` : ` (${r} chars/min)`) }))}
+              value={settings.speechRate} onSelect={v => set('speechRate', v)}
+              getCode={o => o.code} getLabel={o => o.label}
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+              {lang === 'ko' ? '설교문 초안의 예상 설교 시간을 계산하는 기준입니다.' : 'Used to estimate preaching time of the sermon draft.'}
             </div>
           </div>
 
