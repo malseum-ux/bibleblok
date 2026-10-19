@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SERMON_STEPS } from '../constants'
 import { getSermonSteps } from '../db'
 import { getChurchSeason, getSeasonColor } from './WorshipForm'
@@ -25,7 +25,18 @@ function calendarDays(year, month) {
   return out
 }
 
-export default function PlanView({ lang, sermons, dawns, worships, cells = [], onOpen, onCreate, isMobile = false }) {
+export default function PlanView({ lang, sermons, dawns, worships, cells = [], onOpen, onCreate, isMobile: phone = false }) {
+  // 휴대폰 모양(점 + 아래 펼침)은 달력 폭이 좁을 때만 — 창을 줄여도 칸이 넉넉하면 글자로 보여 준다
+  const rootRef = useRef(null)
+  const [width, setWidth] = useState(null)
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const isMobile = width == null ? phone : width < 600
   const ko = lang !== 'en'
   const now = new Date()
   const today = ymd(now)
@@ -100,7 +111,7 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
 
   const rows = days.length / 7
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div ref={rootRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <button onClick={() => move(-1)} style={navBtn}>‹</button>
         <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', minWidth: isMobile ? 0 : 104, textAlign: 'center', whiteSpace: 'nowrap' }}>
