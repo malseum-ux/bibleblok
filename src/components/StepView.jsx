@@ -349,9 +349,15 @@ export default function StepView({ tab, item, lang, bible, fontSize = 15, onFont
       if (tab === 'sermon') {
         const seriesCtx = await getSeriesContext('sermon', item.category, item.id)
         const customText = buildCustomText(selectedCustomKeys, customItems)
+        // 5단계는 1~4단계, 7·8단계는 6단계 결과를 함께 보낸다 (자르기는 서버에서)
+        const prevKeys = { message: ['narrative', 'text_study', 'original', 'research'], deep_questions: ['lesson'], application: ['lesson'] }[step.key] || []
+        const prevSteps = prevKeys
+          .map(k => SERMON_STEPS.find(s => s.key === k))
+          .map(s => ({ key: s.key, label: s.label.ko, text: stripHtml(stepContents[s.index] || '').trim() }))
+          .filter(s => s.text)
         await generateSermonStep(
           step.key, item.passage, item.emphasis, lang, bible, seriesCtx,
-          (text) => setContent(prevContent + SEP + text), activeItems, effectiveKeyword, customText, memory
+          (text) => setContent(prevContent + SEP + text), activeItems, effectiveKeyword, customText, memory, prevSteps
         ).then(async (full) => {
           const combined = prevContent + SEP + full
           resultHistory.record(combined)
