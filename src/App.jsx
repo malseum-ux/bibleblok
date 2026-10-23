@@ -112,7 +112,7 @@ function AppInner() {
   }, [])
 
   useEffect(() => {
-    if (tab === 'plan') setFolders([]) // 설교 계획 탭은 폴더가 없다
+    if (tab === 'plan') setFolders([]) // 설교 달력 탭은 폴더가 없다
     else loadFolders()
     setSelectedFolder(null)
   }, [tab])
@@ -276,7 +276,7 @@ function AppInner() {
     URL.revokeObjectURL(url)
   }
 
-  // 설교 계획에서 설교 열기 / 빈 주일에 새 설교 만들기
+  // 설교 달력에서 설교 열기 / 빈 주일에 새 설교 만들기
   function openFromPlan(t, id) {
     setTab(t)
     setWordblokSelected(null)
@@ -384,8 +384,8 @@ function AppInner() {
         {!isMobile && <div style={{ width: 1, height: 20, background: 'var(--border)' }} />}
         <div style={{ display: 'flex', gap: 2 }}>
           {(lang === 'en'
-            ? [['plan', 'Plan'], ['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material']]
-            : [['plan', '설교 계획'], ['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성']]
+            ? [['plan', 'Calendar'], ['sermon', 'Sermon'], ['worship', 'Worship'], ['dawn', 'Dawn Prayer'], ['cell', 'Cell Material']]
+            : [['plan', '설교 달력'], ['sermon', '설교작성'], ['worship', '예배인도'], ['dawn', '새벽설교'], ['cell', '교재작성']]
           ).map(([t, label]) => (
             <button
               key={t}

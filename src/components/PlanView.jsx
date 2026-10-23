@@ -3,7 +3,7 @@ import { SERMON_STEPS } from '../constants'
 import { getSermonSteps } from '../db'
 import { getChurchSeason, getSeasonColor } from './WorshipForm'
 
-// 설교 계획 — 일반 달력(일~토 7칸). 주일 칸에 교회력 절기·주일설교 본문·연구/초안·예배인도·교재작성, 평일 칸에 새벽설교
+// 설교 달력 — 일반 달력(일~토 7칸). 주일 칸에 교회력 절기·주일설교 본문·연구/초안·예배인도·교재작성, 평일 칸에 새벽설교
 // 날짜 칸을 누르면 그날 설교로(없으면 새로): 주일은 주일설교, 평일은 새벽설교
 // 따로 저장하는 것은 없다: 이미 있는 설교의 날짜로 채운다 (플러터 screens/plan_view.dart 와 같은 화면)
 
@@ -111,8 +111,8 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
 
   const rows = days.length / 7
   return (
-    <div ref={rootRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ height: 46, padding: '0 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+    <div ref={rootRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: isMobile ? '0 8px 8px' : '0 24px 24px' }}>
+      <div style={{ height: 56, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <button onClick={() => move(-1)} style={navBtn}>‹</button>
         <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)', minWidth: isMobile ? 0 : 104, textAlign: 'center', whiteSpace: 'nowrap' }}>
           {ko ? `${view.year}년 ${view.month + 1}월` : `${view.year}. ${view.month + 1}`}
@@ -121,9 +121,11 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
         <button onClick={goToday} style={navBtn}>{ko ? '오늘' : 'Today'}</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+      {/* 달력 상자 — 둥근 테두리 안에 요일 줄과 날짜 칸 */}
+      <div style={{ flex: isMobile ? 'none' : 1, minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border)', background: 'var(--bg-sidebar)', flexShrink: 0 }}>
         {dayNames.map((n, i) => (
-          <div key={n} style={{ padding: '6px 8px', fontSize: 12, fontWeight: 600, color: i === 0 ? '#dc2626' : 'var(--text-muted)' }}>{n}</div>
+          <div key={n} style={{ padding: isMobile ? '6px 4px' : '8px 10px', fontSize: 12, fontWeight: 600, color: i === 0 ? '#dc2626' : 'var(--text-muted)' }}>{n}</div>
         ))}
       </div>
 
@@ -131,7 +133,7 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
         flex: isMobile ? 'none' : 1, minHeight: 0, display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: isMobile ? `repeat(${rows}, 56px)` : `repeat(${rows}, minmax(0, 1fr))`,
       }}>
-        {days.map(d => {
+        {days.map((d, idx) => {
           const date = ymd(d)
           const inMonth = d.getMonth() === view.month
           const isSunday = d.getDay() === 0
@@ -144,9 +146,9 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
               onClick={() => isMobile ? setPicked(date) : go(date, isSunday)}
               title={isMobile ? undefined : (isSunday ? (ko ? '눌러서 주일설교로' : 'Open sermon') : (ko ? '눌러서 새벽설교로' : 'Open dawn sermon'))}
               style={{
-                borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
+                borderRight: idx % 7 === 6 ? 'none' : '1px solid var(--border)', borderBottom: idx >= days.length - 7 ? 'none' : '1px solid var(--border)',
                 borderTop: color ? `3px solid ${color.hex}` : '3px solid transparent',
-                padding: isMobile ? 4 : '4px 8px 6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 3,
+                padding: isMobile ? 4 : '6px 10px 8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 3,
                 background: isMobile && picked === date ? 'var(--accent-light)' : inMonth ? 'transparent' : 'var(--bg-sidebar)',
                 opacity: inMonth ? 1 : 0.55, cursor: 'pointer',
               }}
@@ -175,13 +177,14 @@ export default function PlanView({ lang, sermons, dawns, worships, cells = [], o
           )
         })}
       </div>
+      </div>
 
       {isMobile && (() => {
         const d = new Date(picked + 'T00:00:00')
         const isSunday = d.getDay() === 0
         const season = isSunday ? getChurchSeason(picked) : ''
         return (
-          <div onClick={() => go(picked, isSunday)} style={{ flex: 1, overflow: 'auto', padding: '12px 16px', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+          <div onClick={() => go(picked, isSunday)} style={{ flex: 1, overflow: 'auto', padding: '12px 8px', cursor: 'pointer' }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-heading)', marginBottom: 8 }}>
               {ko ? `${d.getMonth() + 1}월 ${d.getDate()}일 (${dayNames[d.getDay()]})` : picked}
               {season && <span style={{ fontWeight: 400, fontSize: 12, color: getSeasonColor(season)?.hex, marginLeft: 8 }}>{season}</span>}
